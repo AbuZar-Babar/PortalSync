@@ -167,7 +167,7 @@ export default function OnboardingPage() {
                   <button
                     key={plan.id}
                     type="button"
-                    onClick={() => setTier(plan.id as any)}
+                    onClick={() => setTier(plan.id as 'starter' | 'professional' | 'enterprise')}
                     className={`relative p-3 rounded-xl border text-left transition ${
                       tier === plan.id
                         ? 'border-blue-500 bg-blue-600/10 text-white shadow-sm shadow-blue-500/20'

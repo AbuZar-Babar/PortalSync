@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, CheckCircle2, ShieldCheck, Download, Zap, RefreshCw, FolderSync } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ShieldCheck, Zap, RefreshCw, FolderSync } from 'lucide-react';
 
 export default function LandingPage() {
   return (

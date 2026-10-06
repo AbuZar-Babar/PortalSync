@@ -8,17 +8,51 @@ import {
   Plus, 
   FileText, 
   CheckCircle, 
-  Clock, 
   Key, 
   ExternalLink, 
   Download,
-  AlertCircle,
   LogOut,
   Building,
   User,
-  Loader2
+  Loader2,
+  Eye,
+  RefreshCw
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { CreatePortalModal } from '@/components/dashboard/CreatePortalModal';
+import { RunDetailsDrawer, DrawerRunItem } from '@/components/dashboard/RunDetailsDrawer';
+import { StatusBadge } from '@/components/dashboard/StatusBadge';
+import { TwoFactorBanner } from '@/components/dashboard/TwoFactorBanner';
+import { RunStatus, Workflow } from '@/lib/types/database';
+
+interface DashboardWorkflowItem {
+  id: string;
+  name: string;
+  portal_url: string;
+  lastRun?: string;
+  status?: string;
+  itemsDownloaded?: number;
+}
+
+interface DashboardRunItem {
+  id: string;
+  workflow_id?: string;
+  workflowName?: string;
+  wf_workflows?: { name?: string };
+  status: RunStatus | string;
+  total_items_discovered?: number;
+  items_discovered?: number;
+  itemsDiscovered?: number;
+  items_processed?: number;
+  itemsProcessed?: number;
+  items_downloaded?: number;
+  itemsDownloaded?: number;
+  time?: string;
+  started_at?: string;
+  completed_at?: string | null;
+  error_summary?: string | null;
+  duration?: string;
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -27,8 +61,15 @@ export default function DashboardPage() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [organizationName, setOrganizationName] = useState<string>('My Organization');
   const [orgId, setOrgId] = useState<string | null>(null);
-  const [workflows, setWorkflows] = useState<any[]>([]);
-  const [runs, setRuns] = useState<any[]>([]);
+  const [workflows, setWorkflows] = useState<DashboardWorkflowItem[]>([]);
+  const [runs, setRuns] = useState<DashboardRunItem[]>([]);
+
+  // Modal and Drawer states
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedRun, setSelectedRun] = useState<DrawerRunItem | null>(null);
+  const [triggeringWorkflowId, setTriggeringWorkflowId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     async function loadDashboardData() {
@@ -36,46 +77,67 @@ export default function DashboardPage() {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
 
+        let effectiveOrgId: string | null = null;
+
         if (user) {
           setUserEmail(user.email || null);
 
-          // Get organization membership
+          // Get organization membership using org_id
           const { data: members } = await supabase
             .from('wf_organization_members')
-            .select('organization_id, role, wf_organizations(name, slug)')
+            .select('org_id, role, wf_organizations(name, slug)')
             .eq('user_id', user.id)
             .limit(1);
 
           if (members && members.length > 0) {
-            const orgData = (members[0] as any).wf_organizations;
-            const orgIdentifier = members[0].organization_id;
-            setOrgId(orgIdentifier);
+            const orgData = (members[0] as unknown as { wf_organizations?: { name?: string; slug?: string } })?.wf_organizations;
+            effectiveOrgId = members[0].org_id;
+            setOrgId(effectiveOrgId);
             if (orgData?.name) {
               setOrganizationName(orgData.name);
             }
+          }
+        }
 
-            // Fetch workflows for this org
-            const { data: wfList } = await supabase
-              .from('wf_workflows')
-              .select('*')
-              .eq('organization_id', orgIdentifier)
-              .order('created_at', { ascending: false });
+        // If no member record found or demo mode, fallback to default organization
+        if (!effectiveOrgId) {
+          const { data: orgs } = await supabase
+            .from('wf_organizations')
+            .select('id, name')
+            .limit(1);
 
-            if (wfList && wfList.length > 0) {
-              setWorkflows(wfList);
-            }
+          if (orgs && orgs.length > 0) {
+            effectiveOrgId = orgs[0].id;
+            setOrgId(effectiveOrgId);
+            setOrganizationName(orgs[0].name);
+          } else {
+            effectiveOrgId = '00000000-0000-0000-0000-000000000001';
+            setOrgId(effectiveOrgId);
+          }
+        }
 
-            // Fetch runs
-            const { data: runList } = await supabase
-              .from('wf_execution_runs')
-              .select('*, wf_workflows(name)')
-              .eq('organization_id', orgIdentifier)
-              .order('created_at', { ascending: false })
-              .limit(10);
+        if (effectiveOrgId) {
+          // Fetch workflows for this org using org_id
+          const { data: wfList } = await supabase
+            .from('wf_workflows')
+            .select('*')
+            .eq('org_id', effectiveOrgId)
+            .order('created_at', { ascending: false });
 
-            if (runList && runList.length > 0) {
-              setRuns(runList);
-            }
+          if (wfList && wfList.length > 0) {
+            setWorkflows(wfList as unknown as DashboardWorkflowItem[]);
+          }
+
+          // Fetch runs using org_id and started_at
+          const { data: runList } = await supabase
+            .from('wf_execution_runs')
+            .select('*, wf_workflows(name)')
+            .eq('org_id', effectiveOrgId)
+            .order('started_at', { ascending: false })
+            .limit(20);
+
+          if (runList && runList.length > 0) {
+            setRuns(runList as unknown as DashboardRunItem[]);
           }
         }
       } catch (err) {
@@ -88,6 +150,74 @@ export default function DashboardPage() {
     loadDashboardData();
   }, []);
 
+  // Active run polling: every 3 seconds when runs are pending, running, or requires_action
+  const hasActiveRuns = runs.some(
+    (r) => r.status === 'pending' || r.status === 'running' || r.status === 'requires_action'
+  );
+
+  useEffect(() => {
+    if (!orgId || !hasActiveRuns) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const supabase = createClient();
+        const { data: updatedRuns, error } = await supabase
+          .from('wf_execution_runs')
+          .select('*, wf_workflows(name)')
+          .eq('org_id', orgId)
+          .order('started_at', { ascending: false })
+          .limit(20);
+
+        if (!error && updatedRuns && updatedRuns.length > 0) {
+          setRuns(updatedRuns as unknown as DashboardRunItem[]);
+
+          // Keep drawer data synchronized in real time
+          setSelectedRun((curr) => {
+            if (!curr) return null;
+            const match = updatedRuns.find((r) => r.id === curr.id);
+            return match ? (match as unknown as DrawerRunItem) : curr;
+          });
+        }
+      } catch (err) {
+        console.error('Error during active run telemetry poll:', err);
+      }
+    }, 3000);
+
+    return () => clearInterval(pollInterval);
+  }, [orgId, hasActiveRuns]);
+
+  const handleManualRefresh = async () => {
+    if (!orgId) return;
+    setRefreshing(true);
+    try {
+      const supabase = createClient();
+      const [wfRes, runRes] = await Promise.all([
+        supabase
+          .from('wf_workflows')
+          .select('*')
+          .eq('org_id', orgId)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('wf_execution_runs')
+          .select('*, wf_workflows(name)')
+          .eq('org_id', orgId)
+          .order('started_at', { ascending: false })
+          .limit(20),
+      ]);
+
+      if (wfRes.data && wfRes.data.length > 0) {
+        setWorkflows(wfRes.data as unknown as DashboardWorkflowItem[]);
+      }
+      if (runRes.data && runRes.data.length > 0) {
+        setRuns(runRes.data as unknown as DashboardRunItem[]);
+      }
+    } catch (err) {
+      console.error('Failed to manually refresh dashboard:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const handleSignOut = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -95,7 +225,96 @@ export default function DashboardPage() {
     router.refresh();
   };
 
-  // Fallback presentation data if workspace is new
+  // Trigger Run Now: inserts real run into Supabase wf_execution_runs with status: 'pending'
+  const handleRunNow = async (workflowId: string, workflowName: string) => {
+    if (!orgId) return;
+    setTriggeringWorkflowId(workflowId);
+
+    try {
+      const supabase = createClient();
+      const startedAt = new Date().toISOString();
+
+      const { data: newRun, error } = await supabase
+        .from('wf_execution_runs')
+        .insert({
+          org_id: orgId,
+          workflow_id: workflowId,
+          status: 'pending',
+          total_items_discovered: 0,
+          items_processed: 0,
+          items_downloaded: 0,
+          started_at: startedAt,
+        })
+        .select('*, wf_workflows(name)')
+        .single();
+
+      if (error) {
+        // Fallback: trigger via API route
+        const res = await fetch('/api/v1/runs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            workflow_id: workflowId,
+            org_id: orgId,
+            status: 'pending',
+            total_items_discovered: 0,
+          }),
+        });
+
+        if (res.ok) {
+          const json = await res.json();
+          const apiRun: DashboardRunItem = {
+            ...json.run,
+            workflowName,
+            wf_workflows: { name: workflowName },
+          };
+          setRuns((prev) => [apiRun, ...prev]);
+          setActiveTab('runs');
+          return;
+        }
+
+        throw new Error(error.message);
+      }
+
+      if (newRun) {
+        const createdRun: DashboardRunItem = {
+          ...(newRun as unknown as DashboardRunItem),
+          workflowName:
+            (newRun as unknown as { wf_workflows?: { name?: string } })?.wf_workflows?.name ||
+            workflowName,
+        };
+        setRuns((prev) => [createdRun, ...prev]);
+        setActiveTab('runs');
+      }
+    } catch (err) {
+      console.error('Failed to trigger workflow run:', err);
+    } finally {
+      setTriggeringWorkflowId(null);
+    }
+  };
+
+  const handleWorkflowCreated = (newWorkflow: Workflow) => {
+    const item: DashboardWorkflowItem = {
+      id: newWorkflow.id,
+      name: newWorkflow.name,
+      portal_url: newWorkflow.portal_url,
+      lastRun: 'Just created',
+      status: 'active',
+      itemsDownloaded: 0,
+    };
+    setWorkflows((prev) => [item, ...prev]);
+    setActiveTab('workflows');
+  };
+
+  const handleOpenRunDetails = (run: DashboardRunItem) => {
+    setSelectedRun(run as unknown as DrawerRunItem);
+    setIsDrawerOpen(true);
+  };
+
+  // Active 2FA intervention runs
+  const activeActionRuns = runs.filter((r) => r.status === 'requires_action');
+
+  // Fallback presentation data if workspace has zero configured items
   const displayWorkflows = workflows.length > 0 ? workflows : [
     {
       id: 'wf_sample_1',
@@ -150,8 +369,22 @@ export default function DashboardPage() {
       itemsDownloaded: 2,
       time: 'Oct 4, 11:30 AM',
       duration: '18s',
+      error_summary: 'Target login timeout: password reset prompt displayed.',
     },
   ];
+
+  const totalInvoicesDownloaded = runs.reduce(
+    (acc, r) => acc + (r.items_downloaded ?? r.itemsDownloaded ?? 0),
+    0
+  );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -177,6 +410,14 @@ export default function DashboardPage() {
             Runner Token: <code className="font-mono text-[11px] text-blue-200">ps_live_{orgId?.substring(0, 8) || 'test89f2'}...</code>
           </div>
 
+          <button
+            onClick={handleManualRefresh}
+            title="Refresh dashboard data"
+            className="flex items-center gap-1.5 p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 text-xs font-medium transition cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-blue-400' : ''}`} />
+          </button>
+
           {userEmail && (
             <div className="flex items-center gap-2 text-xs text-slate-300 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
               <User className="w-3.5 h-3.5 text-slate-400" />
@@ -187,7 +428,7 @@ export default function DashboardPage() {
           <button
             onClick={handleSignOut}
             title="Sign out"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 text-xs font-medium transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 text-xs font-medium transition cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Sign Out</span>
@@ -197,6 +438,12 @@ export default function DashboardPage() {
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-8 py-8">
+        {/* Prominent 2FA Intervention Banner if any run requires action */}
+        <TwoFactorBanner
+          activeActionRuns={activeActionRuns}
+          onSelectRun={(run) => handleOpenRunDetails(run as unknown as DashboardRunItem)}
+        />
+
         {/* Metric Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800">
@@ -205,7 +452,9 @@ export default function DashboardPage() {
           </div>
           <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800">
             <div className="text-xs text-slate-400 font-medium">Invoices Downloaded (This Month)</div>
-            <div className="text-2xl font-bold text-blue-400 mt-1">182</div>
+            <div className="text-2xl font-bold text-blue-400 mt-1">
+              {totalInvoicesDownloaded > 0 ? totalInvoicesDownloaded : 182}
+            </div>
           </div>
           <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800">
             <div className="text-xs text-slate-400 font-medium">Drive Sync Status</div>
@@ -229,6 +478,9 @@ export default function DashboardPage() {
               <div className="text-sm font-semibold text-white">Desktop Runner Connected</div>
               <div className="text-xs text-slate-400">
                 Running locally on Windows • Chrome CDP Port 9222 Active • 0 auth errors
+                {hasActiveRuns && (
+                  <span className="ml-2 text-blue-400 font-semibold">• Live Telemetry Polling Active (3s)</span>
+                )}
               </div>
             </div>
           </div>
@@ -243,7 +495,7 @@ export default function DashboardPage() {
           <div className="flex gap-2 p-1 bg-slate-900 border border-slate-800 rounded-xl">
             <button
               onClick={() => setActiveTab('workflows')}
-              className={`px-4 py-1.5 text-xs font-medium rounded-lg transition ${
+              className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
                 activeTab === 'workflows'
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-white'
@@ -253,17 +505,23 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={() => setActiveTab('runs')}
-              className={`px-4 py-1.5 text-xs font-medium rounded-lg transition ${
+              className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'runs'
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              Execution History & Telemetry
+              <span>Execution History & Telemetry ({displayRuns.length})</span>
+              {hasActiveRuns && (
+                <span className="h-2 w-2 rounded-full bg-blue-400 animate-ping" />
+              )}
             </button>
           </div>
 
-          <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm transition">
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm transition cursor-pointer"
+          >
             <Plus className="h-3.5 w-3.5" /> Record New Portal
           </button>
         </div>
@@ -291,7 +549,12 @@ export default function DashboardPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-xs font-mono text-slate-400 max-w-xs truncate">
-                      <a href={wf.portal_url || '#'} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-blue-300">
+                      <a
+                        href={wf.portal_url || '#'}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1 hover:text-blue-300"
+                      >
                         {wf.portal_url || 'https://vendor-portal.com'} <ExternalLink className="h-3 w-3" />
                       </a>
                     </td>
@@ -304,8 +567,20 @@ export default function DashboardPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 text-xs font-medium transition">
-                        <Play className="h-3 w-3 fill-current" /> Run Now
+                      <button
+                        onClick={() => handleRunNow(wf.id, wf.name)}
+                        disabled={triggeringWorkflowId === wf.id}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 text-xs font-medium transition cursor-pointer disabled:opacity-50"
+                      >
+                        {triggeringWorkflowId === wf.id ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin" /> Dispatching...
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-3 w-3 fill-current" /> Run Now
+                          </>
+                        )}
                       </button>
                     </td>
                   </tr>
@@ -322,29 +597,51 @@ export default function DashboardPage() {
                   <th className="px-6 py-3.5">Status</th>
                   <th className="px-6 py-3.5">Discovered</th>
                   <th className="px-6 py-3.5">Downloaded</th>
-                  <th className="px-6 py-3.5">Time</th>
-                  <th className="px-6 py-3.5 text-right">Duration</th>
+                  <th className="px-6 py-3.5">Time / Started</th>
+                  <th className="px-6 py-3.5">Duration</th>
+                  <th className="px-6 py-3.5 text-right">Details</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
                 {displayRuns.map((run) => (
-                  <tr key={run.id} className="hover:bg-slate-900/50 transition">
-                    <td className="px-6 py-4 font-medium text-white">{run.workflowName || run.wf_workflows?.name || 'Portal Run'}</td>
-                    <td className="px-6 py-4 text-xs">
-                      {run.status === 'completed' ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
-                          <CheckCircle className="h-3 w-3" /> Completed
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 font-medium">
-                          <AlertCircle className="h-3 w-3" /> Failed
-                        </span>
-                      )}
+                  <tr
+                    key={run.id}
+                    onClick={() => handleOpenRunDetails(run)}
+                    className="hover:bg-slate-900/60 transition cursor-pointer"
+                  >
+                    <td className="px-6 py-4 font-medium text-white">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-slate-400" />
+                        <span>{run.workflowName || run.wf_workflows?.name || 'Portal Run'}</span>
+                      </div>
                     </td>
-                    <td className="px-6 py-4 text-xs">{run.items_discovered ?? run.itemsDiscovered ?? 0} items</td>
-                    <td className="px-6 py-4 text-xs font-semibold text-white">{run.items_downloaded ?? run.itemsDownloaded ?? 0} PDFs</td>
-                    <td className="px-6 py-4 text-xs text-slate-400">{run.time || new Date(run.created_at).toLocaleTimeString()}</td>
-                    <td className="px-6 py-4 text-xs text-right text-slate-400 font-mono">{run.duration || '35s'}</td>
+                    <td className="px-6 py-4 text-xs">
+                      <StatusBadge status={run.status} />
+                    </td>
+                    <td className="px-6 py-4 text-xs text-slate-300">
+                      {run.total_items_discovered ?? run.items_discovered ?? run.itemsDiscovered ?? 0} items
+                    </td>
+                    <td className="px-6 py-4 text-xs font-semibold text-white">
+                      {run.items_downloaded ?? run.itemsDownloaded ?? 0} PDFs
+                    </td>
+                    <td className="px-6 py-4 text-xs text-slate-400">
+                      {run.time || (run.started_at ? new Date(run.started_at).toLocaleTimeString() : 'Just now')}
+                    </td>
+                    <td className="px-6 py-4 text-xs text-slate-400 font-mono">
+                      {run.duration || '—'}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenRunDetails(run);
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium border border-slate-700 transition cursor-pointer"
+                      >
+                        <Eye className="h-3 w-3" />
+                        <span>View</span>
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -352,6 +649,21 @@ export default function DashboardPage() {
           </div>
         )}
       </main>
+
+      {/* Dual-Mode Portal Creator Modal */}
+      <CreatePortalModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        orgId={orgId || '00000000-0000-0000-0000-000000000001'}
+        onWorkflowCreated={handleWorkflowCreated}
+      />
+
+      {/* Run Details & Artifacts Slide-over Drawer */}
+      <RunDetailsDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        run={selectedRun}
+      />
     </div>
   );
 }
