@@ -14,4 +14,10 @@ contextBridge.exposeInMainWorld('portalsync', {
   onStatusUpdate: (callback) => {
     ipcRenderer.on('status-update', (event, data) => callback(data));
   },
+  startRecording: (options) => ipcRenderer.invoke('start-recording', options),
+  stopRecording: () => ipcRenderer.invoke('stop-recording'),
+  getRecordingStatus: () => ipcRenderer.invoke('get-recording-status'),
+  onRecordingUpdate: (callback) => {
+    ipcRenderer.on('recorder-update', (event, data) => callback(data));
+  },
 });

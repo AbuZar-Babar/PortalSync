@@ -29,11 +29,14 @@ const COLORS = {
 const TEST_TIERS = [
   {
     tier: 1,
-    name: 'Tier 1: Feature Coverage (R1 Cloud API, R2 Dashboard, R3 Desktop Runner)',
+    name: 'Tier 1: Feature Coverage (R1 Cloud API, R2 Dashboard, R3 Desktop Runner, Localhost Bridge, Recording Flow, Portal Storage)',
     suites: [
       { name: 'R1 Cloud API', file: './tier1-features/test-r1-cloud-api.js' },
       { name: 'R2 Dashboard Contracts', file: './tier1-features/test-r2-dashboard.js' },
       { name: 'R3 Desktop Runner', file: './tier1-features/test-r3-desktop-runner.js' },
+      { name: 'R1 Localhost Bridge', file: './tier1-features/test-r1-localhost-bridge.js' },
+      { name: 'R2 Dashboard Recording Flow', file: './tier1-features/test-r2-recording-flow.js' },
+      { name: 'R3 Portal Storage & Deduplication', file: './tier1-features/test-r3-portal-storage-dedup.js' },
     ],
   },
   {

@@ -12,6 +12,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 /**
  * Compute SHA-256 hash of a buffer, string, or file path
@@ -195,10 +196,88 @@ class ArtifactTracker {
 
     return results;
   }
+
+  /**
+   * Pre-load all SHA-256 hashes from an existing directory into seenHashes.
+   * Guarantees zero duplicate downloads across runs and restarts.
+   * @param {string} dirPath 
+   * @returns {number} Count of newly added pre-loaded hashes
+   */
+  loadExistingHashesFromDir(dirPath) {
+    if (!dirPath || !fs.existsSync(dirPath)) return 0;
+    try {
+      const stat = fs.statSync(dirPath);
+      if (!stat.isDirectory()) return 0;
+      const existingFiles = this.scanDirectory(dirPath);
+      let count = 0;
+      for (const f of existingFiles) {
+        if (f.hash && !this.seenHashes.has(f.hash)) {
+          this.seenHashes.add(f.hash);
+          count++;
+        }
+      }
+      return count;
+    } catch {
+      return 0;
+    }
+  }
+}
+
+/**
+ * Sanitize portal name into a safe, cross-platform directory name
+ * Strips Windows/POSIX reserved characters, path traversals, trailing dots/spaces, and device names.
+ * @param {string} rawName 
+ * @returns {string} Sanitized directory name
+ */
+function sanitizePortalName(rawName) {
+  if (!rawName || typeof rawName !== 'string') {
+    return 'DefaultPortal';
+  }
+
+  let sanitized = rawName
+    .trim()
+    .replace(/\.\.+/g, '')                      // Remove path traversal ..
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')     // Replace illegal Windows/POSIX characters
+    .replace(/\s+/g, ' ')                      // Collapse multiple spaces
+    .replace(/^[. ]+|[. ]+$/g, '');            // Strip leading/trailing dots and spaces
+
+  // Handle Windows reserved device names (CON, PRN, AUX, NUL, COM1-9, LPT1-9)
+  const reservedNames = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\..*)?$/i;
+  if (reservedNames.test(sanitized)) {
+    sanitized = `${sanitized}_portal`;
+  }
+
+  // Bound length for filesystem safety (MAX_PATH tolerance)
+  if (sanitized.length > 100) {
+    sanitized = sanitized.substring(0, 100).trim().replace(/^[. ]+|[. ]+$/g, '');
+  }
+
+  return sanitized || 'DefaultPortal';
+}
+
+/**
+ * Resolve target storage directory organized by portal name
+ * Structure: <baseDir>/<SanitizedPortalName>/
+ * @param {string} [baseDir] - Defaults to ~/Downloads/PortalSync
+ * @param {string} [portalName] - Workflow / portal name
+ * @returns {string} Resolved absolute directory path
+ */
+function resolvePortalStorageDir(baseDir = null, portalName = 'DefaultPortal') {
+  const base = baseDir || path.join(os.homedir(), 'Downloads', 'PortalSync');
+  const sanitized = sanitizePortalName(portalName);
+
+  // If base already ends with the sanitized portal name, avoid duplicating it
+  if (path.basename(base).toLowerCase() === sanitized.toLowerCase()) {
+    return path.resolve(base);
+  }
+
+  return path.resolve(path.join(base, sanitized));
 }
 
 module.exports = {
   computeSha256,
   getFileChecksum,
   ArtifactTracker,
+  sanitizePortalName,
+  resolvePortalStorageDir,
 };

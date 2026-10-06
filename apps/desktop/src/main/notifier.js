@@ -1,4 +1,10 @@
-const { Notification } = require('electron');
+let Notification = null;
+try {
+  const electron = require('electron');
+  if (electron && typeof electron === 'object' && electron.Notification) {
+    Notification = electron.Notification;
+  }
+} catch {}
 
 class DesktopNotifier {
   constructor() {
@@ -10,7 +16,7 @@ class DesktopNotifier {
   }
 
   notify2FARequired(portalName = 'Vendor Portal', remainingSeconds = 90) {
-    if (!Notification.isSupported()) return;
+    if (!Notification || typeof Notification.isSupported !== 'function' || !Notification.isSupported()) return;
 
     const notif = new Notification({
       title: `⚠️ 2FA Required — ${portalName}`,
@@ -29,7 +35,7 @@ class DesktopNotifier {
   }
 
   notifyRunCompleted(portalName = 'Vendor Portal', itemCount = 0) {
-    if (!Notification.isSupported()) return;
+    if (!Notification || typeof Notification.isSupported !== 'function' || !Notification.isSupported()) return;
 
     const notif = new Notification({
       title: `✅ Invoices Downloaded — ${portalName}`,
@@ -47,13 +53,31 @@ class DesktopNotifier {
   }
 
   notifyRunFailed(portalName = 'Vendor Portal', error = 'Unknown error') {
-    if (!Notification.isSupported()) return;
+    if (!Notification || typeof Notification.isSupported !== 'function' || !Notification.isSupported()) return;
 
     const notif = new Notification({
       title: `❌ Automation Alert — ${portalName}`,
       body: `Portal run failed: ${error}`,
       silent: false,
     });
+
+    notif.show();
+  }
+
+  notifyRecordingSaved(workflowName = 'Recorded Workflow', actionCount = 0) {
+    if (!Notification || typeof Notification.isSupported !== 'function' || !Notification.isSupported()) return;
+
+    const notif = new Notification({
+      title: `🎬 Workflow Captured — ${workflowName}`,
+      body: `Successfully recorded ${actionCount} user action(s). Recipe compiled and ready.`,
+      silent: false,
+    });
+
+    if (this.onClickHandler) {
+      notif.on('click', () => {
+        this.onClickHandler('recording');
+      });
+    }
 
     notif.show();
   }

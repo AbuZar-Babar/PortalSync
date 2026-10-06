@@ -4,6 +4,7 @@ const configManager = require('./config-manager');
 const runnerController = require('./runner-controller');
 const chromeSpawner = require('./chrome-spawner');
 const notifier = require('./notifier');
+const httpBridge = require('./http-bridge');
 
 let mainWindow = null;
 let tray = null;
@@ -140,9 +141,21 @@ function updateTrayMenu() {
 }
 
 // App lifecycle
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   createWindow();
   createTray();
+
+  try {
+    await httpBridge.start();
+  } catch (err) {
+    console.error('[Main] Failed to start HTTP bridge on port 49152:', err.message);
+  }
+
+  httpBridge.onStatusChange((state) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('recorder-update', state);
+    }
+  });
 
   // Handle IPC calls
   ipcMain.handle('get-config', () => configManager.get());
@@ -150,6 +163,11 @@ app.whenReady().then(() => {
   ipcMain.handle('get-status', () => runnerController.getState());
   ipcMain.handle('start-runner', () => runnerController.start());
   ipcMain.handle('stop-runner', () => runnerController.stop());
+
+  // Workflow Recording IPC handlers
+  ipcMain.handle('start-recording', (event, options) => httpBridge.startRecording(options));
+  ipcMain.handle('stop-recording', () => httpBridge.stopRecording());
+  ipcMain.handle('get-recording-status', () => httpBridge.getStatus());
 
   ipcMain.handle('test-connection', async () => {
     const config = configManager.get();
@@ -188,6 +206,7 @@ app.whenReady().then(() => {
 
 app.on('before-quit', () => {
   isQuitting = true;
+  httpBridge.stop().catch(() => {});
   runnerController.stop().catch(() => {});
   chromeSpawner.stopSpawned();
 });

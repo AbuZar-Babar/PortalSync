@@ -50,6 +50,27 @@
       </div>
     </section>
 
+    <!-- Workflow Recording Card -->
+    <section class="card recorder-card">
+      <div class="recorder-header">
+        <div class="recorder-meta">
+          <span class="recorder-title">Local Workflow Capture</span>
+          <span class="recorder-sub">Bridge: 127.0.0.1:49152</span>
+        </div>
+        <div id="recorderLiveBadge" class="rec-badge hidden">
+          <span class="pulse-rec-dot"></span>
+          <span id="recorderActionCount">0 steps</span>
+        </div>
+      </div>
+
+      <div class="recorder-btn-container">
+        <button id="btnRecordWorkflow" class="record-workflow-btn">
+          <span class="rec-icon">●</span>
+          <span id="recordWorkflowText">Record Workflow</span>
+        </button>
+      </div>
+    </section>
+
     <!-- Environment Indicators -->
     <section class="card status-grid">
       <div class="status-item">

@@ -265,6 +265,107 @@ body {
   font-weight: 600;
 }
 
+/* Workflow Recording Card */
+.recorder-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.recorder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.recorder-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.recorder-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.recorder-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.rec-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(244, 63, 94, 0.15);
+  color: var(--accent-rose);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.pulse-rec-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--accent-rose);
+  border-radius: 50%;
+  animation: pulseRecDot 1.5s infinite;
+}
+
+@keyframes pulseRecDot {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(244, 63, 94, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+}
+
+.recorder-btn-container {
+  width: 100%;
+}
+
+.record-workflow-btn {
+  width: 100%;
+  padding: 10px 16px;
+  background: rgba(244, 63, 94, 0.12);
+  border: 1px solid rgba(244, 63, 94, 0.4);
+  border-radius: 8px;
+  color: var(--accent-rose);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.record-workflow-btn:hover {
+  background: rgba(244, 63, 94, 0.22);
+  border-color: var(--accent-rose);
+  box-shadow: 0 0 12px rgba(244, 63, 94, 0.25);
+}
+
+.record-workflow-btn.recording {
+  background: #f43f5e;
+  color: #ffffff;
+  border-color: #f43f5e;
+  animation: pulseRecordBtn 2s infinite;
+}
+
+.rec-icon {
+  font-size: 12px;
+  line-height: 1;
+}
+
+@keyframes pulseRecordBtn {
+  0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.7); }
+  70% { box-shadow: 0 0 0 8px rgba(244, 63, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+}
+
 /* Status Grid */
 .status-grid {
   display: grid;

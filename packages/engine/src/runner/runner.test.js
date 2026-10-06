@@ -16,7 +16,7 @@ const os = require('os');
 const http = require('http');
 
 const { CloudClient, CloudClientError } = require('./cloud-client');
-const { computeSha256, getFileChecksum, ArtifactTracker } = require('./dedup-helper');
+const { computeSha256, getFileChecksum, ArtifactTracker, sanitizePortalName, resolvePortalStorageDir } = require('./dedup-helper');
 const { detect2FAChallenge, waitFor2FAResolution } = require('./hitl-detector');
 const { RunnerDaemon, checkCdpResponding } = require('./runner-daemon');
 const { parseCliArgs } = require('./cli');
@@ -300,6 +300,109 @@ test('ArtifactTracker - scanDirectory ignores transient .tmp and .crdownload fil
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
+test('sanitizePortalName - strips illegal characters, traversals, and reserved names', () => {
+  // Strips Windows/POSIX illegal characters (<>:"/\|?*)
+  const illegal = sanitizePortalName('Supplier / Invoices : 2026 * ? <Q1> | All');
+  assert.strictEqual(illegal, 'Supplier _ Invoices _ 2026 _ _ _Q1_ _ All');
+
+  // Prevents path traversal (..)
+  const traversal = sanitizePortalName('../../secret/portal');
+  assert.strictEqual(traversal.includes('..'), false);
+  assert.strictEqual(traversal, '__secret_portal');
+
+  // Handles Windows reserved device names (CON, PRN, AUX, NUL, COM1-9, LPT1-9)
+  assert.strictEqual(sanitizePortalName('CON'), 'CON_portal');
+  assert.strictEqual(sanitizePortalName('con'), 'con_portal');
+  assert.strictEqual(sanitizePortalName('PRN'), 'PRN_portal');
+  assert.strictEqual(sanitizePortalName('AUX'), 'AUX_portal');
+  assert.strictEqual(sanitizePortalName('NUL'), 'NUL_portal');
+  assert.strictEqual(sanitizePortalName('COM1'), 'COM1_portal');
+  assert.strictEqual(sanitizePortalName('LPT9'), 'LPT9_portal');
+  assert.strictEqual(sanitizePortalName('con.txt'), 'con.txt_portal');
+
+  // Strips leading/trailing dots and spaces
+  assert.strictEqual(sanitizePortalName('  ...My Portal...   '), 'My Portal');
+
+  // Falls back to DefaultPortal on empty or invalid inputs
+  assert.strictEqual(sanitizePortalName(''), 'DefaultPortal');
+  assert.strictEqual(sanitizePortalName('   '), 'DefaultPortal');
+  assert.strictEqual(sanitizePortalName(null), 'DefaultPortal');
+  assert.strictEqual(sanitizePortalName(undefined), 'DefaultPortal');
+  assert.strictEqual(sanitizePortalName(12345), 'DefaultPortal');
+  assert.strictEqual(sanitizePortalName('..'), 'DefaultPortal');
+  assert.strictEqual(sanitizePortalName('...'), 'DefaultPortal');
+
+  // Length bounding
+  const longName = 'A'.repeat(200);
+  const sanitizedLong = sanitizePortalName(longName);
+  assert.strictEqual(sanitizedLong.length, 100);
+});
+
+test('resolvePortalStorageDir - resolves path with sanitized portal subdirectory', () => {
+  const defaultDir = resolvePortalStorageDir();
+  const expectedDefaultBase = path.join(os.homedir(), 'Downloads', 'PortalSync', 'DefaultPortal');
+  assert.strictEqual(defaultDir, expectedDefaultBase);
+
+  // Custom baseDir and portalName
+  const customBase = path.join(os.tmpdir(), 'PortalSyncTest');
+  const resolved = resolvePortalStorageDir(customBase, 'Acme / Supplier: 2026');
+  assert.strictEqual(resolved, path.join(customBase, 'Acme _ Supplier_ 2026'));
+
+  // Avoids double-nesting if baseDir already ends with portal name
+  const existingFolder = path.join(customBase, 'Acme_Portal');
+  const nonNested = resolvePortalStorageDir(existingFolder, 'Acme_Portal');
+  assert.strictEqual(nonNested, existingFolder);
+});
+
+test('ArtifactTracker - loadExistingHashesFromDir pre-loads hashes and guarantees cross-run deduplication', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'runner-crossrun-dedup-'));
+  const portalDir = path.join(tmpDir, 'AcmePortal');
+  fs.mkdirSync(portalDir, { recursive: true });
+
+  // Simulate pre-existing files from a prior run
+  const existingFile1 = path.join(portalDir, 'invoice_1001.pdf');
+  const existingFile2 = path.join(portalDir, 'invoice_1002.pdf');
+  fs.writeFileSync(existingFile1, 'INVOICE 1001 PREVIOUS RUN');
+  fs.writeFileSync(existingFile2, 'INVOICE 1002 PREVIOUS RUN');
+
+  const hash1 = computeSha256(existingFile1);
+  const hash2 = computeSha256(existingFile2);
+
+  // Initialize new tracker (simulating process restart)
+  const restartTracker = new ArtifactTracker();
+  assert.strictEqual(restartTracker.seenHashes.size, 0);
+
+  // Pre-load existing directory hashes
+  const count = restartTracker.loadExistingHashesFromDir(portalDir);
+  assert.strictEqual(count, 2);
+  assert.strictEqual(restartTracker.hasHash(hash1), true);
+  assert.strictEqual(restartTracker.hasHash(hash2), true);
+
+  // Calling loadExistingHashesFromDir again on same directory adds 0 new hashes
+  const duplicateLoadCount = restartTracker.loadExistingHashesFromDir(portalDir);
+  assert.strictEqual(duplicateLoadCount, 0);
+
+  // Non-existent directory returns 0
+  assert.strictEqual(restartTracker.loadExistingHashesFromDir(path.join(tmpDir, 'non_existent')), 0);
+
+  // Simulate a newly downloaded file in this run with identical content to pre-existing invoice_1001.pdf
+  const incomingDownload = path.join(tmpDir, 'download_temp.pdf');
+  fs.writeFileSync(incomingDownload, 'INVOICE 1001 PREVIOUS RUN');
+
+  const processResult = restartTracker.processAndSaveArtifact(incomingDownload, portalDir, 'invoice_1001.pdf');
+  assert.strictEqual(processResult.isDuplicate, true, 'Pre-loaded hash must flag incoming identical file as duplicate across runs');
+  assert.strictEqual(processResult.hash, hash1);
+
+  // Simulate an genuinely new invoice
+  const newInvoice = path.join(tmpDir, 'download_new.pdf');
+  fs.writeFileSync(newInvoice, 'INVOICE 1003 BRAND NEW RUN');
+  const newResult = restartTracker.processAndSaveArtifact(newInvoice, portalDir, 'invoice_1003.pdf');
+  assert.strictEqual(newResult.isDuplicate, false);
+  assert(fs.existsSync(newResult.targetPath));
+
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+});
+
 // ==========================================
 // 3. HITL 2FA Detection Tests
 // ==========================================
@@ -565,6 +668,80 @@ test('Adversarial - Multi-batch deduplication never re-registers duplicate files
   // Only two unique hashes must be registered out of 5 attempts
   assert.strictEqual(registeredHashes.length, 2);
   assert.strictEqual(new Set(registeredHashes).size, 2);
+
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+});
+
+test('Adversarial - Malicious portal names cannot escape target storage directory', () => {
+  const tmpBase = fs.mkdtempSync(path.join(os.tmpdir(), 'runner-sec-escape-'));
+
+  const maliciousNames = [
+    '../../../../Windows/System32',
+    '..\\..\\secret\\passwords',
+    'CON',
+    'PRN',
+    'AUX.txt',
+    'NUL',
+    'COM1',
+    'LPT9',
+    '/root/.ssh',
+    '\\\\network-share\\attack',
+    '   ...   ',
+    '<>:"/\\|?*',
+  ];
+
+  for (const attackName of maliciousNames) {
+    const resolved = resolvePortalStorageDir(tmpBase, attackName);
+    // Resolved directory must be strictly within tmpBase
+    assert(resolved.startsWith(tmpBase), `Storage path ${resolved} must stay within ${tmpBase} for attack name: ${attackName}`);
+    assert(!resolved.includes('..'), `Storage path must never contain .. for attack name: ${attackName}`);
+  }
+
+  fs.rmSync(tmpBase, { recursive: true, force: true });
+});
+
+test('Adversarial - Daemon restarts cleanly recognize previously downloaded files and avoid duplicate registrations', async () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'runner-restart-dedup-'));
+  const portalDir = path.join(tmpDir, 'PortalSync', 'Acme_Supplier');
+  fs.mkdirSync(portalDir, { recursive: true });
+
+  // Simulate an invoice saved on Run 1 yesterday
+  const prevInvoice = path.join(portalDir, 'INV_001.pdf');
+  fs.writeFileSync(prevInvoice, 'CONTENT OF INVOICE 001 FROM RUN 1');
+
+  const registeredInCloud = [];
+  const mockClient = {
+    getPendingRuns: async () => [],
+    updateRunStatus: async () => ({}),
+    registerArtifact: async (runId, artifact) => {
+      registeredInCloud.push(artifact);
+      return { id: `art_${registeredInCloud.length}`, ...artifact };
+    },
+  };
+
+  // Run 2 starts in a new process/daemon instance with a fresh ArtifactTracker
+  const daemon = new RunnerDaemon({
+    cloudClient: mockClient,
+    targetFolder: tmpDir,
+    logger: { info: () => {}, warn: () => {}, error: () => {}, success: () => {} },
+  });
+
+  // Pre-load target dir (as executeRun does)
+  daemon.artifactTracker.loadExistingHashesFromDir(portalDir);
+
+  // Chrome downloads the exact same invoice again into download dir
+  const newDownload = path.join(tmpDir, 'incoming_temp_download.pdf');
+  fs.writeFileSync(newDownload, 'CONTENT OF INVOICE 001 FROM RUN 1');
+
+  // Replay runner points to incoming file
+  const mockRunner = { downloadsDir: tmpDir };
+
+  // Collect artifacts
+  const artifacts = await daemon.collectAndRegisterArtifacts('run_today_2', portalDir, mockRunner, 'Acme_Supplier');
+
+  // Zero artifacts should be registered because hash was pre-loaded
+  assert.strictEqual(artifacts.length, 0, 'No artifacts should be registered for pre-existing file on restart');
+  assert.strictEqual(registeredInCloud.length, 0, 'Cloud registration must be 0 for duplicate file across daemon restarts');
 
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });

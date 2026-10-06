@@ -20,6 +20,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const activeRunMetrics = document.getElementById('activeRunMetrics');
   const recentRunsList = document.getElementById('recentRunsList');
 
+  // Recorder elements
+  const btnRecordWorkflow = document.getElementById('btnRecordWorkflow');
+  const recordWorkflowText = document.getElementById('recordWorkflowText');
+  const recorderLiveBadge = document.getElementById('recorderLiveBadge');
+  const recorderActionCount = document.getElementById('recorderActionCount');
+
   // Modal elements
   const settingsModal = document.getElementById('settingsModal');
   const btnCloseSettings = document.getElementById('btnCloseSettings');
@@ -37,6 +43,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Initialize UI with config
   updateConfigUI(currentConfig);
   updateStatusUI(currentStatus);
+
+  try {
+    const initialRecStatus = await window.portalsync.getRecordingStatus();
+    updateRecorderUI(initialRecStatus);
+  } catch (e) {
+    console.warn('Initial recording status probe notice:', e);
+  }
 
   // Window Controls
   btnMinimize.addEventListener('click', () => window.portalsync.minimizeWindow());
@@ -65,6 +78,37 @@ document.addEventListener('DOMContentLoaded', async () => {
       btnToggleRunner.disabled = false;
     }
   });
+
+  // Workflow Recorder Toggle
+  if (btnRecordWorkflow) {
+    btnRecordWorkflow.addEventListener('click', async () => {
+      btnRecordWorkflow.disabled = true;
+      try {
+        const status = await window.portalsync.getRecordingStatus();
+        if (status.isRecording) {
+          const res = await window.portalsync.stopRecording();
+          updateRecorderUI(res);
+        } else {
+          const defaultUrl = 'https://google.com';
+          const inputUrl = prompt('Enter starting URL for workflow capture:', defaultUrl);
+          if (inputUrl === null) {
+            btnRecordWorkflow.disabled = false;
+            return;
+          }
+          const targetUrl = inputUrl.trim() || defaultUrl;
+          const res = await window.portalsync.startRecording({
+            url: targetUrl,
+            name: `portal-workflow-${Date.now()}`
+          });
+          updateRecorderUI(res);
+        }
+      } catch (err) {
+        alert(`Recording error: ${err.message}`);
+      } finally {
+        btnRecordWorkflow.disabled = false;
+      }
+    });
+  }
 
   // Browser Mode Selector
   btnModeVisible.addEventListener('click', () => setBrowserMode('visible'));
@@ -151,6 +195,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     currentStatus = state;
     updateStatusUI(state);
   });
+
+  // Real-time Recorder listener from Main Process
+  if (typeof window.portalsync.onRecordingUpdate === 'function') {
+    window.portalsync.onRecordingUpdate((recState) => {
+      updateRecorderUI(recState);
+    });
+  }
+
+  function updateRecorderUI(recState) {
+    if (!btnRecordWorkflow || !recState) return;
+    const count = typeof recState.actionCount === 'number'
+      ? recState.actionCount
+      : (Array.isArray(recState.actions) ? recState.actions.length : 0);
+    if (recState.isRecording) {
+      btnRecordWorkflow.className = 'record-workflow-btn recording';
+      recordWorkflowText.innerText = `Stop Recording (${count} steps)`;
+      recorderLiveBadge.classList.remove('hidden');
+      recorderActionCount.innerText = `${count} steps`;
+    } else {
+      btnRecordWorkflow.className = 'record-workflow-btn';
+      recordWorkflowText.innerText = 'Record Workflow';
+      recorderLiveBadge.classList.add('hidden');
+    }
+  }
 
   // UI Updaters
   function updateConfigUI(cfg) {

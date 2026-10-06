@@ -21,8 +21,9 @@
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { CloudClient } = require('./cloud-client');
-const { ArtifactTracker, computeSha256 } = require('./dedup-helper');
+const { ArtifactTracker, computeSha256, sanitizePortalName, resolvePortalStorageDir } = require('./dedup-helper');
 const { detect2FAChallenge, waitFor2FAResolution } = require('./hitl-detector');
 
 /**
@@ -89,7 +90,7 @@ class RunnerDaemon {
     this.cdpPort = options.cdpPort || 9222;
     this.cdpHost = options.cdpHost || '127.0.0.1';
     this.pollIntervalMs = options.pollIntervalMs || 10000;
-    this.targetFolder = options.targetFolder || path.resolve(process.cwd(), 'downloads');
+    this.targetFolder = options.targetFolder || path.join(os.homedir(), 'Downloads', 'PortalSync');
     this.hitlTimeoutMs = options.hitlTimeoutMs || 90000;
 
     this.logger = options.logger || {
@@ -230,18 +231,29 @@ class RunnerDaemon {
       }
     }
 
-    // Determine target download directory with safe fallback if configured drive/path doesn't exist
+    // Determine sanitized portal name
+    const rawPortalName = workflow?.name || workflow?.workflow_definition?.name || run.workflow_name || 'DefaultPortal';
+    const sanitizedPortalName = sanitizePortalName(rawPortalName);
+
+    // Determine target download directory organized by portal name
     const workflowTargetFolder = workflow?.workflow_definition?.target_folder;
-    let runTargetDir = path.join(this.targetFolder, run.id);
+    let runTargetDir = resolvePortalStorageDir(this.targetFolder, sanitizedPortalName);
 
     if (workflowTargetFolder) {
       try {
-        if (!fs.existsSync(workflowTargetFolder)) {
-          fs.mkdirSync(workflowTargetFolder, { recursive: true });
+        const customBase = path.isAbsolute(workflowTargetFolder)
+          ? workflowTargetFolder
+          : path.resolve(process.cwd(), workflowTargetFolder);
+
+        runTargetDir = path.basename(customBase).toLowerCase() === sanitizedPortalName.toLowerCase()
+          ? customBase
+          : path.join(customBase, sanitizedPortalName);
+
+        if (!fs.existsSync(runTargetDir)) {
+          fs.mkdirSync(runTargetDir, { recursive: true });
         }
-        runTargetDir = workflowTargetFolder;
       } catch (mkdirErr) {
-        this.logger.warn(`Configured target folder '${workflowTargetFolder}' is inaccessible (${mkdirErr.message}). Falling back to local directory '${runTargetDir}'.`);
+        this.logger.warn(`Configured target folder '${workflowTargetFolder}' is inaccessible (${mkdirErr.message}). Falling back to '${runTargetDir}'.`);
       }
     }
 
@@ -249,12 +261,13 @@ class RunnerDaemon {
       try {
         fs.mkdirSync(runTargetDir, { recursive: true });
       } catch (fallbackErr) {
-        // Last-resort fallback to os temp directory
-        const os = require('os');
-        runTargetDir = path.join(os.tmpdir(), 'portalsync-downloads', run.id);
+        runTargetDir = path.join(os.tmpdir(), 'PortalSync', sanitizedPortalName);
         fs.mkdirSync(runTargetDir, { recursive: true });
       }
     }
+
+    // Pre-load existing file hashes in target directory to prevent re-downloading duplicates
+    this.artifactTracker.loadExistingHashesFromDir(runTargetDir);
 
     // Initialize LoopReplayRunner lazily
     let LoopReplayRunner;
@@ -275,7 +288,7 @@ class RunnerDaemon {
       cdpPort: this.cdpPort,
       runId: run.id,
       workflowId: run.workflow_id,
-      workflowName: workflow?.name || 'workflow',
+      workflowName: sanitizedPortalName || workflow?.name || 'workflow',
       targetUrl: workflow?.portal_url,
       structuredDownloadsDir: runTargetDir,
     });
@@ -334,7 +347,7 @@ class RunnerDaemon {
       }
 
       // Check downloaded artifacts, compute SHA-256, deduplicate, and register in cloud
-      const newArtifacts = await this.collectAndRegisterArtifacts(run.id, runTargetDir, runner);
+      const newArtifacts = await this.collectAndRegisterArtifacts(run.id, runTargetDir, runner, sanitizedPortalName);
       itemsDownloaded = Math.max(itemsDownloaded, newArtifacts.length);
 
       // Determine final run status
@@ -462,9 +475,10 @@ class RunnerDaemon {
    * @param {string} runId 
    * @param {string} targetDir 
    * @param {any} runner 
+   * @param {string} [portalName]
    * @returns {Promise<Array<any>>} List of registered artifacts
    */
-  async collectAndRegisterArtifacts(runId, targetDir, runner) {
+  async collectAndRegisterArtifacts(runId, targetDir, runner, portalName = null) {
     const directoriesToScan = new Set();
     if (fs.existsSync(targetDir)) directoriesToScan.add(targetDir);
     if (runner?.runsDir && fs.existsSync(runner.runsDir)) directoriesToScan.add(runner.runsDir);
@@ -501,6 +515,7 @@ class RunnerDaemon {
             item_metadata: {
               source: 'desktop-runner',
               run_id: runId,
+              portal: portalName || 'DefaultPortal',
               discovered_at: new Date().toISOString(),
             },
           });
@@ -550,4 +565,6 @@ module.exports = {
   computeSha256,
   detect2FAChallenge,
   waitFor2FAResolution,
+  sanitizePortalName,
+  resolvePortalStorageDir,
 };

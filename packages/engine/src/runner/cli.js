@@ -13,6 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const http = require('http');
 const { CloudClient } = require('./cloud-client');
 const { RunnerDaemon, checkCdpResponding } = require('./runner-daemon');
@@ -120,7 +121,7 @@ ${colors.bold}GLOBAL OPTIONS:${colors.reset}
   -p, --port <number>          Chrome remote debugging port (default: 9222)
   -u, --cloud-url <url>        PortalSync Cloud API URL (default: http://localhost:3000)
   -t, --token <token>          Runner authentication token (ps_live_<org_id>)
-  -d, --target-folder <path>   Directory for downloaded artifacts (default: ./downloads)
+  -d, --target-folder <path>   Directory for downloaded artifacts (default: ~/Downloads/PortalSync)
   -h, --help                   Show help information
   -v, --version                Show version information
 
@@ -175,7 +176,7 @@ ${colors.bold}OPTIONS:${colors.reset}
   -u, --cloud-url <url>        PortalSync Cloud API URL (default: http://localhost:3000)
   -t, --token <token>          Runner token ps_live_<org_id> (required for cloud polling)
   -i, --poll-interval <s>      Polling interval in seconds (default: 10, range: 10-15)
-  -d, --target-folder <path>   Destination directory for invoice artifacts (default: ./downloads)
+  -d, --target-folder <path>   Destination directory for invoice artifacts (default: ~/Downloads/PortalSync)
   -h, --help                   Show this help message
 
 ${colors.bold}EXAMPLES:${colors.reset}
@@ -203,7 +204,7 @@ ${colors.bold}OPTIONS:${colors.reset}
   -p, --port <number>          Chrome CDP debugging port (default: 9222)
   -u, --cloud-url <url>        PortalSync Cloud API URL (default: http://localhost:3000)
   -t, --token <token>          Runner token ps_live_<org_id>
-  -d, --target-folder <path>   Destination directory for invoice artifacts
+  -d, --target-folder <path>   Destination directory for invoice artifacts (default: ~/Downloads/PortalSync)
   -h, --help                   Show this help message
 
 ${colors.bold}EXAMPLES:${colors.reset}
@@ -220,7 +221,7 @@ async function runDoctor(options) {
   const port = options.port || 9222;
   const cloudUrl = options.cloudUrl || process.env.PORTALSYNC_CLOUD_URL || 'http://localhost:3000';
   const token = options.token || process.env.PORTALSYNC_RUNNER_TOKEN || '';
-  const targetFolder = options.targetFolder || path.resolve(process.cwd(), 'downloads');
+  const targetFolder = options.targetFolder || path.join(os.homedir(), 'Downloads', 'PortalSync');
 
   console.log(`\n${colors.bold}========================================${colors.reset}`);
   console.log(`${colors.bold}${colors.cyan} PortalSync Desktop Runner Doctor${colors.reset}`);
@@ -344,7 +345,7 @@ async function runListen(options) {
   const cloudUrl = options.cloudUrl || process.env.PORTALSYNC_CLOUD_URL || 'http://localhost:3000';
   const token = options.token || process.env.PORTALSYNC_RUNNER_TOKEN || '';
   const pollIntervalSeconds = options.pollInterval || 10;
-  const targetFolder = options.targetFolder || path.resolve(process.cwd(), 'downloads');
+  const targetFolder = options.targetFolder || path.join(os.homedir(), 'Downloads', 'PortalSync');
 
   if (!token) {
     log.warn('No runner token provided. Set --token or PORTALSYNC_RUNNER_TOKEN to claim organization runs.');
@@ -388,7 +389,7 @@ async function runWorkflow(workflowId, options) {
   const port = options.port || 9222;
   const cloudUrl = options.cloudUrl || process.env.PORTALSYNC_CLOUD_URL || 'http://localhost:3000';
   const token = options.token || process.env.PORTALSYNC_RUNNER_TOKEN || '';
-  const targetFolder = options.targetFolder || path.resolve(process.cwd(), 'downloads');
+  const targetFolder = options.targetFolder || path.join(os.homedir(), 'Downloads', 'PortalSync');
 
   const daemon = new RunnerDaemon({
     cdpPort: port,

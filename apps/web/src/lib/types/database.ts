@@ -74,3 +74,47 @@ export interface RunArtifact {
   synced_to_drive: boolean;
   created_at: string;
 }
+
+export interface CapturedAction {
+  id?: string;
+  index?: number;
+  name?: string;
+  elementName?: string;
+  type: string;
+  timestamp?: number;
+  timeDeltaMs?: number;
+  target?: {
+    elementName?: string;
+    friendlyName?: string;
+    candidates?: Array<{ type: string; value: string }>;
+    fingerprint?: {
+      tagName?: string;
+      id?: string;
+      text?: string;
+      type?: string;
+      attributes?: Record<string, string>;
+    };
+  };
+  value?: string;
+  key?: string;
+  url?: string;
+  description?: string;
+  [key: string]: unknown;
+}
+
+export interface WorkflowRecipe {
+  metadata?: {
+    recordingId?: string;
+    name?: string;
+    startUrl?: string;
+    version?: string;
+    isLoop?: boolean;
+    mode?: string;
+    startedAt?: string;
+    completedAt?: string;
+    [key: string]: unknown;
+  };
+  actions?: CapturedAction[];
+  steps?: CapturedAction[];
+  [key: string]: unknown;
+}
