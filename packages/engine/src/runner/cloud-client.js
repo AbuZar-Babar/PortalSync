@@ -305,6 +305,27 @@ class CloudClient {
 
     throw new CloudClientError(`Workflow not found: ${workflowId}`, 404, null, '/api/v1/workflows');
   }
+
+  /**
+   * Diagnostic test connection to Cloud API
+   * @returns {Promise<{connected: boolean, url: string, pendingRunsCount?: number, error?: string}>}
+   */
+  async testConnection() {
+    try {
+      const res = await this._request('/api/v1/runs?status=pending', { method: 'GET' });
+      return {
+        connected: true,
+        url: this.baseUrl,
+        pendingRunsCount: Array.isArray(res?.runs) ? res.runs.length : 0,
+      };
+    } catch (err) {
+      return {
+        connected: false,
+        url: this.baseUrl,
+        error: err.message,
+      };
+    }
+  }
 }
 
 module.exports = {

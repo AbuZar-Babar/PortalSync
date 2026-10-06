@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PortalSync Desktop Runner</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Custom Titlebar -->
+  <header class="titlebar">
+    <div class="titlebar-drag">
+      <div class="logo-badge">P</div>
+      <span class="app-title">PortalSync Desktop</span>
+    </div>
+    <div class="titlebar-controls">
+      <button id="btnMinimize" class="control-btn" title="Minimize">—</button>
+      <button id="btnClose" class="control-btn close-btn" title="Close to Tray">✕</button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="app-container">
+    <!-- Big Runner Toggle Card -->
+    <section class="card runner-toggle-card">
+      <div class="toggle-header">
+        <div class="status-indicator">
+          <span id="statusDot" class="dot dot-idle"></span>
+          <span id="statusLabel" class="status-text">Runner Idle</span>
+        </div>
+        <div id="liveRunBadge" class="live-badge hidden">
+          <span class="pulse-ring"></span>
+          <span>Claimed Job</span>
+        </div>
+      </div>
+
+      <div class="big-switch-container">
+        <button id="btnToggleRunner" class="big-toggle-btn btn-start">
+          <span class="btn-icon">⚡</span>
+          <span id="toggleBtnText" class="btn-text">Start Runner</span>
+        </button>
+      </div>
+
+      <div class="mode-selector">
+        <span class="mode-label">Automation Browser:</span>
+        <div class="mode-pills">
+          <button id="btnModeVisible" class="pill active" data-mode="visible">Visible (2FA)</button>
+          <button id="btnModeHeadless" class="pill" data-mode="headless">Headless</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Environment Indicators -->
+    <section class="card status-grid">
+      <div class="status-item">
+        <div class="status-meta">
+          <span class="meta-title">Chrome CDP</span>
+          <span class="meta-sub">Port 9222</span>
+        </div>
+        <div id="cdpStatus" class="status-pill status-ready">Ready</div>
+      </div>
+
+      <div class="status-item">
+        <div class="status-meta">
+          <span class="meta-title">Cloud Control</span>
+          <span id="cloudUrlDisplay" class="meta-sub">http://localhost:3000</span>
+        </div>
+        <div id="cloudStatus" class="status-pill status-ready">Connected</div>
+      </div>
+    </section>
+
+    <!-- Active Run / Activity Feed -->
+    <section class="card feed-card">
+      <div class="feed-header">
+        <span class="feed-title">Recent Invoices & Activity</span>
+        <button id="btnOpenFolder" class="icon-text-btn" title="Open Download Folder">
+          📁 Open Invoices
+        </button>
+      </div>
+
+      <div id="activeRunBanner" class="active-run-banner hidden">
+        <div class="run-spinner"></div>
+        <div class="active-run-info">
+          <div id="activeWorkflowName" class="active-wf-name">Executing Portal...</div>
+          <div id="activeRunMetrics" class="active-wf-meta">Processing items & downloading PDFs</div>
+        </div>
+      </div>
+
+      <div id="recentRunsList" class="runs-list">
+        <div class="empty-feed">No runs executed yet. Start runner to listen for portal downloads.</div>
+      </div>
+    </section>
+
+    <!-- Footer Controls -->
+    <footer class="app-footer">
+      <button id="btnSettings" class="footer-btn">
+        ⚙️ Settings & Token
+      </button>
+      <button id="btnOpenWeb" class="footer-btn primary-footer-btn">
+        🌐 Open Console
+      </button>
+    </footer>
+  </main>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal-backdrop hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Runner Settings</h3>
+        <button id="btnCloseSettings" class="modal-close">✕</button>
+      </div>
+
+      <form id="settingsForm" class="settings-form">
+        <div class="form-group">
+          <label for="inputToken">Runner Token (from Dashboard)</label>
+          <input type="text" id="inputToken" placeholder="ps_live_..." required autocomplete="off" />
+          <p class="form-hint">Copy this from your PortalSync web console header.</p>
+        </div>
+
+        <div class="form-group">
+          <label for="inputCloudUrl">Cloud Control Plane URL</label>
+          <input type="text" id="inputCloudUrl" placeholder="http://localhost:3000" />
+        </div>
+
+        <div class="form-group">
+          <label for="inputTargetFolder">Local Invoices Folder</label>
+          <input type="text" id="inputTargetFolder" placeholder="C:\Users\...\Downloads\PortalSync" />
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" id="btnTestConnection" class="secondary-btn">Test Connection</button>
+          <button type="submit" class="save-btn">Save Changes</button>
+        </div>
+
+        <div id="testConnectionResult" class="test-result hidden"></div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
