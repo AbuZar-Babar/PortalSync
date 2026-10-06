@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const activeRunBanner = document.getElementById('activeRunBanner');
   const activeWorkflowName = document.getElementById('activeWorkflowName');
   const activeRunMetrics = document.getElementById('activeRunMetrics');
+  const btnStopActiveRun = document.getElementById('btnStopActiveRun');
   const recentRunsList = document.getElementById('recentRunsList');
 
   // Recorder elements
@@ -78,6 +79,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       btnToggleRunner.disabled = false;
     }
   });
+
+  // Stop Active Run Button
+  if (btnStopActiveRun) {
+    btnStopActiveRun.addEventListener('click', async () => {
+      btnStopActiveRun.disabled = true;
+      btnStopActiveRun.innerText = 'Stopping...';
+      try {
+        await window.portalsync.stopActiveRun();
+      } catch (err) {
+        alert(`Error stopping run: ${err.message}`);
+      } finally {
+        btnStopActiveRun.disabled = false;
+        btnStopActiveRun.innerText = '■ Stop';
+      }
+    });
+  }
 
   // Workflow Recorder Toggle
   if (btnRecordWorkflow) {

@@ -187,3 +187,119 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  const auth = await authenticateRunnerOrUser(request);
+  if (!auth.success) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  const { orgId, supabase } = auth.context;
+
+  try {
+    let workflowId: string | null = null;
+
+    // Check query params first
+    const searchParams = request.nextUrl.searchParams;
+    workflowId = searchParams.get('id') || searchParams.get('workflow_id');
+
+    // If not in query params, inspect body if present
+    if (!workflowId) {
+      try {
+        const body = await request.json();
+        workflowId = body.workflow_id || body.id || null;
+      } catch {
+        // Body may be empty if provided via query param
+      }
+    }
+
+    if (!workflowId) {
+      return NextResponse.json(
+        { error: 'Missing required field: workflow_id' },
+        { status: 400 }
+      );
+    }
+
+    // Verify workflow exists and belongs to this organization
+    const { data: existingWf, error: fetchError } = await supabase
+      .from('wf_workflows')
+      .select('id, name, org_id')
+      .eq('id', workflowId)
+      .maybeSingle();
+
+    if (fetchError || !existingWf) {
+      return NextResponse.json({ error: 'Workflow not found' }, { status: 404 });
+    }
+
+    if (existingWf.org_id !== orgId) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Workflow belongs to a different organization' },
+        { status: 403 }
+      );
+    }
+
+    // Guard: Prevent deletion if any run is currently active (pending, running, requires_action)
+    const { data: activeRuns, error: activeRunsError } = await supabase
+      .from('wf_execution_runs')
+      .select('id, status')
+      .eq('workflow_id', workflowId)
+      .in('status', ['pending', 'running', 'requires_action']);
+
+    if (activeRunsError) {
+      return NextResponse.json({ error: activeRunsError.message }, { status: 500 });
+    }
+
+    if (activeRuns && activeRuns.length > 0) {
+      return NextResponse.json(
+        {
+          error: 'Cannot delete workflow while an execution run is active. Please stop the run first.',
+          active_run_id: activeRuns[0].id,
+          active_run_status: activeRuns[0].status,
+        },
+        { status: 409 }
+      );
+    }
+
+    // Cascade delete: find all runs for this workflow
+    const { data: wfRuns } = await supabase
+      .from('wf_execution_runs')
+      .select('id')
+      .eq('workflow_id', workflowId);
+
+    if (wfRuns && wfRuns.length > 0) {
+      const runIds = wfRuns.map((r: { id: string }) => r.id);
+      // Delete associated artifacts
+      await supabase
+        .from('wf_run_artifacts')
+        .delete()
+        .in('run_id', runIds);
+
+      // Delete associated execution runs
+      await supabase
+        .from('wf_execution_runs')
+        .delete()
+        .eq('workflow_id', workflowId);
+    }
+
+    // Delete the workflow itself
+    const { error: deleteError } = await supabase
+      .from('wf_workflows')
+      .delete()
+      .eq('id', workflowId)
+      .eq('org_id', orgId);
+
+    if (deleteError) {
+      return NextResponse.json({ error: deleteError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Workflow '${existingWf.name}' and associated history deleted successfully`,
+      id: workflowId,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal Server Error';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+

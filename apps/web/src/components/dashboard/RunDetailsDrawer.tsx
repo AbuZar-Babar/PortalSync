@@ -14,7 +14,8 @@ import {
   Cloud, 
   HardDrive, 
   Loader2, 
-  Calendar 
+  Calendar,
+  Square
 } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
 import { createClient } from '@/lib/supabase/client';
@@ -45,6 +46,7 @@ interface RunDetailsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   run: DrawerRunItem | null;
+  onStopRun?: (runId: string) => void;
 }
 
 function formatBytes(bytes?: number | null): string {
@@ -68,7 +70,7 @@ function calculateDuration(startedAt?: string, completedAt?: string | null): str
   return `${mins}m ${secs}s`;
 }
 
-export function RunDetailsDrawer({ isOpen, onClose, run }: RunDetailsDrawerProps) {
+export function RunDetailsDrawer({ isOpen, onClose, run, onStopRun }: RunDetailsDrawerProps) {
   const [artifacts, setArtifacts] = useState<RunArtifact[]>([]);
   const [loadingArtifacts, setLoadingArtifacts] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
@@ -252,13 +254,23 @@ export function RunDetailsDrawer({ isOpen, onClose, run }: RunDetailsDrawerProps
                 </div>
               </div>
 
-              <button
-                onClick={handleClose}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition cursor-pointer"
-                aria-label="Close drawer"
-              >
-                <X className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {onStopRun && (run.status === 'pending' || run.status === 'running' || run.status === 'requires_action') && (
+                  <button
+                    onClick={() => onStopRun(run.id)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 text-xs font-semibold transition cursor-pointer"
+                  >
+                    <Square className="h-3 w-3 fill-current text-rose-400" /> Stop Run
+                  </button>
+                )}
+                <button
+                  onClick={handleClose}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+                  aria-label="Close drawer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
             {/* Run timing meta */}

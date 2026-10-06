@@ -4,7 +4,7 @@ import { RunStatus } from '@/lib/types/database';
 
 const ALLOWED_TRANSITIONS: Record<RunStatus, RunStatus[]> = {
   pending: ['running', 'cancelled'],
-  running: ['requires_action', 'completed', 'failed'],
+  running: ['requires_action', 'completed', 'failed', 'cancelled'],
   requires_action: ['running', 'failed', 'cancelled'],
   completed: [],
   failed: [],

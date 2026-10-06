@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('portalsync', {
   getStatus: () => ipcRenderer.invoke('get-status'),
   startRunner: () => ipcRenderer.invoke('start-runner'),
   stopRunner: () => ipcRenderer.invoke('stop-runner'),
+  stopActiveRun: () => ipcRenderer.invoke('stop-active-run'),
   testConnection: (customConfig) => ipcRenderer.invoke('test-connection', customConfig),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   openFolder: (path) => ipcRenderer.invoke('open-folder', path),

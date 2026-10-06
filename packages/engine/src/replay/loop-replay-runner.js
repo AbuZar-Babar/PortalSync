@@ -90,10 +90,17 @@ class LoopReplayRunner {
   set _lastCursor(v) { this.stateCoordinator._lastCursor = v; }
 
   // --- Lifecycle Methods ---
-  async stop() {
+  async stop(closePage = false) {
     this.isAborted = true;
     logger.warn(`[Runner] Stop signal triggered for run: ${this.runId}`);
     if (this.replayEngine && typeof this.replayEngine.abort === 'function') await this.replayEngine.abort().catch(() => {});
+    if (closePage && this.replayEngine?.page) {
+      try {
+        if (!this.replayEngine.page.isClosed()) {
+          await this.replayEngine.page.close().catch(() => {});
+        }
+      } catch {}
+    }
   }
 
   async start(workflow, options = {}) {

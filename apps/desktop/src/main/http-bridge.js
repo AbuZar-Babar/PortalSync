@@ -184,6 +184,17 @@ class HttpBridge {
           }
         }
 
+        // 6. Stop Active Execution Run Endpoint
+        if ((pathname === '/run/stop' || pathname === '/api/run/stop') && req.method === 'POST') {
+          try {
+            const runnerController = require('./runner-controller');
+            const result = await runnerController.stopActiveRun();
+            return this.sendJson(req, res, 200, result);
+          } catch (err) {
+            return this.sendJson(req, res, 500, { error: err.message });
+          }
+        }
+
         // 404 Fallback
         return this.sendJson(req, res, 404, { error: 'Not Found', path: pathname });
       } catch (err) {

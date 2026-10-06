@@ -104,6 +104,7 @@ class RunnerDaemon {
     this.activeRun = null;
     this.currentRunner = null;
     this.isInHitl = false;
+    this.isStoppingCurrentRun = false;
     this.artifactTracker = new ArtifactTracker();
     this._pollTimer = null;
   }
@@ -340,12 +341,14 @@ class RunnerDaemon {
         });
       };
 
-      // Background watchdog for 2FA challenge detection
+      // Background watchdog for 2FA challenge detection and remote cancellation
+      let cancelWatchdogCounter = 0;
       hitlInterval = setInterval(async () => {
         if (this.isInHitl || !this.currentRunner) return;
         const page = this.currentRunner.replayEngine?.page;
         if (!page || (typeof page.isClosed === 'function' && page.isClosed())) return;
 
+        // 1. Detect 2FA challenge
         try {
           const challenge = await detect2FAChallenge(page);
           if (challenge.detected) {
@@ -353,6 +356,23 @@ class RunnerDaemon {
           }
         } catch {
           // Ignore transient evaluation errors
+        }
+
+        // 2. Watch for remote cancellation every ~3 seconds
+        cancelWatchdogCounter++;
+        if (cancelWatchdogCounter % 2 === 0 && !this.isStoppingCurrentRun) {
+          try {
+            const remoteRuns = await this.cloudClient.getPendingRuns();
+            // Also check current run if not pending
+            const remoteStatus = await this.cloudClient._request(`/api/v1/runs?workflow_id=${run.workflow_id}`, { method: 'GET' });
+            const currentRecord = Array.isArray(remoteStatus?.runs) ? remoteStatus.runs.find((r) => r.id === run.id) : null;
+            if (currentRecord && currentRecord.status === 'cancelled') {
+              this.logger.warn(`Remote cancellation detected for run ${run.id}. Stopping local execution...`);
+              await this.stopActiveRun();
+            }
+          } catch {
+            // Ignore transient network errors during watchdog poll
+          }
         }
       }, 1500);
 
@@ -378,10 +398,16 @@ class RunnerDaemon {
       this.logger.info(`Starting execution of "${rawPortalName}" (${steps.length} actions) on ${startUrl}`);
       const result = await runner.start(effectiveWorkflow, { onProgress });
 
-      // Clean up HITL watchdog
+      // Clean up watchdog
       if (hitlInterval) {
         clearInterval(hitlInterval);
         hitlInterval = null;
+      }
+
+      // If run was stopped or aborted during execution, exit without overwriting cancelled status
+      if (this.isStoppingCurrentRun || runner.isAborted) {
+        this.logger.info(`Run ${run.id} was stopped by user.`);
+        return { success: false, runId: run.id, status: 'cancelled' };
       }
 
       // Check downloaded artifacts, compute SHA-256, deduplicate, and register in cloud
@@ -407,6 +433,11 @@ class RunnerDaemon {
         hitlInterval = null;
       }
 
+      if (this.isStoppingCurrentRun || (this.currentRunner && this.currentRunner.isAborted)) {
+        this.logger.info(`Run ${run.id} halted as cancelled.`);
+        return { success: false, runId: run.id, status: 'cancelled' };
+      }
+
       const errorMsg = err.message || 'Execution error';
       this.logger.error(`Run ${run.id} failed: ${errorMsg}`);
 
@@ -420,7 +451,45 @@ class RunnerDaemon {
       this.activeRun = null;
       this.currentRunner = null;
       this.isInHitl = false;
+      this.isStoppingCurrentRun = false;
     }
+  }
+
+  /**
+   * Stop currently active run mid-execution, close browser tab, and update cloud status to cancelled
+   */
+  async stopActiveRun() {
+    if (!this.activeRun) {
+      return { success: false, message: 'No active run executing' };
+    }
+
+    const runId = this.activeRun.id;
+    this.logger.warn(`Stopping active run ${runId} by request...`);
+    this.isStoppingCurrentRun = true;
+
+    if (this.currentRunner) {
+      try {
+        await this.currentRunner.stop(true); // Close page tab
+      } catch (err) {
+        this.logger.warn(`Error stopping runner: ${err.message}`);
+      }
+    }
+
+    try {
+      await this.cloudClient.updateRunStatus(runId, 'cancelled', {
+        error_summary: 'Stopped by user',
+        completed_at: new Date().toISOString(),
+      });
+    } catch (err) {
+      this.logger.warn(`Failed to update run status to cancelled: ${err.message}`);
+    }
+
+    this.activeRun = null;
+    this.currentRunner = null;
+    this.isInHitl = false;
+    this.isStoppingCurrentRun = false;
+    this.logger.success(`Active run ${runId} stopped and marked as cancelled.`);
+    return { success: true, runId, status: 'cancelled' };
   }
 
   /**

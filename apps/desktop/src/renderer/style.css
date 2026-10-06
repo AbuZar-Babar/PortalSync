@@ -490,6 +490,31 @@ body {
   color: #60a5fa;
 }
 
+.btn-stop-active-run {
+  margin-left: auto;
+  padding: 4px 9px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 6px;
+  background: rgba(244, 63, 94, 0.2);
+  color: #fb7185;
+  border: 1px solid rgba(244, 63, 94, 0.4);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-stop-active-run:hover {
+  background: rgba(244, 63, 94, 0.35);
+  border-color: rgba(244, 63, 94, 0.6);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.btn-stop-active-run:active {
+  transform: translateY(0);
+}
+
 .runs-list {
   flex: 1;
   overflow-y: auto;

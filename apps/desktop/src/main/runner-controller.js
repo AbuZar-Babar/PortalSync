@@ -167,6 +167,19 @@ class RunnerController {
     this._notifyStatus();
     return this.getState();
   }
+
+  async stopActiveRun() {
+    if (this.daemon && typeof this.daemon.stopActiveRun === 'function') {
+      const res = await this.daemon.stopActiveRun();
+      this.activeRun = null;
+      this._notifyStatus();
+      return res;
+    }
+    this.activeRun = null;
+    this._notifyStatus();
+    return { success: false, message: 'Daemon is not active' };
+  }
 }
 
 module.exports = new RunnerController();
+

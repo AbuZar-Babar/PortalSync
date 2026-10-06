@@ -179,6 +179,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('get-status', () => runnerController.getState());
   ipcMain.handle('start-runner', () => runnerController.start());
   ipcMain.handle('stop-runner', () => runnerController.stop());
+  ipcMain.handle('stop-active-run', () => runnerController.stopActiveRun());
 
   // Workflow Recording IPC handlers
   ipcMain.handle('start-recording', (event, options) => httpBridge.startRecording(options));

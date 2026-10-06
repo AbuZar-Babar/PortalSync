@@ -18,7 +18,10 @@ import {
   Eye,
   RefreshCw,
   Copy,
-  Check
+  Check,
+  Square,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { CreatePortalModal } from '@/components/dashboard/CreatePortalModal';
@@ -73,6 +76,9 @@ export default function DashboardPage() {
   const [triggeringWorkflowId, setTriggeringWorkflowId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
+  const [stoppingRunId, setStoppingRunId] = useState<string | null>(null);
+  const [workflowToDelete, setWorkflowToDelete] = useState<DashboardWorkflowItem | null>(null);
+  const [deletingWorkflow, setDeletingWorkflow] = useState(false);
 
   useEffect(() => {
     async function loadDashboardData() {
@@ -293,6 +299,86 @@ export default function DashboardPage() {
       console.error('Failed to trigger workflow run:', err);
     } finally {
       setTriggeringWorkflowId(null);
+    }
+  };
+
+  // Stop Run: cancels active run atomically in cloud and signals local HTTP bridge
+  const handleStopRun = async (runId: string) => {
+    setStoppingRunId(runId);
+    try {
+      // 1. Signal local Desktop HTTP Bridge for zero-latency local abort
+      try {
+        await fetch('http://127.0.0.1:49152/run/stop', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }).catch(() => {});
+      } catch {
+        // Local bridge may be offline if viewing dashboard remotely
+      }
+
+      // 2. Atomic PATCH to cloud API to mark run as cancelled
+      const res = await fetch('/api/v1/runs', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          run_id: runId,
+          status: 'cancelled',
+          error_summary: 'Stopped by user from console',
+        }),
+      });
+
+      if (res.ok) {
+        setRuns((prev) =>
+          prev.map((r) =>
+            r.id === runId
+              ? { ...r, status: 'cancelled', error_summary: 'Stopped by user from console' }
+              : r
+          )
+        );
+
+        setSelectedRun((curr) =>
+          curr && curr.id === runId
+            ? { ...curr, status: 'cancelled', error_summary: 'Stopped by user from console' }
+            : curr
+        );
+      }
+    } catch (err) {
+      console.error('Failed to stop run:', err);
+    } finally {
+      setStoppingRunId(null);
+    }
+  };
+
+  // Delete Workflow: verifies no active run and cascades removal of past history
+  const handleDeleteWorkflow = async () => {
+    if (!workflowToDelete || !orgId) return;
+    setDeletingWorkflow(true);
+
+    try {
+      const res = await fetch(`/api/v1/workflows?workflow_id=${workflowToDelete.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workflow_id: workflowToDelete.id,
+        }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        alert(errJson.error || 'Failed to delete workflow');
+        return;
+      }
+
+      // Remove from workflows state
+      setWorkflows((prev) => prev.filter((w) => w.id !== workflowToDelete.id));
+      // Remove associated runs from runs state
+      setRuns((prev) => prev.filter((r) => r.workflow_id !== workflowToDelete.id));
+      setWorkflowToDelete(null);
+    } catch (err) {
+      console.error('Failed to delete workflow:', err);
+      alert('Network error while deleting workflow');
+    } finally {
+      setDeletingWorkflow(false);
     }
   };
 
@@ -560,55 +646,99 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {displayWorkflows.map((wf) => (
-                  <tr key={wf.id} className="hover:bg-slate-900/50 transition">
-                    <td className="px-6 py-4">
-                      <div className="font-semibold text-white flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-blue-400" />
-                        {wf.name}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-xs font-mono text-slate-400 max-w-xs truncate">
-                      <a
-                        href={wf.portal_url || '#'}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-1 hover:text-blue-300"
-                      >
-                        {wf.portal_url || 'https://vendor-portal.com'} <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </td>
-                    <td className="px-6 py-4 text-xs">
-                      <span className="font-semibold text-white">{wf.itemsDownloaded ?? 0}</span> PDFs
-                    </td>
-                    <td className="px-6 py-4 text-xs">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] font-medium capitalize">
-                        {wf.status || 'Active'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => handleRunNow(wf.id, wf.name)}
-                        disabled={triggeringWorkflowId === wf.id}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 text-xs font-medium transition cursor-pointer disabled:opacity-50"
-                      >
-                        {triggeringWorkflowId === wf.id ? (
-                          <>
-                            <Loader2 className="h-3 w-3 animate-spin" /> Dispatching...
-                          </>
+                {displayWorkflows.map((wf) => {
+                  const activeRun = runs.find(
+                    (r) => r.workflow_id === wf.id && (r.status === 'pending' || r.status === 'running' || r.status === 'requires_action')
+                  );
+                  const isStopping = activeRun && stoppingRunId === activeRun.id;
+
+                  return (
+                    <tr key={wf.id} className="hover:bg-slate-900/50 transition">
+                      <td className="px-6 py-4">
+                        <div className="font-semibold text-white flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-blue-400" />
+                          {wf.name}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-xs font-mono text-slate-400 max-w-xs truncate">
+                        <a
+                          href={wf.portal_url || '#'}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-1 hover:text-blue-300"
+                        >
+                          {wf.portal_url || 'https://vendor-portal.com'} <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </td>
+                      <td className="px-6 py-4 text-xs">
+                        <span className="font-semibold text-white">{wf.itemsDownloaded ?? 0}</span> PDFs
+                      </td>
+                      <td className="px-6 py-4 text-xs">
+                        {activeRun ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[11px] font-medium capitalize animate-pulse">
+                            <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-ping" />
+                            {activeRun.status === 'requires_action' ? '2FA Action' : 'Running'}
+                          </span>
                         ) : (
-                          <>
-                            <Play className="h-3 w-3 fill-current" /> Run Now
-                          </>
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] font-medium capitalize">
+                            {wf.status || 'Active'}
+                          </span>
                         )}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="inline-flex items-center gap-2">
+                          {activeRun ? (
+                            <button
+                              onClick={() => handleStopRun(activeRun.id)}
+                              disabled={isStopping}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 text-xs font-medium transition cursor-pointer disabled:opacity-50"
+                              title="Immediately stop workflow execution"
+                            >
+                              {isStopping ? (
+                                <>
+                                  <Loader2 className="h-3 w-3 animate-spin" /> Stopping...
+                                </>
+                              ) : (
+                                <>
+                                  <Square className="h-3 w-3 fill-current text-red-400" /> Stop Run
+                                </>
+                              )}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleRunNow(wf.id, wf.name)}
+                              disabled={triggeringWorkflowId === wf.id}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 text-xs font-medium transition cursor-pointer disabled:opacity-50"
+                            >
+                              {triggeringWorkflowId === wf.id ? (
+                                <>
+                                  <Loader2 className="h-3 w-3 animate-spin" /> Dispatching...
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="h-3 w-3 fill-current" /> Run Now
+                                </>
+                              )}
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => setWorkflowToDelete(wf)}
+                            disabled={!!activeRun}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                            title={activeRun ? "Cannot delete while run is active" : "Delete portal"}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
           <div className="rounded-xl border border-slate-800 bg-slate-900/40 overflow-hidden">
             <table className="w-full text-left text-sm text-slate-300">
               <thead className="bg-slate-900/80 border-b border-slate-800 text-xs text-slate-400 uppercase tracking-wider font-semibold">
@@ -683,7 +813,57 @@ export default function DashboardPage() {
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
         run={selectedRun}
+        onStopRun={handleStopRun}
       />
+
+      {/* Delete Workflow Confirmation Modal */}
+      {workflowToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Delete Portal Workflow</h3>
+                <p className="text-xs text-slate-400">This action cannot be undone.</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-slate-300">
+              Are you sure you want to delete <span className="font-semibold text-white">"{workflowToDelete.name}"</span>?
+              All associated execution runs and recorded artifacts will be permanently removed.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setWorkflowToDelete(null)}
+                disabled={deletingWorkflow}
+                className="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteWorkflow}
+                disabled={deletingWorkflow}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-500 transition shadow-lg shadow-red-500/20 cursor-pointer disabled:opacity-50"
+              >
+                {deletingWorkflow ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" /> Delete Portal
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
