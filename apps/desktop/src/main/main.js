@@ -169,11 +169,12 @@ app.whenReady().then(async () => {
   ipcMain.handle('stop-recording', () => httpBridge.stopRecording());
   ipcMain.handle('get-recording-status', () => httpBridge.getStatus());
 
-  ipcMain.handle('test-connection', async () => {
-    const config = configManager.get();
-    const CloudClient = require(path.resolve(__dirname, '../../../../packages/engine/src/runner/cloud-client'));
+  ipcMain.handle('test-connection', async (event, customConfig) => {
+    const current = configManager.get();
+    const config = { ...current, ...(customConfig || {}) };
+    const { CloudClient } = require(path.resolve(__dirname, '../../../../packages/engine/src/runner/cloud-client'));
     const client = new CloudClient({
-      baseUrl: config.cloudUrl || 'http://localhost:3000',
+      baseUrl: config.cloudUrl || 'https://web-fawn-ten-55.vercel.app',
       token: config.runnerToken,
     });
     return await client.testConnection();

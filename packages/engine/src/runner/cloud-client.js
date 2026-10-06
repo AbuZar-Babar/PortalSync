@@ -30,7 +30,8 @@ class CloudClient {
   constructor(options = {}) {
     const rawUrl = options.baseUrl || process.env.PORTALSYNC_CLOUD_URL || 'http://localhost:3000';
     this.baseUrl = rawUrl.replace(/\/+$/, '');
-    this.token = options.token || process.env.PORTALSYNC_RUNNER_TOKEN || '';
+    const rawToken = options.token || process.env.PORTALSYNC_RUNNER_TOKEN || '';
+    this.token = rawToken.replace(/[\.\s]+$/, '').trim();
     this.timeoutMs = options.timeoutMs || 15000;
     this.fetchFn = options.fetch || (typeof fetch !== 'undefined' ? fetch : globalThis.fetch);
 
@@ -44,7 +45,7 @@ class CloudClient {
    * @param {string} token 
    */
   setToken(token) {
-    this.token = token || '';
+    this.token = (token || '').replace(/[\.\s]+$/, '').trim();
   }
 
   /**
@@ -328,7 +329,9 @@ class CloudClient {
   }
 }
 
-module.exports = {
-  CloudClient,
-  CloudClientError,
-};
+// Backward and forward compatibility: support both `require('./cloud-client')` and `require('./cloud-client').CloudClient`
+CloudClient.CloudClient = CloudClient;
+CloudClient.CloudClientError = CloudClientError;
+module.exports = CloudClient;
+module.exports.CloudClient = CloudClient;
+module.exports.CloudClientError = CloudClientError;

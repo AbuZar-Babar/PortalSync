@@ -164,17 +164,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     testConnectionResult.classList.add('hidden');
 
     try {
-      // Temporarily save before test
+      const token = inputToken.value.trim().replace(/[\.\s]+$/, '');
+      const cloudUrl = inputCloudUrl.value.trim() || 'https://web-fawn-ten-55.vercel.app';
+
+      // Save before test
       await window.portalsync.saveConfig({
-        runnerToken: inputToken.value.trim(),
-        cloudUrl: inputCloudUrl.value.trim(),
+        runnerToken: token,
+        cloudUrl: cloudUrl,
       });
 
-      const res = await window.portalsync.testConnection();
-      if (res.connected) {
-        showTestResult(`✓ Connected to ${res.url} (Org: ${res.orgId || 'Valid'})`, true);
+      const res = await window.portalsync.testConnection({
+        runnerToken: token,
+        cloudUrl: cloudUrl,
+      });
+      if (res && res.connected) {
+        showTestResult(`✓ Connected to ${res.url} (${res.pendingRunsCount ?? 0} pending runs)`, true);
       } else {
-        showTestResult(`✕ Connection Failed: ${res.error}`, false);
+        showTestResult(`✕ Connection Failed: ${res?.error || 'Unknown error'}`, false);
       }
     } catch (err) {
       showTestResult(`✕ Error: ${err.message}`, false);

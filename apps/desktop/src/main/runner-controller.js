@@ -64,7 +64,7 @@ class RunnerController {
       const CloudClient = require(path.join(enginePath, 'cloud-client'));
 
       const cloudClient = new CloudClient({
-        baseUrl: config.cloudUrl || 'http://localhost:3000',
+        baseUrl: config.cloudUrl || 'https://web-fawn-ten-55.vercel.app',
         token: config.runnerToken,
       });
 
