@@ -230,11 +230,30 @@ class RunnerDaemon {
       }
     }
 
-    // Determine target download directory
+    // Determine target download directory with safe fallback if configured drive/path doesn't exist
     const workflowTargetFolder = workflow?.workflow_definition?.target_folder;
-    const runTargetDir = workflowTargetFolder || path.join(this.targetFolder, run.id);
+    let runTargetDir = path.join(this.targetFolder, run.id);
+
+    if (workflowTargetFolder) {
+      try {
+        if (!fs.existsSync(workflowTargetFolder)) {
+          fs.mkdirSync(workflowTargetFolder, { recursive: true });
+        }
+        runTargetDir = workflowTargetFolder;
+      } catch (mkdirErr) {
+        this.logger.warn(`Configured target folder '${workflowTargetFolder}' is inaccessible (${mkdirErr.message}). Falling back to local directory '${runTargetDir}'.`);
+      }
+    }
+
     if (!fs.existsSync(runTargetDir)) {
-      fs.mkdirSync(runTargetDir, { recursive: true });
+      try {
+        fs.mkdirSync(runTargetDir, { recursive: true });
+      } catch (fallbackErr) {
+        // Last-resort fallback to os temp directory
+        const os = require('os');
+        runTargetDir = path.join(os.tmpdir(), 'portalsync-downloads', run.id);
+        fs.mkdirSync(runTargetDir, { recursive: true });
+      }
     }
 
     // Initialize LoopReplayRunner lazily
