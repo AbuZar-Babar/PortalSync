@@ -23,7 +23,7 @@ class ConfigManager {
   getDefaults() {
     return {
       runnerToken: '',
-      cloudUrl: 'http://localhost:3000',
+      cloudUrl: 'https://web-fawn-ten-55.vercel.app',
       browserMode: 'visible', // 'visible' | 'headless'
       targetFolder: this.defaultTargetFolder,
       autoStartRunner: false,
