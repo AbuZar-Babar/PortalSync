@@ -48,20 +48,20 @@ export default function SignupPage() {
         // If auto-confirmed or session is active, provision organization directly
         if (authData.session) {
           const orgSlug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'workspace';
+          const orgId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `org_${Date.now()}`;
 
-          const { data: orgData, error: orgError } = await supabase
+          const { error: orgError } = await supabase
             .from('wf_organizations')
             .insert({
+              id: orgId,
               name: companyName,
               slug: `${orgSlug}-${Math.random().toString(36).substring(2, 7)}`,
-              billing_tier: 'starter',
-            })
-            .select('id')
-            .single();
+              plan_tier: 'starter',
+            });
 
-          if (!orgError && orgData) {
+          if (!orgError) {
             await supabase.from('wf_organization_members').insert({
-              org_id: orgData.id,
+              org_id: orgId,
               user_id: authData.user.id,
               role: 'owner',
             });

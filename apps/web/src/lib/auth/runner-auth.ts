@@ -74,7 +74,7 @@ async function resolveOrCreateOrgId(rawOrgId: string, supabase: SupabaseClient):
         id: sanitized,
         name: `Org ${sanitized.slice(0, 8)}`,
         slug: `org-${sanitized.slice(0, 8)}-${Date.now()}`,
-        billing_tier: 'starter',
+        plan_tier: 'starter',
       })
       .select('id')
       .maybeSingle();

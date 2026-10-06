@@ -63,17 +63,17 @@ export default function OnboardingPage() {
 
       const slug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'workspace';
       const uniqueSlug = `${slug}-${Math.random().toString(36).substring(2, 7)}`;
+      const orgId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `org_${Date.now()}`;
 
-      // 1. Create Organization
-      const { data: orgData, error: orgError } = await supabase
+      // 1. Create Organization with explicit ID (avoids RLS SELECT rejection before membership)
+      const { error: orgError } = await supabase
         .from('wf_organizations')
         .insert({
+          id: orgId,
           name: companyName.trim(),
           slug: uniqueSlug,
-          billing_tier: tier,
-        })
-        .select('id')
-        .single();
+          plan_tier: tier,
+        });
 
       if (orgError) throw orgError;
 
@@ -81,7 +81,7 @@ export default function OnboardingPage() {
       const { error: memberError } = await supabase
         .from('wf_organization_members')
         .insert({
-          org_id: orgData.id,
+          org_id: orgId,
           user_id: user.id,
           role: 'owner',
         });
@@ -92,8 +92,11 @@ export default function OnboardingPage() {
       router.push('/dashboard');
       router.refresh();
     } catch (err: unknown) {
+      console.error('Workspace setup error:', err);
       if (err instanceof Error) {
         setError(err.message);
+      } else if (typeof err === 'object' && err !== null && 'message' in err) {
+        setError(String((err as { message: unknown }).message));
       } else {
         setError('Failed to setup workspace. Please try again.');
       }
