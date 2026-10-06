@@ -1,0 +1,19 @@
+{
+  "name": "portalsync-saas",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PortalSync Enterprise B2B SaaS Monorepo",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --prefix apps/web",
+    "build": "npm run build --prefix apps/web",
+    "start": "npm run start --prefix apps/web",
+    "runner": "node packages/engine/src/runner/cli.js",
+    "runner:doctor": "node packages/engine/src/runner/cli.js doctor",
+    "runner:listen": "node packages/engine/src/runner/cli.js listen",
+    "test": "node tests/run-all-tests.js"
+  }
+}
