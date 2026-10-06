@@ -37,7 +37,11 @@ class ConfigManager {
     this._ensureDir();
     if (!fs.existsSync(this.configFile)) {
       const defaults = this.getDefaults();
-      this.save(defaults);
+      try {
+        fs.writeFileSync(this.configFile, JSON.stringify(defaults, null, 2), 'utf8');
+      } catch (err) {
+        console.warn('Could not write default config:', err);
+      }
       return defaults;
     }
 
@@ -54,7 +58,13 @@ class ConfigManager {
   save(newConfig) {
     this._ensureDir();
     try {
-      const current = this.get();
+      let current = this.getDefaults();
+      if (fs.existsSync(this.configFile)) {
+        try {
+          const raw = fs.readFileSync(this.configFile, 'utf8');
+          current = { ...current, ...JSON.parse(raw) };
+        } catch {}
+      }
       const updated = { ...current, ...newConfig };
       fs.writeFileSync(this.configFile, JSON.stringify(updated, null, 2), 'utf8');
       return updated;
