@@ -16,7 +16,9 @@ import {
   User,
   Loader2,
   Eye,
-  RefreshCw
+  RefreshCw,
+  Copy,
+  Check
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { CreatePortalModal } from '@/components/dashboard/CreatePortalModal';
@@ -70,6 +72,7 @@ export default function DashboardPage() {
   const [selectedRun, setSelectedRun] = useState<DrawerRunItem | null>(null);
   const [triggeringWorkflowId, setTriggeringWorkflowId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [copiedToken, setCopiedToken] = useState(false);
 
   useEffect(() => {
     async function loadDashboardData() {
@@ -405,10 +408,27 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2 text-xs bg-blue-950/60 text-blue-300 border border-blue-800/40 px-3 py-1.5 rounded-lg">
+          <button
+            onClick={() => {
+              if (orgId) {
+                navigator.clipboard.writeText(`ps_live_${orgId}`);
+                setCopiedToken(true);
+                setTimeout(() => setCopiedToken(false), 2000);
+              }
+            }}
+            title="Click to copy full runner token"
+            className="hidden sm:flex items-center gap-2 text-xs bg-blue-950/60 hover:bg-blue-900/60 text-blue-300 border border-blue-800/40 px-3 py-1.5 rounded-lg transition cursor-pointer group"
+          >
             <Key className="h-3.5 w-3.5 text-blue-400" />
-            Runner Token: <code className="font-mono text-[11px] text-blue-200">ps_live_{orgId?.substring(0, 8) || 'test89f2'}...</code>
-          </div>
+            <span>Runner Token:</span>
+            <code className="font-mono text-[11px] text-blue-200">ps_live_{orgId?.substring(0, 8) || 'test89f2'}...</code>
+            {copiedToken ? (
+              <Check className="h-3.5 w-3.5 text-emerald-400 ml-1" />
+            ) : (
+              <Copy className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-300 ml-1 transition" />
+            )}
+            {copiedToken && <span className="text-[10px] text-emerald-400 font-medium">Copied!</span>}
+          </button>
 
           <button
             onClick={handleManualRefresh}

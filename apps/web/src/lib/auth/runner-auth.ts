@@ -51,12 +51,16 @@ export function extractRunnerToken(request: NextRequest): string | null {
 async function resolveOrCreateOrgId(rawOrgId: string, supabase: SupabaseClient): Promise<string | null> {
   if (!rawOrgId) return null;
 
+  // Strip any trailing ellipsis or whitespace (e.g. user copying ps_live_12345678...)
+  const sanitized = rawOrgId.replace(/[\.\s]+$/, '').trim();
+  if (!sanitized) return null;
+
   // 1. Full UUID format
-  if (UUID_REGEX.test(rawOrgId)) {
+  if (UUID_REGEX.test(sanitized)) {
     const { data: existing } = await supabase
       .from('wf_organizations')
       .select('id')
-      .eq('id', rawOrgId)
+      .eq('id', sanitized)
       .maybeSingle();
 
     if (existing) {
@@ -67,10 +71,10 @@ async function resolveOrCreateOrgId(rawOrgId: string, supabase: SupabaseClient):
     const { data: created, error } = await supabase
       .from('wf_organizations')
       .insert({
-        id: rawOrgId,
-        name: `Org ${rawOrgId.slice(0, 8)}`,
-        slug: `org-${rawOrgId.slice(0, 8)}-${Date.now()}`,
-        plan_tier: 'starter',
+        id: sanitized,
+        name: `Org ${sanitized.slice(0, 8)}`,
+        slug: `org-${sanitized.slice(0, 8)}-${Date.now()}`,
+        billing_tier: 'starter',
       })
       .select('id')
       .maybeSingle();
@@ -78,30 +82,31 @@ async function resolveOrCreateOrgId(rawOrgId: string, supabase: SupabaseClient):
     if (!error && created) {
       return created.id;
     }
-    return rawOrgId;
+    return sanitized;
   }
 
   // 2. Lookup by slug
   const { data: bySlug } = await supabase
     .from('wf_organizations')
     .select('id')
-    .eq('slug', rawOrgId)
+    .eq('slug', sanitized)
     .maybeSingle();
 
   if (bySlug) {
     return bySlug.id;
   }
 
-  // 3. Lookup by UUID prefix
-  const { data: byPrefix } = await supabase
+  // 3. Lookup by UUID prefix safely (query IDs and check prefix in JS to avoid invalid PostgreSQL UUID ilike)
+  const { data: allOrgs } = await supabase
     .from('wf_organizations')
     .select('id')
-    .ilike('id', `${rawOrgId}%`)
-    .limit(1)
-    .maybeSingle();
+    .limit(50);
 
-  if (byPrefix) {
-    return byPrefix.id;
+  if (allOrgs) {
+    const matched = allOrgs.find((o) => o.id.toLowerCase().startsWith(sanitized.toLowerCase()));
+    if (matched) {
+      return matched.id;
+    }
   }
 
   // 4. Lookup by name
