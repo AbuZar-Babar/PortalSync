@@ -157,9 +157,25 @@ app.whenReady().then(async () => {
     }
   });
 
+  // Auto-start runner if token is configured
+  const initialConfig = configManager.get();
+  if (initialConfig.runnerToken && initialConfig.autoStartRunner !== false) {
+    runnerController.start().catch((err) => {
+      console.warn('[Main] Auto-start runner notice:', err.message);
+    });
+  }
+
   // Handle IPC calls
   ipcMain.handle('get-config', () => configManager.get());
-  ipcMain.handle('save-config', (event, config) => configManager.save(config));
+  ipcMain.handle('save-config', async (event, config) => {
+    const updated = configManager.save(config);
+    if (updated.runnerToken && updated.autoStartRunner !== false && runnerController.getState().status === 'idle') {
+      runnerController.start().catch((err) => {
+        console.warn('[Main] Runner auto-start on save error:', err.message);
+      });
+    }
+    return updated;
+  });
   ipcMain.handle('get-status', () => runnerController.getState());
   ipcMain.handle('start-runner', () => runnerController.start());
   ipcMain.handle('stop-runner', () => runnerController.stop());

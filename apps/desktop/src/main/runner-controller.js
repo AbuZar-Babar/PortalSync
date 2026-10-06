@@ -60,8 +60,10 @@ class RunnerController {
 
       // 2. Load engine modules from packages/engine
       const enginePath = path.resolve(__dirname, '../../../../packages/engine/src/runner');
-      const RunnerDaemon = require(path.join(enginePath, 'runner-daemon'));
-      const CloudClient = require(path.join(enginePath, 'cloud-client'));
+      const RunnerDaemonModule = require(path.join(enginePath, 'runner-daemon'));
+      const RunnerDaemon = RunnerDaemonModule.RunnerDaemon || RunnerDaemonModule;
+      const CloudClientModule = require(path.join(enginePath, 'cloud-client'));
+      const CloudClient = CloudClientModule.CloudClient || CloudClientModule;
 
       const cloudClient = new CloudClient({
         baseUrl: config.cloudUrl || 'https://web-fawn-ten-55.vercel.app',

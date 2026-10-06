@@ -26,7 +26,7 @@ class ConfigManager {
       cloudUrl: 'https://web-fawn-ten-55.vercel.app',
       browserMode: 'visible', // 'visible' | 'headless'
       targetFolder: this.defaultTargetFolder,
-      autoStartRunner: false,
+      autoStartRunner: true,
       minimizeToTray: true,
       lastConnected: null,
       organizationName: null,

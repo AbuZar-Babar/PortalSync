@@ -231,12 +231,38 @@ class RunnerDaemon {
       }
     }
 
+    // Extract workflow definition and normalize actions/steps
+    const def = workflow?.workflow_definition || {};
+    const steps = Array.isArray(def.steps) && def.steps.length > 0
+      ? def.steps
+      : (Array.isArray(def.actions) && def.actions.length > 0
+        ? def.actions
+        : (Array.isArray(workflow?.steps) && workflow.steps.length > 0
+          ? workflow.steps
+          : (Array.isArray(workflow?.actions) ? workflow.actions : [])));
+
     // Determine sanitized portal name
-    const rawPortalName = workflow?.name || workflow?.workflow_definition?.name || run.workflow_name || 'DefaultPortal';
+    const rawPortalName = workflow?.name || def.name || def.metadata?.name || workflow?.metadata?.name || run.workflow_name || 'DefaultPortal';
     const sanitizedPortalName = sanitizePortalName(rawPortalName);
 
+    const startUrl = workflow?.portal_url ||
+      def.portal_url ||
+      def.metadata?.startUrl ||
+      workflow?.metadata?.startUrl ||
+      workflow?.startUrl ||
+      workflow?.targetUrl ||
+      (steps[0] && steps[0].url) ||
+      'about:blank';
+
+    const metadata = def.metadata || workflow?.metadata || {
+      name: rawPortalName,
+      startUrl: startUrl,
+    };
+
+    const isLoop = def.metadata?.isLoop || metadata.isLoop || workflow?.isLoop || false;
+
     // Determine target download directory organized by portal name
-    const workflowTargetFolder = workflow?.workflow_definition?.target_folder;
+    const workflowTargetFolder = def.target_folder || workflow?.target_folder;
     let runTargetDir = resolvePortalStorageDir(this.targetFolder, sanitizedPortalName);
 
     if (workflowTargetFolder) {
@@ -288,8 +314,8 @@ class RunnerDaemon {
       cdpPort: this.cdpPort,
       runId: run.id,
       workflowId: run.workflow_id,
-      workflowName: sanitizedPortalName || workflow?.name || 'workflow',
-      targetUrl: workflow?.portal_url,
+      workflowName: sanitizedPortalName || rawPortalName || 'workflow',
+      targetUrl: startUrl,
       structuredDownloadsDir: runTargetDir,
     });
     this.currentRunner = runner;
@@ -330,14 +356,26 @@ class RunnerDaemon {
         }
       }, 1500);
 
-      // Execute workflow
-      const effectiveWorkflow = workflow || {
-        id: run.workflow_id,
-        name: 'Workflow',
-        portal_url: 'about:blank',
-        steps: [],
+      // Execute normalized workflow with explicit steps and start URL
+      const effectiveWorkflow = {
+        ...workflow,
+        ...def,
+        id: run.workflow_id || workflow?.id,
+        name: rawPortalName,
+        portal_url: startUrl,
+        targetUrl: startUrl,
+        startUrl: startUrl,
+        steps: steps,
+        actions: steps,
+        metadata: metadata,
+        recordingData: {
+          actions: steps,
+          metadata: metadata,
+        },
+        isLoop: isLoop,
       };
 
+      this.logger.info(`Starting execution of "${rawPortalName}" (${steps.length} actions) on ${startUrl}`);
       const result = await runner.start(effectiveWorkflow, { onProgress });
 
       // Clean up HITL watchdog
@@ -559,12 +597,12 @@ class RunnerDaemon {
   }
 }
 
-module.exports = {
-  RunnerDaemon,
-  checkCdpResponding,
-  computeSha256,
-  detect2FAChallenge,
-  waitFor2FAResolution,
-  sanitizePortalName,
-  resolvePortalStorageDir,
-};
+module.exports = RunnerDaemon;
+RunnerDaemon.RunnerDaemon = RunnerDaemon;
+RunnerDaemon.checkCdpResponding = checkCdpResponding;
+RunnerDaemon.computeSha256 = computeSha256;
+RunnerDaemon.detect2FAChallenge = detect2FAChallenge;
+RunnerDaemon.waitFor2FAResolution = waitFor2FAResolution;
+RunnerDaemon.sanitizePortalName = sanitizePortalName;
+RunnerDaemon.resolvePortalStorageDir = resolvePortalStorageDir;
+

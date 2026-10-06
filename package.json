@@ -16,5 +16,8 @@
     "runner:listen": "node packages/engine/src/runner/cli.js listen",
     "desktop": "npm start --prefix apps/desktop",
     "test": "node tests/run-all-tests.js"
+  },
+  "dependencies": {
+    "puppeteer-core": "^25.12.0"
   }
 }

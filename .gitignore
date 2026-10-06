@@ -42,3 +42,9 @@ yarn-error.log*
 
 # Vercel
 .vercel
+
+# Local Runtime Artifacts & Recordings
+recordings/
+downloads/
+data/
+

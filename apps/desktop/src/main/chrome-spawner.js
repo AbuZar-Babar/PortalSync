@@ -92,6 +92,14 @@ class ChromeSpawner {
       fs.mkdirSync(this.profileDir, { recursive: true });
     }
 
+    // Clean stale lock files from previous runs to prevent Chrome from immediately exiting
+    for (const lock of ['SingletonLock', 'SingletonCookie', 'SingletonSocket']) {
+      try {
+        const lockPath = path.join(this.profileDir, lock);
+        if (fs.existsSync(lockPath)) fs.unlinkSync(lockPath);
+      } catch {}
+    }
+
     const args = [
       `--remote-debugging-port=${this.port}`,
       `--user-data-dir=${this.profileDir}`,
