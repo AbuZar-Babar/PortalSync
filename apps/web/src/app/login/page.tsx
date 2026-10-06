@@ -36,7 +36,7 @@ function LoginForm() {
         // Check if user has an organization
         const { data: memberData } = await supabase
           .from('wf_organization_members')
-          .select('organization_id')
+          .select('org_id')
           .eq('user_id', data.user.id)
           .limit(1);
 

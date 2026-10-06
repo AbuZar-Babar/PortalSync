@@ -81,7 +81,7 @@ export default function OnboardingPage() {
       const { error: memberError } = await supabase
         .from('wf_organization_members')
         .insert({
-          organization_id: orgData.id,
+          org_id: orgData.id,
           user_id: user.id,
           role: 'owner',
         });

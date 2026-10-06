@@ -61,7 +61,7 @@ export default function SignupPage() {
 
           if (!orgError && orgData) {
             await supabase.from('wf_organization_members').insert({
-              organization_id: orgData.id,
+              org_id: orgData.id,
               user_id: authData.user.id,
               role: 'owner',
             });
