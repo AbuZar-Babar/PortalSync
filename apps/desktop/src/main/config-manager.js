@@ -46,7 +46,7 @@ class ConfigManager {
     }
 
     try {
-      const raw = fs.readFileSync(this.configFile, 'utf8');
+      const raw = fs.readFileSync(this.configFile, 'utf8').replace(/^\uFEFF/, '');
       const parsed = JSON.parse(raw);
       return { ...this.getDefaults(), ...parsed };
     } catch (err) {
