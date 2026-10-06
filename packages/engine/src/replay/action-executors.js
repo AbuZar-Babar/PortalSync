@@ -1,0 +1,591 @@
+/**
+ * Replay Action Executors
+ * 
+ * Performs simulated user interactions on validated Puppeteer ElementHandles
+ * with humanized Bezier mouse curves, randomized typing cadence, and stealth timing.
+ */
+
+const { DEFAULT_TIMEOUTS } = require('../shared/constants');
+const { ActionExecutionError, ElementNotInteractableError } = require('../utils/errors');
+const { moveMouseHumanlike, calculateDelay, calculateTypingDelay } = require('./human-mouse');
+const logger = require('../utils/logger');
+
+/**
+ * Ensure element is scrolled into view and interactable
+ */
+async function ensureInteractable(elementHandle, action) {
+  // Check visibility, enabled status, and scroll into view natively
+  const status = await elementHandle.evaluate((el) => {
+    const isBackdrop = Boolean(
+      (el.classList && (el.classList.contains('cdk-overlay-backdrop') || el.classList.contains('modal-backdrop'))) ||
+      (el.className && typeof el.className === 'string' && el.className.includes('backdrop'))
+    );
+
+    if (el.scrollIntoView && !isBackdrop) {
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+    const hasDimensions = !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+    const isVisible = hasDimensions || isBackdrop;
+    const isDisabled = el.disabled === true;
+    return { isVisible, isDisabled };
+  });
+
+  if (!status.isVisible) {
+    throw new ElementNotInteractableError('Target element is not visible in DOM', {
+      actionIndex: action.index,
+      actionType: action.type,
+      target: action.target,
+      reason: 'Element has 0 dimensions or display:none'
+    });
+  }
+
+  if (status.isDisabled) {
+    logger.warn(`Element for Action #${action.index + 1} has disabled attribute; attempting synthetic click dispatch.`);
+  }
+}
+
+/**
+ * Perform human mouse movement to element if enabled
+ */
+async function simulateHumanMouseToElement(elementHandle, page, botConfig = {}) {
+  if (!page || !botConfig.mouse?.enabled) return;
+
+  try {
+    const box = await elementHandle.boundingBox();
+    if (!box) return;
+
+    // Target center with natural human jitter offset within element boundaries
+    const targetX = box.x + box.width * (0.35 + Math.random() * 0.3);
+    const targetY = box.y + box.height * (0.35 + Math.random() * 0.3);
+
+    // Get current cursor location or pick plausible starting point
+    const fromPoint = {
+      x: (page._lastMouseX ?? 100) + (Math.random() * 50 - 25),
+      y: (page._lastMouseY ?? 100) + (Math.random() * 50 - 25)
+    };
+
+    await moveMouseHumanlike(page, fromPoint, { x: targetX, y: targetY }, botConfig.mouse);
+    page._lastMouseX = targetX;
+    page._lastMouseY = targetY;
+
+    // Dwell / hover hesitation before click
+    if (botConfig.mouse.hoverBeforeClickMs > 0) {
+      const hoverDelay = calculateDelay(
+        Math.round(botConfig.mouse.hoverBeforeClickMs * 0.7),
+        Math.round(botConfig.mouse.hoverBeforeClickMs * 1.3),
+        'gaussian'
+      );
+      await new Promise(r => setTimeout(r, hoverDelay));
+    }
+  } catch {}
+}
+
+/**
+ * Execute CLICK action
+ */
+async function executeClick(elementHandle, action, options = {}) {
+  await ensureInteractable(elementHandle, action);
+  const { page, botConfig } = options;
+
+  // 1. Dropdown Trigger Idempotency Check:
+  // If target element is a combobox/select trigger (or inner arrow/icon) and it is ALREADY expanded (open),
+  // and the subsequent action is selecting an option, skip redundant click so we don't accidentally close it!
+  const isAlreadyOpenTrigger = await elementHandle.evaluate((el) => {
+    const combobox = el.closest('mat-select, [role="combobox"], [aria-haspopup="listbox"]');
+    if (!combobox) return false;
+    return combobox.getAttribute('aria-expanded') === 'true';
+  }).catch(() => false);
+
+  if (isAlreadyOpenTrigger && options.isNextActionOption) {
+    logger.info(`[Replay] Combobox is already open (aria-expanded="true"); skipping redundant trigger click to keep options visible.`);
+    return;
+  }
+
+  // 2. Checkbox Idempotency & State-Aware Check:
+  // If target element is a checkbox (native input, ARIA role="checkbox", or Material/DevExpress checkbox),
+  // inspect its current state. If it already matches the desired state, SKIP the click to avoid
+  // accidental toggling/inverting on repeat!
+  const isTargetCheckbox = Boolean(
+    action.isCheckbox === true ||
+    action.desiredState !== undefined ||
+    action.checked !== undefined ||
+    action.target?.isCheckbox === true ||
+    action.target?.fingerprint?.isCheckbox === true ||
+    action.target?.fingerprint?.type === 'checkbox' ||
+    action.target?.fingerprint?.role === 'checkbox' ||
+    action.target?.fingerprint?.tagName === 'mat-pseudo-checkbox' ||
+    (action.name && action.name.toLowerCase().includes('checkbox')) ||
+    (action.elementName && action.elementName.toLowerCase().includes('checkbox'))
+  );
+
+  let checkboxStatus = null;
+  try {
+    checkboxStatus = await elementHandle.evaluate((el) => {
+      const isInputCb = el.tagName === 'INPUT' && (el.type || '').toLowerCase() === 'checkbox';
+      const isRoleCb = el.getAttribute('role') === 'checkbox';
+      const isMatCb = Boolean(el.closest('mat-checkbox, .mat-mdc-checkbox, dx-check-box'));
+      const hasInnerCb = Boolean(el.querySelector('input[type="checkbox"], [role="checkbox"]'));
+      const isPseudoCb = el.classList?.contains('mat-pseudo-checkbox') || Boolean(el.querySelector('.mat-pseudo-checkbox'));
+      const isInsideOption = Boolean(el.closest('mat-option, [role="option"]'));
+
+      if (!isInputCb && !isRoleCb && !isMatCb && !hasInnerCb && !isPseudoCb) {
+        return null;
+      }
+
+      const getChecked = () => {
+        if (isInputCb) return Boolean(el.checked);
+        const input = el.querySelector('input[type="checkbox"]') ||
+                      el.closest('label')?.querySelector('input[type="checkbox"]') ||
+                      el.closest('mat-checkbox')?.querySelector('input[type="checkbox"]');
+        if (input) return Boolean(input.checked);
+
+        const aria = el.getAttribute('aria-checked') ??
+                     el.querySelector('[aria-checked]')?.getAttribute('aria-checked') ??
+                     el.closest('[aria-checked]')?.getAttribute('aria-checked');
+        if (aria !== null && aria !== undefined) return aria === 'true';
+
+        if (el.classList.contains('mat-mdc-checkbox-checked') ||
+            el.classList.contains('mat-checkbox-checked') ||
+            el.classList.contains('dx-checkbox-checked') ||
+            el.classList.contains('checked') ||
+            el.classList.contains('is-checked')) return true;
+
+        if (el.querySelector('.mat-pseudo-checkbox-checked') || el.classList.contains('mat-pseudo-checkbox-checked')) return true;
+
+        const matParent = el.closest('mat-checkbox');
+        if (matParent && (matParent.classList.contains('mat-mdc-checkbox-checked') || matParent.classList.contains('mat-checkbox-checked'))) return true;
+
+        return false;
+      };
+
+      return {
+        isCheckbox: true,
+        isInsideOption,
+        currentChecked: getChecked()
+      };
+    });
+  } catch {}
+
+  let desiredState = undefined;
+  if (action.desiredState !== undefined) {
+    desiredState = Boolean(action.desiredState);
+  } else if (action.checked !== undefined) {
+    desiredState = Boolean(action.checked);
+  } else if (action.isUncheck === true) {
+    desiredState = false;
+  } else if (action.meta?.checked !== undefined) {
+    desiredState = Boolean(action.meta.checked);
+  } else if (isTargetCheckbox && action.target?.fingerprint?.checked !== undefined) {
+    desiredState = Boolean(action.target.fingerprint.checked);
+  }
+
+  // If this is a standalone checkbox and desiredState is known:
+  if (checkboxStatus && checkboxStatus.isCheckbox && !checkboxStatus.isInsideOption && desiredState !== undefined) {
+    if (checkboxStatus.currentChecked === desiredState) {
+      logger.info(`[Replay] Checkbox "${action.elementName || action.name || 'Checkbox'}" is ALREADY ${desiredState ? 'CHECKED' : 'UNCHECKED'}; skipping click to preserve state on repeat.`);
+      return;
+    }
+    logger.info(`[Replay] Checkbox "${action.elementName || action.name || 'Checkbox'}" current=${checkboxStatus.currentChecked}, desired=${desiredState}; executing click to set state.`);
+  }
+
+  // 3. If target is inside an option (e.g. mat-pseudo-checkbox, span label, or ripple),
+  // resolve the parent mat-option / [role="option"] host element for reliable framework event dispatching
+  let clickTarget = elementHandle;
+  try {
+    const optionHandle = await elementHandle.evaluateHandle((el) => {
+      const opt = el.closest('mat-option, [role="option"], .mat-mdc-option');
+      if (opt && opt.scrollIntoView) {
+        opt.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
+      return opt || el;
+    });
+    if (optionHandle) {
+      const asElem = optionHandle.asElement();
+      if (asElem) clickTarget = asElem;
+    }
+  } catch {}
+
+  // 3. If target is a backdrop (clicking outside in blank space to close a dropdown/modal)
+  const isBackdropTarget = await clickTarget.evaluate(el => {
+    return Boolean(
+      (el.classList && (el.classList.contains('cdk-overlay-backdrop') || el.classList.contains('modal-backdrop'))) ||
+      (el.className && typeof el.className === 'string' && el.className.includes('backdrop'))
+    );
+  }).catch(() => false);
+
+  if (isBackdropTarget) {
+    try {
+      await clickTarget.evaluate(el => {
+        el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+        el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+        el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+        el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      });
+      logger.info(`[Replay] Dispatched full click sequence on backdrop to dismiss open overlay.`);
+      return;
+    } catch {}
+  }
+
+  // 4. Canvas Target Support:
+  // If target is a canvas with recorded normalized relative coordinates (0-1),
+  // click at the exact offset within the canvas bounding box
+  if (action.target?.canvasCoords && page) {
+    const { relX, relY } = action.target.canvasCoords;
+    const box = await clickTarget.boundingBox();
+    if (box) {
+      const clickX = box.x + box.width * relX;
+      const clickY = box.y + box.height * relY;
+      logger.info(`[Replay] Clicking canvas at normalized (${relX}, ${relY}) -> viewport (${Math.round(clickX)}, ${Math.round(clickY)})`);
+      if (botConfig?.mouse?.enabled) {
+        try {
+          await moveMouseHumanlike(page, { x: page._lastMouseX ?? 100, y: page._lastMouseY ?? 100 }, { x: clickX, y: clickY }, botConfig.mouse);
+          page._lastMouseX = clickX;
+          page._lastMouseY = clickY;
+        } catch {}
+      }
+      await page.mouse.click(clickX, clickY, { delay: 35 });
+      return;
+    }
+  }
+
+  if (botConfig) {
+    await simulateHumanMouseToElement(clickTarget, page, botConfig);
+  }
+
+  const isLikelyDownloadOrExport = Boolean(
+    action.isDownload === true ||
+    (action.target?.candidates?.some(c => c.value && /save|export|download|print|pdf|file/i.test(c.value))) ||
+    (action.target?.fingerprint?.attributes?.title && /save|export|download|print|pdf/i.test(action.target.fingerprint.attributes.title)) ||
+    (action.target?.fingerprint?.attributes?.href && /download|export|save|file/i.test(action.target.fingerprint.attributes.href)) ||
+    (action.target?.fingerprint?.text && /download|export|save|print|pdf/i.test(action.target.fingerprint.text)) ||
+    (action.name && /download|export|save/i.test(action.name)) ||
+    (action.elementName && /download|export|save/i.test(action.elementName))
+  );
+
+  let clicked = false;
+  try {
+    // Primary: Trusted Puppeteer CDP click with timeout guard (2500ms) against download hangs.
+    // Dispatches authentic OS-level mouse events providing Chrome transient user activation.
+    await Promise.race([
+      clickTarget.click({ delay: 35 }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Click timeout (likely download trigger)')), 2500))
+    ]);
+    clicked = true;
+  } catch (err) {
+    if (err.message && err.message.includes('Click timeout')) {
+      logger.info(`[Replay] Native CDP click initiated download stream on ${action.name || 'element'}.`);
+      clicked = true;
+    }
+  }
+
+  // Supplementary / Fallback: If not clicked or if targeting DevExpress/framework export buttons,
+  // also fire synchronous DOM events on the element and any parent toolbar item (.dxm-item, button, .x-btn)
+  if (!clicked || isLikelyDownloadOrExport) {
+    try {
+      await clickTarget.evaluate((el, alreadyClicked) => {
+        el.focus?.();
+        if (!alreadyClicked) {
+          el.click?.();
+        }
+        const parentBtn = el.closest && el.closest('button, a, [role="button"], .x-btn, .dxm-item');
+        if (parentBtn && parentBtn !== el) {
+          parentBtn.focus?.();
+          parentBtn.click?.();
+        }
+        try {
+          el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+          el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+          el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+        } catch {}
+      }, clicked);
+    } catch (fallbackErr) {
+      if (!clicked) {
+        throw new ActionExecutionError(`Failed to click element: ${fallbackErr.message}`, {
+          actionIndex: action.index,
+          actionType: action.type,
+          originalError: fallbackErr
+        });
+      }
+    }
+  }
+
+  // 3. Option Selection State Verification:
+  // In Angular Material / custom multi-selects, verify that the option's selection state actually toggled.
+  // Only treat as uncheck if explicitly flagged as isUncheck or if originally checked before click.
+  try {
+    const isUncheck = action.isUncheck === true || (action.desiredState === false && action.target?.fingerprint?.checked === true);
+    await clickTarget.evaluate((el, isUncheck) => {
+      const opt = el.closest('mat-option, [role="option"], .mat-mdc-option, .mat-option');
+      if (!opt) return;
+      const isSelected = opt.getAttribute('aria-selected') === 'true' ||
+                         opt.classList.contains('mat-mdc-option-selected') ||
+                         opt.classList.contains('mat-option-selected') ||
+                         !!opt.querySelector('.mat-pseudo-checkbox-checked');
+
+      if (isUncheck && isSelected) {
+        // Still selected after click, force click again to uncheck
+        opt.click();
+      } else if (!isUncheck && !isSelected) {
+        // Expected to be selected but still false, force click to select
+        opt.click();
+      }
+    }, isUncheck);
+  } catch {}
+
+  // 4. Standalone Checkbox State Verification & Enforcement:
+  // If element is a checkbox and desiredState was specified, ensure it actually reached desiredState.
+  // If the framework or custom styling prevented the toggle, attempt a direct toggle on inner input or label.
+  if (checkboxStatus && checkboxStatus.isCheckbox && !checkboxStatus.isInsideOption && desiredState !== undefined) {
+    try {
+      await clickTarget.evaluate((el, desired) => {
+        const isInputCb = el.tagName === 'INPUT' && (el.type || '').toLowerCase() === 'checkbox';
+        const getChecked = () => {
+          if (isInputCb) return Boolean(el.checked);
+          const input = el.querySelector('input[type="checkbox"]') ||
+                        el.closest('label')?.querySelector('input[type="checkbox"]') ||
+                        el.closest('mat-checkbox')?.querySelector('input[type="checkbox"]');
+          if (input) return Boolean(input.checked);
+          const aria = el.getAttribute('aria-checked') ??
+                       el.querySelector('[aria-checked]')?.getAttribute('aria-checked') ??
+                       el.closest('[aria-checked]')?.getAttribute('aria-checked');
+          if (aria !== null && aria !== undefined) return aria === 'true';
+          if (el.classList.contains('mat-mdc-checkbox-checked') ||
+              el.classList.contains('mat-checkbox-checked') ||
+              el.classList.contains('dx-checkbox-checked') ||
+              el.classList.contains('checked') ||
+              el.classList.contains('is-checked')) return true;
+          if (el.querySelector('.mat-pseudo-checkbox-checked') || el.classList.contains('mat-pseudo-checkbox-checked')) return true;
+          return false;
+        };
+
+        const nowChecked = getChecked();
+        if (nowChecked !== desired) {
+          const recoveryEl = el.querySelector('input[type="checkbox"]') || el.closest('label') || el;
+          recoveryEl.click?.();
+        }
+      }, desiredState);
+    } catch {}
+  }
+}
+
+/**
+ * Execute DOUBLE_CLICK action
+ */
+async function executeDoubleClick(elementHandle, action, options = {}) {
+  await ensureInteractable(elementHandle, action);
+  const { page, botConfig } = options;
+
+  if (botConfig) {
+    await simulateHumanMouseToElement(elementHandle, page, botConfig);
+  }
+
+  try {
+    await elementHandle.click({ clickCount: 2 });
+  } catch (err) {
+    throw new ActionExecutionError(`Failed to double-click element: ${err.message}`, {
+      actionIndex: action.index,
+      actionType: action.type,
+      originalError: err
+    });
+  }
+}
+
+/**
+ * Execute TYPE action with humanized stochastic typing rhythm
+ */
+async function executeType(elementHandle, action, options = {}) {
+  await ensureInteractable(elementHandle, action);
+  const { page, botConfig } = options;
+  const textToType = action.value || '';
+
+  if (botConfig) {
+    await simulateHumanMouseToElement(elementHandle, page, botConfig);
+  }
+
+  try {
+    await elementHandle.focus().catch(() => {});
+
+    // If botConfig typing is active and page is available, type character by character
+    const typingCfg = botConfig?.typing;
+    if (typingCfg && textToType !== '[REDACTED]' && textToType.length > 0 && typeof elementHandle.type === 'function') {
+      // Clear existing input value first
+      await elementHandle.evaluate(el => { el.value = ''; });
+
+      for (let i = 0; i < textToType.length; i++) {
+        const char = textToType[i];
+        const delay = calculateTypingDelay(char, typingCfg);
+        
+        await elementHandle.type(char, { delay: Math.min(delay, 500) });
+
+        // Trigger input event to satisfy reactive frameworks
+        await elementHandle.evaluate((el) => {
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+      }
+
+      await elementHandle.evaluate((el) => {
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        el.dispatchEvent(new Event('blur', { bubbles: true }));
+      });
+    } else {
+      // Fast fallback: bulk value injection
+      await elementHandle.evaluate((el, text) => {
+        el.focus();
+        if (text !== '[REDACTED]') {
+          el.value = text;
+        }
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        el.dispatchEvent(new Event('blur', { bubbles: true }));
+      }, textToType);
+    }
+  } catch (err) {
+    throw new ActionExecutionError(`Failed to type into element: ${err.message}`, {
+      actionIndex: action.index,
+      actionType: action.type,
+      originalError: err
+    });
+  }
+}
+
+/**
+ * Execute SELECT dropdown action
+ */
+async function executeSelect(elementHandle, action, options = {}) {
+  await ensureInteractable(elementHandle, action);
+  const { page, botConfig } = options;
+  const targetValue = action.value;
+  const targetText = (action.meta && action.meta.text) ? action.meta.text : null;
+
+  if (botConfig) {
+    await simulateHumanMouseToElement(elementHandle, page, botConfig);
+  }
+
+  try {
+    let selected = false;
+
+    // Try Puppeteer select method first
+    if (targetValue !== undefined && targetValue !== null && typeof elementHandle.select === 'function') {
+      try {
+        const result = await elementHandle.select(String(targetValue));
+        if (result && result.length > 0) {
+          selected = true;
+        }
+      } catch {}
+    }
+
+    // In-page fallback: match by value or visible text
+    if (!selected) {
+      await elementHandle.evaluate((selectEl, val, txt) => {
+        let matched = false;
+        for (let i = 0; i < selectEl.options.length; i++) {
+          const opt = selectEl.options[i];
+          if (val !== undefined && opt.value === String(val)) {
+            selectEl.selectedIndex = i;
+            matched = true;
+            break;
+          }
+          if (txt && opt.textContent.trim() === String(txt).trim()) {
+            selectEl.selectedIndex = i;
+            matched = true;
+            break;
+          }
+        }
+        if (matched) {
+          selectEl.dispatchEvent(new Event('input', { bubbles: true }));
+          selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }, targetValue, targetText);
+    }
+  } catch (err) {
+    throw new ActionExecutionError(`Failed to select dropdown option: ${err.message}`, {
+      actionIndex: action.index,
+      actionType: action.type,
+      originalError: err
+    });
+  }
+}
+
+/**
+ * Execute KEY_PRESS action (e.g. Enter, Tab, Escape)
+ */
+async function executeKeyPress(elementHandle, action, options = {}) {
+  await ensureInteractable(elementHandle, action);
+  const { page, botConfig } = options;
+  const keyToPress = action.key || action.value || 'Enter';
+
+  if (botConfig) {
+    await simulateHumanMouseToElement(elementHandle, page, botConfig);
+  }
+
+  try {
+    // Focus the target element first
+    await elementHandle.focus().catch(() => {});
+
+    // Use Puppeteer keyboard if available on page
+    if (page && page.keyboard) {
+      let puppeteerKey = keyToPress;
+      if (keyToPress === 'Return' || keyToPress === 'enter') puppeteerKey = 'Enter';
+      await page.keyboard.press(puppeteerKey);
+    } else {
+      // Fallback: dispatch synthetic keyboard event inside page context
+      await elementHandle.evaluate((el, key) => {
+        const keyCode = key === 'Enter' ? 13 : (key === 'Tab' ? 9 : (key === 'Escape' ? 27 : 0));
+        const eventOpts = {
+          key: key,
+          code: key,
+          keyCode: keyCode,
+          which: keyCode,
+          bubbles: true,
+          cancelable: true,
+          view: window
+        };
+        el.dispatchEvent(new KeyboardEvent('keydown', eventOpts));
+        el.dispatchEvent(new KeyboardEvent('keypress', eventOpts));
+        el.dispatchEvent(new KeyboardEvent('keyup', eventOpts));
+      }, keyToPress);
+    }
+  } catch (err) {
+    throw new ActionExecutionError(`Failed to press key "${keyToPress}": ${err.message}`, {
+      actionIndex: action.index,
+      actionType: action.type,
+      originalError: err
+    });
+  }
+}
+
+/**
+ * Dispatcher to map action types to executor functions
+ */
+async function dispatchAction(elementHandle, action, options = {}) {
+  switch (action.type) {
+    case 'CLICK':
+      return executeClick(elementHandle, action, options);
+    case 'DOUBLE_CLICK':
+      return executeDoubleClick(elementHandle, action, options);
+    case 'TYPE':
+      return executeType(elementHandle, action, options);
+    case 'SELECT':
+      return executeSelect(elementHandle, action, options);
+    case 'KEY_PRESS':
+    case 'PRESS_KEY':
+    case 'KEYDOWN':
+    case 'KEY_DOWN':
+    case 'ENTER':
+      return executeKeyPress(elementHandle, action, options);
+    default:
+      throw new ActionExecutionError(`Unsupported action type: ${action.type}`, {
+        actionIndex: action.index,
+        actionType: action.type
+      });
+  }
+}
+
+module.exports = {
+  executeClick,
+  executeDoubleClick,
+  executeType,
+  executeSelect,
+  executeKeyPress,
+  dispatchAction
+};

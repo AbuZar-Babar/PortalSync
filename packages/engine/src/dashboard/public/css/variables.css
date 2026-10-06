@@ -1,0 +1,230 @@
+/* Workflow Capture — Clean SaaS Design Tokens
+ * UI-only modernization. Keep interaction and workflow logic unchanged.
+ */
+:root {
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-subtle: #eff6ff;
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f1f5f9;
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+  --color-text: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748b;
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --transition-fast: 120ms ease;
+  --transition-normal: 180ms ease;
+}
+:root[data-theme="dark"],
+:root[data-theme="slate-dark"],
+:root[data-palette="slate"][data-mode="dark"],
+.dark-theme {
+  --color-primary: #60a5fa;
+  --color-primary-hover: #93c5fd;
+  --color-primary-subtle: rgba(59, 130, 246, 0.12);
+  --color-bg: #0f172a;
+  --color-surface: #111827;
+  --color-surface-muted: #1e293b;
+  --color-border: #334155;
+  --color-border-strong: #475569;
+  --color-text: #f8fafc;
+  --color-text-secondary: #cbd5e1;
+  --color-text-muted: #94a3b8;
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+  --color-danger: #f87171;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.22);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.28);
+}
+
+/* Charcoal Crimson Theme (Dark Variant) */
+:root[data-theme="crimson"],
+:root[data-theme="crimson-dark"],
+:root[data-theme="charcoal-crimson"],
+:root[data-palette="crimson"][data-mode="dark"],
+.theme-crimson {
+  --color-primary: #f04438;
+  --color-primary-hover: #d92d20;
+  --color-primary-subtle: rgba(240, 68, 56, 0.14);
+  --color-bg: #18191d;
+  --color-surface: #222329;
+  --color-surface-muted: #1c1d22;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.16);
+  --color-text: #f4f4f6;
+  --color-text-secondary: #9ea0ad;
+  --color-text-muted: #6b6d7c;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #f04438;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+
+/* Crimson Rose Theme (Light Variant) */
+:root[data-theme="crimson-light"],
+:root[data-palette="crimson"][data-mode="light"] {
+  --color-primary: #e0281b;
+  --color-primary-hover: #b91c1c;
+  --color-primary-subtle: rgba(224, 40, 27, 0.08);
+  --color-bg: #fff8f7;
+  --color-surface: #ffffff;
+  --color-surface-muted: #fcedeb;
+  --color-border: #f4d9d7;
+  --color-border-strong: #e8b3b0;
+  --color-text: #1f1818;
+  --color-text-secondary: #5e4a4a;
+  --color-text-muted: #8c7272;
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+  --shadow-sm: 0 1px 3px rgba(35, 20, 20, 0.05);
+  --shadow-md: 0 4px 14px rgba(35, 20, 20, 0.08);
+}
+
+/* Mint Sage Theme (Light Variant) */
+:root[data-theme="sage"],
+:root[data-theme="sage-light"],
+:root[data-theme="mint"],
+:root[data-palette="sage"][data-mode="light"],
+.theme-sage {
+  --color-primary: #228249;
+  --color-primary-hover: #186337;
+  --color-primary-subtle: rgba(34, 130, 73, 0.12);
+  --color-bg: #eaf5ea;
+  --color-surface: #f6fbf6;
+  --color-surface-muted: #e1f0e2;
+  --color-border: #cee5d0;
+  --color-border-strong: #b2dab4;
+  --color-text: #142217;
+  --color-text-secondary: #495e4e;
+  --color-text-muted: #6e8573;
+  --color-success: #228249;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+  --shadow-sm: 0 1px 3px rgba(20, 34, 23, 0.05);
+  --shadow-md: 0 4px 14px rgba(20, 34, 23, 0.07);
+}
+
+/* Forest Sage Theme (Dark Variant) */
+:root[data-theme="sage-dark"],
+:root[data-palette="sage"][data-mode="dark"],
+:root[data-theme="forest-dark"] {
+  --color-primary: #34d399;
+  --color-primary-hover: #6ee7b7;
+  --color-primary-subtle: rgba(52, 211, 153, 0.14);
+  --color-bg: #0d1711;
+  --color-surface: #142218;
+  --color-surface-muted: #1b2c20;
+  --color-border: rgba(52, 211, 153, 0.14);
+  --color-border-strong: rgba(52, 211, 153, 0.26);
+  --color-text: #f0fdf4;
+  --color-text-secondary: #a7c9b2;
+  --color-text-muted: #6f917b;
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-danger: #f87171;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+
+
+/* Compatibility aliases for existing UI components */
+:root {
+  --bg-page: var(--color-bg);
+  --bg-surface: var(--color-surface);
+  --bg-surface-alt: var(--color-surface-muted);
+  --bg-elevated: var(--color-surface);
+  --text-primary: var(--color-text);
+  --text-secondary: var(--color-text-secondary);
+  --text-sub: var(--color-text-secondary);
+  --text-muted: var(--color-text-muted);
+  --accent-primary: var(--color-primary);
+  --accent-hover: var(--color-primary-hover);
+  --accent-subtle: var(--color-primary-subtle);
+  --border-color: var(--color-border);
+  --border-hover: var(--color-border-strong);
+  --font-sans: var(--font-family);
+  --text-xs: var(--font-size-xs);
+  --text-sm: var(--font-size-sm);
+  --text-md: var(--font-size-md);
+  --text-lg: var(--font-size-lg);
+  --text-xl: var(--font-size-xl);
+  --radius-pill: 999px;
+  --header-height: 60px;
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 64px;
+  --space-xs: var(--space-1);
+  --space-sm: var(--space-2);
+  --space-md: var(--space-4);
+  --space-lg: var(--space-6);
+  --space-xl: var(--space-8);
+}
+
+/* Existing component aliases kept intentionally so this visual pass does not alter behavior. */
+:root {
+  --topbar-bg: var(--color-surface);
+  --bg-surface-sunken: var(--color-surface-muted);
+  --card-bg-solid: var(--color-surface);
+  --card-bg: var(--color-surface);
+  --card-border: var(--color-border);
+  --card-hover-border: var(--color-border-strong);
+  --border-light: var(--color-border);
+  --border-subtle: var(--color-surface-muted);
+  --input-bg: var(--color-surface);
+  --input-border: var(--color-border);
+  --input-focus-border: var(--color-primary);
+  --input-focus-ring: rgba(37, 99, 235, 0.14);
+  --state-hover-bg: var(--color-surface-muted);
+  --state-disabled-opacity: 0.5;
+  --color-success-bg: rgba(22, 163, 74, 0.10);
+  --color-success-border: rgba(22, 163, 74, 0.22);
+  --color-warning-bg: rgba(217, 119, 6, 0.10);
+  --color-warning-border: rgba(217, 119, 6, 0.22);
+  --color-danger-bg: rgba(220, 38, 38, 0.10);
+  --color-danger-border: rgba(220, 38, 38, 0.22);
+  --color-info: var(--color-primary);
+  --color-info-bg: var(--color-primary-subtle);
+  --color-info-border: rgba(37, 99, 235, 0.20);
+  --text-disabled: #94a3b8;
+  --text-2xs: 11px;
+  --text-base: 14px;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-card: var(--shadow-sm);
+  --shadow-card-hover: var(--shadow-md);
+  --shadow-lg: 0 10px 24px rgba(15, 23, 42, 0.12);
+  --shadow-xl: 0 20px 40px rgba(15, 23, 42, 0.16);
+  --surface-overlay: rgba(15, 23, 42, 0.45);
+  --modal-bg: var(--color-surface);
+  --modal-border: var(--color-border);
+  --toast-bg: var(--color-surface);
+  --toast-border: var(--color-border);
+  --tooltip-bg: var(--color-text);
+  --tooltip-text: var(--color-surface);
+  --tooltip-border: var(--color-border);
+}

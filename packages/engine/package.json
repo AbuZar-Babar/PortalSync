@@ -1,0 +1,10 @@
+{
+  "name": "@workflow-capture/engine",
+  "version": "1.0.0",
+  "description": "Standalone Core Browser Automation & Replay Engine for Workflow-Capture",
+  "main": "src/replay/loop-replay-runner.js",
+  "license": "MIT",
+  "dependencies": {
+    "puppeteer-core": "^22.15.0"
+  }
+}
