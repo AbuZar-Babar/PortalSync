@@ -94,9 +94,9 @@ export function CreatePortalModal({
     }
   };
 
-  // Poll agent health when modal is open and on record tab
+  // Auto-detect desktop recording status or completed recordings whenever record tab is opened
   useEffect(() => {
-    if (!isOpen || activeTab !== 'record') return;
+    if (!isOpen) return;
 
     let isSubscribed = true;
     const probe = async () => {
@@ -112,6 +112,31 @@ export function CreatePortalModal({
           if (res.ok) {
             const data = await res.json();
             setAgentConnected(data.status === 'ok');
+
+            // If a recording was completed or in progress on the desktop daemon, auto-sync and show preview!
+            if (data.isRecording || data.completedRecording || (data.actionCount && data.actionCount > 0)) {
+              try {
+                const statusRes = await fetch('http://127.0.0.1:49152/record/status');
+                if (statusRes.ok) {
+                  const statusData = await statusRes.json();
+                  if (statusData.actions && statusData.actions.length > 0) {
+                    setRecordedActions(statusData.actions);
+                    setActionCount(statusData.actions.length);
+                    if (statusData.name && !recordName) setRecordName(statusData.name);
+                    if (statusData.url && !recordUrl) setRecordUrl(statusData.url);
+                    if (statusData.recipe) setCapturedRecipe(statusData.recipe);
+
+                    if (statusData.completedRecording || (!statusData.isRecording && statusData.actions.length > 0)) {
+                      setRecordingPhase('preview');
+                      setActiveTab('record');
+                    } else if (statusData.isRecording) {
+                      setRecordingPhase('recording');
+                      setActiveTab('record');
+                    }
+                  }
+                }
+              } catch {}
+            }
           } else {
             setAgentConnected(false);
           }
@@ -124,12 +149,12 @@ export function CreatePortalModal({
     };
 
     probe();
-    const interval = setInterval(probe, 4000);
+    const interval = setInterval(probe, 3000);
     return () => {
       isSubscribed = false;
       clearInterval(interval);
     };
-  }, [isOpen, activeTab]);
+  }, [isOpen, recordName, recordUrl]);
 
   // Live polling of /record/status during active recording
   useEffect(() => {
@@ -153,11 +178,13 @@ export function CreatePortalModal({
         if (data.completedRecording || (!data.isRecording && data.actions && data.actions.length > 0)) {
           setCapturedRecipe(data.recipe || {
             metadata: {
-              name: recordName,
-              startUrl: recordUrl,
+              name: recordName || data.name || 'Recorded Workflow',
+              startUrl: recordUrl || data.url || 'https://vendor-portal.com',
             },
             actions: data.actions || [],
           });
+          if (data.name && !recordName) setRecordName(data.name);
+          if (data.url && !recordUrl) setRecordUrl(data.url);
           setRecordingPhase('preview');
         }
       } catch (err) {
@@ -168,16 +195,24 @@ export function CreatePortalModal({
     return () => clearInterval(pollInterval);
   }, [recordingPhase, recordName, recordUrl]);
 
-  // Clean handleClose with safe abort if recording
+  // Clean handleClose: if actively recording or reviewing steps, do NOT wipe out user's recorded steps
   const handleClose = useCallback(() => {
+    setFormError(null);
+    setSubmitting(false);
+    // Don't kill active recording or wipe preview if user just clicked backdrop or close
+    onClose();
+  }, [onClose]);
+
+  // Explicit cancel/reset recording session button handler
+  const handleResetRecordingState = useCallback(() => {
     if (recordingPhase === 'recording') {
       fetch('http://127.0.0.1:49152/record/stop', { method: 'POST' }).catch(() => {});
     }
-    setFormError(null);
-    setSubmitting(false);
+    setRecordedActions([]);
+    setActionCount(0);
+    setCapturedRecipe(null);
     setRecordingPhase('idle');
-    onClose();
-  }, [recordingPhase, onClose]);
+  }, [recordingPhase]);
 
   // Close on Escape key
   useEffect(() => {
@@ -617,7 +652,10 @@ export function CreatePortalModal({
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm transition-opacity"
-        onClick={handleClose}
+        onClick={() => {
+          if (recordingPhase === 'recording') return; // Do not dismiss while recording
+          handleClose();
+        }}
         aria-hidden="true"
       />
 
