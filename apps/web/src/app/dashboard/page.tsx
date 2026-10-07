@@ -21,7 +21,8 @@ import {
   Check,
   Square,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Clock
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { CreatePortalModal } from '@/components/dashboard/CreatePortalModal';
@@ -76,9 +77,11 @@ export default function DashboardPage() {
   const [triggeringWorkflowId, setTriggeringWorkflowId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [stoppingRunId, setStoppingRunId] = useState<string | null>(null);
   const [workflowToDelete, setWorkflowToDelete] = useState<DashboardWorkflowItem | null>(null);
   const [deletingWorkflow, setDeletingWorkflow] = useState(false);
+  const [isRunnerOnline, setIsRunnerOnline] = useState<boolean>(false);
 
   useEffect(() => {
     async function loadDashboardData() {
@@ -86,69 +89,56 @@ export default function DashboardPage() {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
 
-        let effectiveOrgId: string | null = null;
-
-        if (user) {
-          setUserEmail(user.email || null);
-
-          // Get organization membership using org_id
-          const { data: members } = await supabase
-            .from('wf_organization_members')
-            .select('org_id, role, wf_organizations(name, slug)')
-            .eq('user_id', user.id)
-            .limit(1);
-
-          if (members && members.length > 0) {
-            const orgData = (members[0] as unknown as { wf_organizations?: { name?: string; slug?: string } })?.wf_organizations;
-            effectiveOrgId = members[0].org_id;
-            setOrgId(effectiveOrgId);
-            if (orgData?.name) {
-              setOrganizationName(orgData.name);
-            }
-          }
+        if (!user) {
+          router.push('/login');
+          return;
         }
 
-        // If no member record found or demo mode, fallback to default organization
-        if (!effectiveOrgId) {
-          const { data: orgs } = await supabase
-            .from('wf_organizations')
-            .select('id, name')
-            .limit(1);
+        setUserEmail(user.email || null);
 
-          if (orgs && orgs.length > 0) {
-            effectiveOrgId = orgs[0].id;
-            setOrgId(effectiveOrgId);
-            setOrganizationName(orgs[0].name);
-          } else {
-            effectiveOrgId = '00000000-0000-0000-0000-000000000001';
-            setOrgId(effectiveOrgId);
-          }
+        // Resolve authenticated user's organization strictly via wf_organization_members joined with wf_organizations
+        const { data: members, error: memberError } = await supabase
+          .from('wf_organization_members')
+          .select('org_id, role, wf_organizations(name, slug)')
+          .eq('user_id', user.id)
+          .limit(1);
+
+        if (memberError) {
+          console.error('Error fetching org membership:', memberError);
         }
 
-        if (effectiveOrgId) {
-          // Fetch workflows for this org using org_id
-          const { data: wfList } = await supabase
-            .from('wf_workflows')
-            .select('*')
-            .eq('org_id', effectiveOrgId)
-            .order('created_at', { ascending: false });
-
-          if (wfList && wfList.length > 0) {
-            setWorkflows(wfList as unknown as DashboardWorkflowItem[]);
-          }
-
-          // Fetch runs using org_id and started_at
-          const { data: runList } = await supabase
-            .from('wf_execution_runs')
-            .select('*, wf_workflows(name)')
-            .eq('org_id', effectiveOrgId)
-            .order('started_at', { ascending: false })
-            .limit(20);
-
-          if (runList && runList.length > 0) {
-            setRuns(runList as unknown as DashboardRunItem[]);
-          }
+        // Eliminate fallback crosstalk: if user has no org membership, cleanly redirect to /onboarding
+        if (!members || members.length === 0) {
+          router.push('/onboarding');
+          return;
         }
+
+        const effectiveOrgId = members[0].org_id;
+        setOrgId(effectiveOrgId);
+
+        const orgData = (members[0] as unknown as { wf_organizations?: { name?: string; slug?: string } })?.wf_organizations;
+        if (orgData?.name) {
+          setOrganizationName(orgData.name);
+        }
+
+        // Fetch workflows strictly filtered by effectiveOrgId
+        const { data: wfList } = await supabase
+          .from('wf_workflows')
+          .select('*')
+          .eq('org_id', effectiveOrgId)
+          .order('created_at', { ascending: false });
+
+        setWorkflows((wfList || []) as unknown as DashboardWorkflowItem[]);
+
+        // Fetch runs strictly filtered by effectiveOrgId
+        const { data: runList } = await supabase
+          .from('wf_execution_runs')
+          .select('*, wf_workflows(name)')
+          .eq('org_id', effectiveOrgId)
+          .order('started_at', { ascending: false })
+          .limit(20);
+
+        setRuns((runList || []) as unknown as DashboardRunItem[]);
       } catch (err) {
         console.error('Error loading dashboard session:', err);
       } finally {
@@ -157,6 +147,43 @@ export default function DashboardPage() {
     }
 
     loadDashboardData();
+  }, [router]);
+
+  // Live periodic health check against http://127.0.0.1:49152/health (checked on mount and every 5 seconds)
+  useEffect(() => {
+    let isSubscribed = true;
+    let abortController: AbortController | null = null;
+
+    const checkRunnerHealth = async () => {
+      try {
+        abortController?.abort();
+        abortController = new AbortController();
+        const timeoutId = setTimeout(() => abortController?.abort(), 2000);
+
+        const res = await fetch('http://127.0.0.1:49152/health', {
+          signal: abortController.signal,
+          headers: { Accept: 'application/json' },
+        });
+        clearTimeout(timeoutId);
+
+        if (isSubscribed) {
+          setIsRunnerOnline(res.ok);
+        }
+      } catch {
+        if (isSubscribed) {
+          setIsRunnerOnline(false);
+        }
+      }
+    };
+
+    checkRunnerHealth();
+    const interval = setInterval(checkRunnerHealth, 5000);
+
+    return () => {
+      isSubscribed = false;
+      abortController?.abort();
+      clearInterval(interval);
+    };
   }, []);
 
   // Active run polling: every 3 seconds when runs are pending, running, or requires_action
@@ -214,12 +241,8 @@ export default function DashboardPage() {
           .limit(20),
       ]);
 
-      if (wfRes.data && wfRes.data.length > 0) {
-        setWorkflows(wfRes.data as unknown as DashboardWorkflowItem[]);
-      }
-      if (runRes.data && runRes.data.length > 0) {
-        setRuns(runRes.data as unknown as DashboardRunItem[]);
-      }
+      setWorkflows((wfRes.data || []) as unknown as DashboardWorkflowItem[]);
+      setRuns((runRes.data || []) as unknown as DashboardRunItem[]);
     } catch (err) {
       console.error('Failed to manually refresh dashboard:', err);
     } finally {
@@ -403,69 +426,15 @@ export default function DashboardPage() {
   // Active 2FA intervention runs
   const activeActionRuns = runs.filter((r) => r.status === 'requires_action');
 
-  // Fallback presentation data if workspace has zero configured items
-  const displayWorkflows = workflows.length > 0 ? workflows : [
-    {
-      id: 'wf_sample_1',
-      name: 'US Oil (iRely Portal)',
-      portal_url: 'https://customerportal.usoil.com/#/home',
-      lastRun: '12 mins ago',
-      status: 'active',
-      itemsDownloaded: 42,
-    },
-    {
-      id: 'wf_sample_2',
-      name: 'Amazon Business Invoices',
-      portal_url: 'https://business.amazon.com/orders',
-      lastRun: '2 days ago',
-      status: 'active',
-      itemsDownloaded: 128,
-    },
-    {
-      id: 'wf_sample_3',
-      name: 'Pacific Gas & Electric Monthly Bills',
-      portal_url: 'https://pge.com/ebills',
-      lastRun: '5 days ago',
-      status: 'paused',
-      itemsDownloaded: 12,
-    },
-  ];
-
-  const displayRuns = runs.length > 0 ? runs : [
-    {
-      id: 'run_sample_1',
-      workflowName: 'US Oil (iRely Portal)',
-      status: 'completed',
-      itemsDiscovered: 18,
-      itemsDownloaded: 12,
-      time: 'Today, 2:40 PM',
-      duration: '45s',
-    },
-    {
-      id: 'run_sample_2',
-      workflowName: 'Amazon Business Invoices',
-      status: 'completed',
-      itemsDiscovered: 50,
-      itemsDownloaded: 50,
-      time: 'Yesterday, 9:15 AM',
-      duration: '1m 20s',
-    },
-    {
-      id: 'run_sample_3',
-      workflowName: 'Pacific Gas & Electric Monthly Bills',
-      status: 'failed',
-      itemsDiscovered: 6,
-      itemsDownloaded: 2,
-      time: 'Oct 4, 11:30 AM',
-      duration: '18s',
-      error_summary: 'Target login timeout: password reset prompt displayed.',
-    },
-  ];
-
+  // Real metric calculations
   const totalInvoicesDownloaded = runs.reduce(
     (acc, r) => acc + (r.items_downloaded ?? r.itemsDownloaded ?? 0),
     0
   );
+
+  const estimatedHoursSaved = totalInvoicesDownloaded > 0
+    ? `${((totalInvoicesDownloaded * 4.7) / 60).toFixed(1)} hrs`
+    : '0 hrs';
 
   if (loading) {
     return (
@@ -497,17 +466,24 @@ export default function DashboardPage() {
           <button
             onClick={() => {
               if (orgId) {
-                navigator.clipboard.writeText(`ps_live_${orgId}`);
+                const token = `ps_live_${orgId}`;
+                navigator.clipboard.writeText(token);
                 setCopiedToken(true);
-                setTimeout(() => setCopiedToken(false), 2000);
+                setToastMessage(`Runner token ${token} copied to clipboard`);
+                setTimeout(() => {
+                  setCopiedToken(false);
+                  setToastMessage(null);
+                }, 2500);
               }
             }}
-            title="Click to copy full runner token"
+            title={orgId ? `Click to copy runner token: ps_live_${orgId}` : 'Loading runner token...'}
             className="hidden sm:flex items-center gap-2 text-xs bg-blue-950/60 hover:bg-blue-900/60 text-blue-300 border border-blue-800/40 px-3 py-1.5 rounded-lg transition cursor-pointer group"
           >
             <Key className="h-3.5 w-3.5 text-blue-400" />
             <span>Runner Token:</span>
-            <code className="font-mono text-[11px] text-blue-200">ps_live_{orgId?.substring(0, 8) || 'test89f2'}...</code>
+            <code className="font-mono text-[11px] text-blue-200">
+              {orgId ? `ps_live_${orgId}` : 'Loading...'}
+            </code>
             {copiedToken ? (
               <Check className="h-3.5 w-3.5 text-emerald-400 ml-1" />
             ) : (
@@ -554,12 +530,12 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800">
             <div className="text-xs text-slate-400 font-medium">Active Portals</div>
-            <div className="text-2xl font-bold text-white mt-1">{displayWorkflows.length}</div>
+            <div className="text-2xl font-bold text-white mt-1">{workflows.length}</div>
           </div>
           <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800">
             <div className="text-xs text-slate-400 font-medium">Invoices Downloaded (This Month)</div>
             <div className="text-2xl font-bold text-blue-400 mt-1">
-              {totalInvoicesDownloaded > 0 ? totalInvoicesDownloaded : 182}
+              {totalInvoicesDownloaded}
             </div>
           </div>
           <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800">
@@ -570,29 +546,58 @@ export default function DashboardPage() {
           </div>
           <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800">
             <div className="text-xs text-slate-400 font-medium">Estimated Time Saved</div>
-            <div className="text-2xl font-bold text-cyan-400 mt-1">14.2 hrs</div>
+            <div className="text-2xl font-bold text-cyan-400 mt-1">{estimatedHoursSaved}</div>
           </div>
         </div>
 
-        {/* Desktop Runner Connection Banner */}
-        <div className="p-4 rounded-xl bg-gradient-to-r from-blue-950/40 via-slate-900 to-slate-900 border border-blue-800/30 flex items-center justify-between mb-8">
+        {/* Dynamic Desktop Runner Health Detection Banner */}
+        <div
+          className={`p-4 rounded-xl border flex items-center justify-between mb-8 transition-colors ${
+            isRunnerOnline
+              ? 'bg-gradient-to-r from-emerald-950/30 via-slate-900 to-slate-900 border-emerald-800/40'
+              : 'bg-slate-900/60 border-slate-800'
+          }`}
+        >
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400">
+            <div
+              className={`h-10 w-10 rounded-lg flex items-center justify-center transition-colors ${
+                isRunnerOnline
+                  ? 'bg-emerald-500/10 text-emerald-400'
+                  : 'bg-slate-800 text-slate-400'
+              }`}
+            >
               <Download className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-sm font-semibold text-white">Desktop Runner Connected</div>
+              <div className="text-sm font-semibold text-white">
+                {isRunnerOnline ? 'Desktop Agent Online' : 'Desktop Agent Offline'}
+              </div>
               <div className="text-xs text-slate-400">
-                Running locally on Windows • Chrome CDP Port 9222 Active • 0 auth errors
-                {hasActiveRuns && (
-                  <span className="ml-2 text-blue-400 font-semibold">• Live Telemetry Polling Active (3s)</span>
+                {isRunnerOnline ? (
+                  <>
+                    Running locally on Windows • Chrome CDP Port 9222 Active • 0 auth errors
+                    {hasActiveRuns && (
+                      <span className="ml-2 text-emerald-400 font-semibold">• Live Telemetry Polling Active (3s)</span>
+                    )}
+                  </>
+                ) : (
+                  'Launch PortalSync Desktop app to execute local browser workflows'
                 )}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs font-medium text-emerald-400">Online</span>
+            {isRunnerOnline ? (
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
+                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>🟢 Desktop Agent Online</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-xs font-medium">
+                <span className="flex h-2 w-2 rounded-full bg-slate-500" />
+                <span>⚪ Desktop Agent Offline</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -607,7 +612,7 @@ export default function DashboardPage() {
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              Vendor Portals ({displayWorkflows.length})
+              Vendor Portals ({workflows.length})
             </button>
             <button
               onClick={() => setActiveTab('runs')}
@@ -617,7 +622,7 @@ export default function DashboardPage() {
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              <span>Execution History & Telemetry ({displayRuns.length})</span>
+              <span>Execution History & Telemetry ({runs.length})</span>
               {hasActiveRuns && (
                 <span className="h-2 w-2 rounded-full bg-blue-400 animate-ping" />
               )}
@@ -634,111 +639,139 @@ export default function DashboardPage() {
 
         {/* Table Content */}
         {activeTab === 'workflows' ? (
-          <div className="rounded-xl border border-slate-800 bg-slate-900/40 overflow-hidden">
-            <table className="w-full text-left text-sm text-slate-300">
-              <thead className="bg-slate-900/80 border-b border-slate-800 text-xs text-slate-400 uppercase tracking-wider font-semibold">
-                <tr>
-                  <th className="px-6 py-3.5">Portal / Workflow Name</th>
-                  <th className="px-6 py-3.5">Target Portal URL</th>
-                  <th className="px-6 py-3.5">Downloaded Invoices</th>
-                  <th className="px-6 py-3.5">Status</th>
-                  <th className="px-6 py-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {displayWorkflows.map((wf) => {
-                  const activeRun = runs.find(
-                    (r) => r.workflow_id === wf.id && (r.status === 'pending' || r.status === 'running' || r.status === 'requires_action')
-                  );
-                  const isStopping = activeRun && stoppingRunId === activeRun.id;
+          workflows.length === 0 ? (
+            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-12 text-center flex flex-col items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-slate-800/80 flex items-center justify-center text-slate-400 mb-4 border border-slate-700/50">
+                <FileText className="h-6 w-6 text-slate-400" />
+              </div>
+              <h3 className="text-base font-semibold text-white mb-1">No Vendor Portals Configured</h3>
+              <p className="text-xs text-slate-400 max-w-sm mb-6">
+                You have not added any vendor portals to this workspace yet. Record or configure a portal to begin automated invoice downloads.
+              </p>
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm transition cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" /> Record New Portal
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-slate-800 bg-slate-900/40 overflow-hidden">
+              <table className="w-full text-left text-sm text-slate-300">
+                <thead className="bg-slate-900/80 border-b border-slate-800 text-xs text-slate-400 uppercase tracking-wider font-semibold">
+                  <tr>
+                    <th className="px-6 py-3.5">Portal / Workflow Name</th>
+                    <th className="px-6 py-3.5">Target Portal URL</th>
+                    <th className="px-6 py-3.5">Downloaded Invoices</th>
+                    <th className="px-6 py-3.5">Status</th>
+                    <th className="px-6 py-3.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {workflows.map((wf) => {
+                    const activeRun = runs.find(
+                      (r) => r.workflow_id === wf.id && (r.status === 'pending' || r.status === 'running' || r.status === 'requires_action')
+                    );
+                    const isStopping = activeRun && stoppingRunId === activeRun.id;
 
-                  return (
-                    <tr key={wf.id} className="hover:bg-slate-900/50 transition">
-                      <td className="px-6 py-4">
-                        <div className="font-semibold text-white flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-blue-400" />
-                          {wf.name}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-xs font-mono text-slate-400 max-w-xs truncate">
-                        <a
-                          href={wf.portal_url || '#'}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center gap-1 hover:text-blue-300"
-                        >
-                          {wf.portal_url || 'https://vendor-portal.com'} <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </td>
-                      <td className="px-6 py-4 text-xs">
-                        <span className="font-semibold text-white">{wf.itemsDownloaded ?? 0}</span> PDFs
-                      </td>
-                      <td className="px-6 py-4 text-xs">
-                        {activeRun ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[11px] font-medium capitalize animate-pulse">
-                            <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-ping" />
-                            {activeRun.status === 'requires_action' ? '2FA Action' : 'Running'}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] font-medium capitalize">
-                            {wf.status || 'Active'}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="inline-flex items-center gap-2">
-                          {activeRun ? (
-                            <button
-                              onClick={() => handleStopRun(activeRun.id)}
-                              disabled={isStopping}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 text-xs font-medium transition cursor-pointer disabled:opacity-50"
-                              title="Immediately stop workflow execution"
-                            >
-                              {isStopping ? (
-                                <>
-                                  <Loader2 className="h-3 w-3 animate-spin" /> Stopping...
-                                </>
-                              ) : (
-                                <>
-                                  <Square className="h-3 w-3 fill-current text-red-400" /> Stop Run
-                                </>
-                              )}
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleRunNow(wf.id, wf.name)}
-                              disabled={triggeringWorkflowId === wf.id}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 text-xs font-medium transition cursor-pointer disabled:opacity-50"
-                            >
-                              {triggeringWorkflowId === wf.id ? (
-                                <>
-                                  <Loader2 className="h-3 w-3 animate-spin" /> Dispatching...
-                                </>
-                              ) : (
-                                <>
-                                  <Play className="h-3 w-3 fill-current" /> Run Now
-                                </>
-                              )}
-                            </button>
-                          )}
-
-                          <button
-                            onClick={() => setWorkflowToDelete(wf)}
-                            disabled={!!activeRun}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                            title={activeRun ? "Cannot delete while run is active" : "Delete portal"}
+                    return (
+                      <tr key={wf.id} className="hover:bg-slate-900/50 transition">
+                        <td className="px-6 py-4">
+                          <div className="font-semibold text-white flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-blue-400" />
+                            {wf.name}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-xs font-mono text-slate-400 max-w-xs truncate">
+                          <a
+                            href={wf.portal_url || '#'}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1 hover:text-blue-300"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                            {wf.portal_url || 'https://vendor-portal.com'} <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </td>
+                        <td className="px-6 py-4 text-xs">
+                          <span className="font-semibold text-white">{wf.itemsDownloaded ?? 0}</span> PDFs
+                        </td>
+                        <td className="px-6 py-4 text-xs">
+                          {activeRun ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[11px] font-medium capitalize animate-pulse">
+                              <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-ping" />
+                              {activeRun.status === 'requires_action' ? '2FA Action' : 'Running'}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] font-medium capitalize">
+                              {wf.status || 'Active'}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="inline-flex items-center gap-2">
+                            {activeRun ? (
+                              <button
+                                onClick={() => handleStopRun(activeRun.id)}
+                                disabled={isStopping}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 text-xs font-medium transition cursor-pointer disabled:opacity-50"
+                                title="Immediately stop workflow execution"
+                              >
+                                {isStopping ? (
+                                  <>
+                                    <Loader2 className="h-3 w-3 animate-spin" /> Stopping...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Square className="h-3 w-3 fill-current text-red-400" /> Stop Run
+                                  </>
+                                )}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleRunNow(wf.id, wf.name)}
+                                disabled={triggeringWorkflowId === wf.id}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 text-xs font-medium transition cursor-pointer disabled:opacity-50"
+                              >
+                                {triggeringWorkflowId === wf.id ? (
+                                  <>
+                                    <Loader2 className="h-3 w-3 animate-spin" /> Dispatching...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Play className="h-3 w-3 fill-current" /> Run Now
+                                  </>
+                                )}
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() => setWorkflowToDelete(wf)}
+                              disabled={!!activeRun}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                              title={activeRun ? "Cannot delete while run is active" : "Delete portal"}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-          ) : (
+          )
+        ) : runs.length === 0 ? (
+          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-12 text-center flex flex-col items-center justify-center">
+            <div className="h-12 w-12 rounded-xl bg-slate-800/80 flex items-center justify-center text-slate-400 mb-4 border border-slate-700/50">
+              <Clock className="h-6 w-6 text-slate-400" />
+            </div>
+            <h3 className="text-base font-semibold text-white mb-1">No Execution Runs Yet</h3>
+            <p className="text-xs text-slate-400 max-w-sm">
+              Execution runs and sync telemetry will appear here when you trigger a portal workflow or scheduled sync.
+            </p>
+          </div>
+        ) : (
           <div className="rounded-xl border border-slate-800 bg-slate-900/40 overflow-hidden">
             <table className="w-full text-left text-sm text-slate-300">
               <thead className="bg-slate-900/80 border-b border-slate-800 text-xs text-slate-400 uppercase tracking-wider font-semibold">
@@ -753,7 +786,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {displayRuns.map((run) => (
+                {runs.map((run) => (
                   <tr
                     key={run.id}
                     onClick={() => handleOpenRunDetails(run)}
@@ -804,7 +837,7 @@ export default function DashboardPage() {
       <CreatePortalModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        orgId={orgId || '00000000-0000-0000-0000-000000000001'}
+        orgId={orgId || ''}
         onWorkflowCreated={handleWorkflowCreated}
       />
 
@@ -862,6 +895,14 @@ export default function DashboardPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700/80 text-white text-xs shadow-2xl shadow-black/60 animate-in fade-in slide-in-from-bottom-2">
+          <Check className="h-4 w-4 text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
         </div>
       )}
     </div>

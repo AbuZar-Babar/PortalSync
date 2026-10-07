@@ -26,7 +26,7 @@ export default function OnboardingPage() {
       // Check if user already has an org
       const { data: members } = await supabase
         .from('wf_organization_members')
-        .select('organization_id')
+        .select('org_id')
         .eq('user_id', user.id);
 
       if (members && members.length > 0) {
