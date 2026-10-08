@@ -3,163 +3,271 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PortalSync Desktop Runner</title>
+  <title>PortalSync Desktop Local Worker</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Custom Titlebar -->
+  <!-- Custom Titlebar with Clean Tab Switching -->
   <header class="titlebar">
     <div class="titlebar-drag">
       <div class="logo-badge">P</div>
-      <span class="app-title">PortalSync Desktop</span>
+      <span class="app-title">PortalSync Worker</span>
     </div>
+
+    <!-- Center Navigation Tabs -->
+    <nav class="nav-tabs" aria-label="Navigation">
+      <button id="tabBtnDashboard" class="title-tab active" type="button">
+        <span class="tab-icon">⚡</span> Dashboard
+      </button>
+      <button id="tabBtnPreferences" class="title-tab" type="button">
+        <span class="tab-icon">⚙️</span> Preferences
+      </button>
+    </nav>
+
+    <!-- Window Controls -->
     <div class="titlebar-controls">
-      <button id="btnMinimize" class="control-btn" title="Minimize">—</button>
-      <button id="btnClose" class="control-btn close-btn" title="Close to Tray">✕</button>
+      <button id="btnMinimize" class="control-btn" title="Minimize to Taskbar">—</button>
+      <button id="btnClose" class="control-btn close-btn" title="Close to System Tray">✕</button>
     </div>
   </header>
 
   <!-- Main Container -->
   <main class="app-container">
-    <!-- Big Runner Toggle Card -->
-    <section class="card runner-toggle-card">
-      <div class="toggle-header">
-        <div class="status-indicator">
-          <span id="statusDot" class="dot dot-idle"></span>
-          <span id="statusLabel" class="status-text">Runner Idle</span>
-        </div>
-        <div id="liveRunBadge" class="live-badge hidden">
-          <span class="pulse-ring"></span>
-          <span>Claimed Job</span>
-        </div>
-      </div>
 
-      <div class="big-switch-container">
-        <button id="btnToggleRunner" class="big-toggle-btn btn-start">
-          <span class="btn-icon">⚡</span>
-          <span id="toggleBtnText" class="btn-text">Start Runner</span>
+    <!-- VIEW 1: DASHBOARD -->
+    <section id="viewDashboard" class="view-panel active">
+      <!-- Big Runner Toggle Card -->
+      <section class="card runner-toggle-card">
+        <div class="toggle-header">
+          <div class="status-indicator">
+            <span id="statusDot" class="dot dot-idle"></span>
+            <span id="statusLabel" class="status-text">Runner Idle</span>
+          </div>
+          <div id="liveRunBadge" class="live-badge hidden">
+            <span class="pulse-ring"></span>
+            <span>Claimed Job</span>
+          </div>
+        </div>
+
+        <div class="big-switch-container">
+          <button id="btnToggleRunner" class="big-toggle-btn btn-start">
+            <span class="btn-icon">⚡</span>
+            <span id="toggleBtnText" class="btn-text">Start Runner</span>
+          </button>
+        </div>
+
+        <!-- Mode Selector with Explicit Save Button -->
+        <div class="mode-control-row">
+          <div class="mode-selector-block">
+            <span class="mode-label">Browser Automation Mode:</span>
+            <div class="mode-pills">
+              <button id="btnModeVisible" class="pill active" data-mode="visible" title="Opens browser window during runs (Required for 2FA)">Visible (2FA)</button>
+              <button id="btnModeHeadless" class="pill" data-mode="headless" title="Runs browser silently in background">Headless</button>
+            </div>
+          </div>
+          <button id="btnSaveModePref" class="save-mode-btn" title="Save current mode as default preference">
+            <span class="save-icon">💾</span>
+            <span id="saveModeBtnText">Save Preference</span>
+          </button>
+        </div>
+
+        <!-- Feedback badge for Mode Saved -->
+        <div id="modeSavedFeedback" class="mode-feedback hidden">
+          <span class="feedback-icon">✓</span>
+          <span id="modeSavedFeedbackText">Saved preference: Visible (2FA)</span>
+        </div>
+      </section>
+
+      <!-- Workflow Recording Card -->
+      <section class="card recorder-card">
+        <div class="recorder-header">
+          <div class="recorder-meta">
+            <span class="recorder-title">Local Workflow Capture</span>
+            <span class="recorder-sub">Bridge: 127.0.0.1:49152</span>
+          </div>
+          <div id="recorderLiveBadge" class="rec-badge hidden">
+            <span class="pulse-rec-dot"></span>
+            <span id="recorderActionCount">0 steps</span>
+          </div>
+        </div>
+
+        <div class="recorder-btn-container">
+          <button id="btnRecordWorkflow" class="record-workflow-btn">
+            <span class="rec-icon">●</span>
+            <span id="recordWorkflowText">Record Workflow</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Environment Indicators -->
+      <section class="card status-grid">
+        <div class="status-item">
+          <div class="status-meta">
+            <span class="meta-title">Chrome CDP</span>
+            <span class="meta-sub">Port 9222</span>
+          </div>
+          <div id="cdpStatus" class="status-pill status-ready">Standby (On Demand)</div>
+        </div>
+
+        <div class="status-item">
+          <div class="status-meta">
+            <span class="meta-title">Cloud Control</span>
+            <span id="cloudUrlDisplay" class="meta-sub">https://web-fawn-ten-55.vercel.app</span>
+          </div>
+          <div id="cloudStatus" class="status-pill status-ready">Connected</div>
+        </div>
+      </section>
+
+      <!-- Active Run / Activity Feed -->
+      <section class="card feed-card">
+        <div class="feed-header">
+          <span class="feed-title">Recent Invoices & Activity</span>
+          <button id="btnOpenFolder" class="icon-text-btn" title="Open Download Folder">
+            📁 Open Invoices
+          </button>
+        </div>
+
+        <div id="activeRunBanner" class="active-run-banner hidden">
+          <div class="run-spinner"></div>
+          <div class="active-run-info">
+            <div id="activeWorkflowName" class="active-wf-name">Executing Portal...</div>
+            <div id="activeRunMetrics" class="active-wf-meta">Processing items & downloading PDFs</div>
+          </div>
+          <button id="btnStopActiveRun" class="btn-stop-active-run" title="Stop current workflow run">
+            ■ Stop
+          </button>
+        </div>
+
+        <div id="recentRunsList" class="runs-list">
+          <div class="empty-feed">No runs executed yet. Start runner to listen for portal downloads.</div>
+        </div>
+      </section>
+
+      <!-- Footer Quick Controls -->
+      <footer class="app-footer">
+        <button id="btnSettings" class="footer-btn">
+          ⚙️ Preferences & Token
+        </button>
+        <button id="btnOpenWeb" class="footer-btn primary-footer-btn">
+          🌐 Open Cloud Console
+        </button>
+      </footer>
+    </section>
+
+    <!-- VIEW 2: PREFERENCES & SETTINGS PAGE -->
+    <section id="viewPreferences" class="view-panel hidden">
+      <div class="pref-header">
+        <div class="pref-title-wrap">
+          <h2 class="pref-title">Worker Preferences</h2>
+          <p class="pref-subtitle">Configure automation modes, credentials, and local invoice storage</p>
+        </div>
+        <button id="btnBackToDashboard" class="back-btn" type="button">
+          ← Dashboard
         </button>
       </div>
 
-      <div class="mode-selector">
-        <span class="mode-label">Automation Browser:</span>
-        <div class="mode-pills">
-          <button id="btnModeVisible" class="pill active" data-mode="visible">Visible (2FA)</button>
-          <button id="btnModeHeadless" class="pill" data-mode="headless">Headless</button>
+      <form id="preferencesForm" class="preferences-form">
+        <!-- Section 1: Browser & Execution Preferences -->
+        <section class="card pref-card">
+          <div class="card-section-title">
+            <span>🌐</span> Automation Browser Preferences
+          </div>
+
+          <div class="form-group">
+            <label class="group-label">Browser Execution Mode</label>
+            <div class="mode-cards-grid">
+              <div id="prefCardVisible" class="mode-card-option selected" data-mode="visible">
+                <div class="mode-card-title">
+                  <span>🖥️</span> Visible Window
+                </div>
+                <div class="mode-card-desc">
+                  Opens Chrome window during runs. Required if portals ask for 2FA, SMS, or OTP verification.
+                </div>
+              </div>
+
+              <div id="prefCardHeadless" class="mode-card-option" data-mode="headless">
+                <div class="mode-card-title">
+                  <span>👻</span> Headless
+                </div>
+                <div class="mode-card-desc">
+                  Runs silently in the background without any browser UI. Best for unattended server setups.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group checkbox-group">
+            <label class="checkbox-label" for="prefAutoStartRunner">
+              <input type="checkbox" id="prefAutoStartRunner" checked />
+              <span>Auto-start runner daemon on worker launch</span>
+            </label>
+            <p class="form-hint">Automatically begins polling for cloud portal jobs when app opens</p>
+          </div>
+
+          <div class="form-group checkbox-group">
+            <label class="checkbox-label" for="prefMinimizeToTray">
+              <input type="checkbox" id="prefMinimizeToTray" checked />
+              <span>Minimize to Windows System Tray on close</span>
+            </label>
+            <p class="form-hint">Worker remains active in the background when the window is closed</p>
+          </div>
+        </section>
+
+        <!-- Section 2: Cloud Control Plane & Authentication -->
+        <section class="card pref-card">
+          <div class="card-section-title">
+            <span>☁️</span> Cloud Control Plane & Authentication
+          </div>
+
+          <div class="form-group">
+            <label for="inputCloudUrl">Cloud Control Plane URL</label>
+            <input type="text" id="inputCloudUrl" placeholder="https://web-fawn-ten-55.vercel.app" />
+            <p class="form-hint">Production cloud endpoint or local control plane</p>
+          </div>
+
+          <div class="form-group">
+            <label for="inputToken">Runner Authentication Token</label>
+            <div class="input-with-button">
+              <input type="password" id="inputToken" placeholder="ps_live_..." required autocomplete="off" />
+              <button type="button" id="btnToggleTokenVisibility" class="addon-btn" title="Show / Hide token">👁️</button>
+            </div>
+            <p class="form-hint">Found in the PortalSync Web Console dashboard header</p>
+          </div>
+
+          <div class="test-conn-row">
+            <button type="button" id="btnTestConnection" class="secondary-btn">Test Connection</button>
+            <div id="testConnectionResult" class="test-result hidden"></div>
+          </div>
+        </section>
+
+        <!-- Section 3: Invoices & Local Storage -->
+        <section class="card pref-card">
+          <div class="card-section-title">
+            <span>📁</span> Local Storage & Invoices
+          </div>
+
+          <div class="form-group">
+            <label for="inputTargetFolder">Invoices Destination Directory</label>
+            <div class="input-with-button">
+              <input type="text" id="inputTargetFolder" placeholder="C:\Users\...\Downloads\PortalSync" />
+              <button type="button" id="btnBrowseFolder" class="addon-btn" title="Browse directory">Browse</button>
+            </div>
+            <p class="form-hint">Downloaded invoice PDFs are verified for zero duplicates and saved here</p>
+          </div>
+        </section>
+
+        <!-- Preferences Save Result Alert -->
+        <div id="preferencesSaveResult" class="save-result-alert hidden"></div>
+
+        <!-- Form Actions Bar -->
+        <div class="preferences-actions-bar">
+          <button type="button" id="btnResetDefaults" class="secondary-btn">Reset Defaults</button>
+          <button type="submit" id="btnSavePreferences" class="save-btn primary-save-btn">💾 Save All Preferences</button>
         </div>
-      </div>
-    </section>
-
-    <!-- Workflow Recording Card -->
-    <section class="card recorder-card">
-      <div class="recorder-header">
-        <div class="recorder-meta">
-          <span class="recorder-title">Local Workflow Capture</span>
-          <span class="recorder-sub">Bridge: 127.0.0.1:49152</span>
-        </div>
-        <div id="recorderLiveBadge" class="rec-badge hidden">
-          <span class="pulse-rec-dot"></span>
-          <span id="recorderActionCount">0 steps</span>
-        </div>
-      </div>
-
-      <div class="recorder-btn-container">
-        <button id="btnRecordWorkflow" class="record-workflow-btn">
-          <span class="rec-icon">●</span>
-          <span id="recordWorkflowText">Record Workflow</span>
-        </button>
-      </div>
-    </section>
-
-    <!-- Environment Indicators -->
-    <section class="card status-grid">
-      <div class="status-item">
-        <div class="status-meta">
-          <span class="meta-title">Chrome CDP</span>
-          <span class="meta-sub">Port 9222</span>
-        </div>
-        <div id="cdpStatus" class="status-pill status-ready">Ready</div>
-      </div>
-
-      <div class="status-item">
-        <div class="status-meta">
-          <span class="meta-title">Cloud Control</span>
-          <span id="cloudUrlDisplay" class="meta-sub">http://localhost:3000</span>
-        </div>
-        <div id="cloudStatus" class="status-pill status-ready">Connected</div>
-      </div>
-    </section>
-
-    <!-- Active Run / Activity Feed -->
-    <section class="card feed-card">
-      <div class="feed-header">
-        <span class="feed-title">Recent Invoices & Activity</span>
-        <button id="btnOpenFolder" class="icon-text-btn" title="Open Download Folder">
-          📁 Open Invoices
-        </button>
-      </div>
-
-      <div id="activeRunBanner" class="active-run-banner hidden">
-        <div class="run-spinner"></div>
-        <div class="active-run-info">
-          <div id="activeWorkflowName" class="active-wf-name">Executing Portal...</div>
-          <div id="activeRunMetrics" class="active-wf-meta">Processing items & downloading PDFs</div>
-        </div>
-        <button id="btnStopActiveRun" class="btn-stop-active-run" title="Stop current workflow run">
-          ■ Stop
-        </button>
-      </div>
-
-      <div id="recentRunsList" class="runs-list">
-        <div class="empty-feed">No runs executed yet. Start runner to listen for portal downloads.</div>
-      </div>
-    </section>
-
-    <!-- Footer Controls -->
-    <footer class="app-footer">
-      <button id="btnSettings" class="footer-btn">
-        ⚙️ Settings & Token
-      </button>
-      <button id="btnOpenWeb" class="footer-btn primary-footer-btn">
-        🌐 Open Console
-      </button>
-    </footer>
-  </main>
-
-  <!-- Settings Modal -->
-  <div id="settingsModal" class="modal-backdrop hidden">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>Runner Settings</h3>
-        <button id="btnCloseSettings" class="modal-close">✕</button>
-      </div>
-
-      <form id="settingsForm" class="settings-form">
-        <div class="form-group">
-          <label for="inputToken">Runner Token (from Dashboard)</label>
-          <input type="text" id="inputToken" placeholder="ps_live_..." required autocomplete="off" />
-          <p class="form-hint">Copy this from your PortalSync web console header.</p>
-        </div>
-
-        <div class="form-group">
-          <label for="inputCloudUrl">Cloud Control Plane URL</label>
-          <input type="text" id="inputCloudUrl" placeholder="http://localhost:3000" />
-        </div>
-
-        <div class="form-group">
-          <label for="inputTargetFolder">Local Invoices Folder</label>
-          <input type="text" id="inputTargetFolder" placeholder="C:\Users\...\Downloads\PortalSync" />
-        </div>
-
-        <div class="modal-actions">
-          <button type="button" id="btnTestConnection" class="secondary-btn">Test Connection</button>
-          <button type="submit" class="save-btn">Save Changes</button>
-        </div>
-
-        <div id="testConnectionResult" class="test-result hidden"></div>
       </form>
-    </div>
-  </div>
+    </section>
+
+  </main>
 
   <script src="app.js"></script>
 </body>

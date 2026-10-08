@@ -1,7 +1,16 @@
 document.addEventListener('DOMContentLoaded', async () => {
-  // Elements
+  // Navigation Tabs & Views
+  const tabBtnDashboard = document.getElementById('tabBtnDashboard');
+  const tabBtnPreferences = document.getElementById('tabBtnPreferences');
+  const btnBackToDashboard = document.getElementById('btnBackToDashboard');
+  const viewDashboard = document.getElementById('viewDashboard');
+  const viewPreferences = document.getElementById('viewPreferences');
+
+  // Window Controls
   const btnMinimize = document.getElementById('btnMinimize');
   const btnClose = document.getElementById('btnClose');
+
+  // Dashboard Controls
   const btnToggleRunner = document.getElementById('btnToggleRunner');
   const toggleBtnText = document.getElementById('toggleBtnText');
   const statusDot = document.getElementById('statusDot');
@@ -9,6 +18,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   const liveRunBadge = document.getElementById('liveRunBadge');
   const btnModeVisible = document.getElementById('btnModeVisible');
   const btnModeHeadless = document.getElementById('btnModeHeadless');
+  const btnSaveModePref = document.getElementById('btnSaveModePref');
+  const saveModeBtnText = document.getElementById('saveModeBtnText');
+  const modeSavedFeedback = document.getElementById('modeSavedFeedback');
+  const modeSavedFeedbackText = document.getElementById('modeSavedFeedbackText');
+
+  // Recorder Elements
+  const btnRecordWorkflow = document.getElementById('btnRecordWorkflow');
+  const recordWorkflowText = document.getElementById('recordWorkflowText');
+  const recorderLiveBadge = document.getElementById('recorderLiveBadge');
+  const recorderActionCount = document.getElementById('recorderActionCount');
+
+  // Telemetry & Feed Elements
   const cdpStatus = document.getElementById('cdpStatus');
   const cloudStatus = document.getElementById('cloudStatus');
   const cloudUrlDisplay = document.getElementById('cloudUrlDisplay');
@@ -21,29 +42,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnStopActiveRun = document.getElementById('btnStopActiveRun');
   const recentRunsList = document.getElementById('recentRunsList');
 
-  // Recorder elements
-  const btnRecordWorkflow = document.getElementById('btnRecordWorkflow');
-  const recordWorkflowText = document.getElementById('recordWorkflowText');
-  const recorderLiveBadge = document.getElementById('recorderLiveBadge');
-  const recorderActionCount = document.getElementById('recorderActionCount');
-
-  // Modal elements
-  const settingsModal = document.getElementById('settingsModal');
-  const btnCloseSettings = document.getElementById('btnCloseSettings');
-  const settingsForm = document.getElementById('settingsForm');
-  const inputToken = document.getElementById('inputToken');
+  // Preferences Page Elements
+  const preferencesForm = document.getElementById('preferencesForm');
+  const prefCardVisible = document.getElementById('prefCardVisible');
+  const prefCardHeadless = document.getElementById('prefCardHeadless');
+  const prefAutoStartRunner = document.getElementById('prefAutoStartRunner');
+  const prefMinimizeToTray = document.getElementById('prefMinimizeToTray');
   const inputCloudUrl = document.getElementById('inputCloudUrl');
-  const inputTargetFolder = document.getElementById('inputTargetFolder');
+  const inputToken = document.getElementById('inputToken');
+  const btnToggleTokenVisibility = document.getElementById('btnToggleTokenVisibility');
   const btnTestConnection = document.getElementById('btnTestConnection');
   const testConnectionResult = document.getElementById('testConnectionResult');
+  const inputTargetFolder = document.getElementById('inputTargetFolder');
+  const btnBrowseFolder = document.getElementById('btnBrowseFolder');
+  const btnResetDefaults = document.getElementById('btnResetDefaults');
+  const preferencesSaveResult = document.getElementById('preferencesSaveResult');
 
   // State
   let currentConfig = await window.portalsync.getConfig();
   let currentStatus = await window.portalsync.getStatus();
+  let selectedMode = currentConfig.browserMode || 'visible';
 
-  // Initialize UI with config
+  // Initialize UI
   updateConfigUI(currentConfig);
   updateStatusUI(currentStatus);
+  checkEngineStatus();
 
   try {
     const initialRecStatus = await window.portalsync.getRecordingStatus();
@@ -52,11 +75,229 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.warn('Initial recording status probe notice:', e);
   }
 
+  // -------------------------------------------------------------
+  // TAB NAVIGATION
+  // -------------------------------------------------------------
+  function showTab(tabName) {
+    if (tabName === 'dashboard') {
+      tabBtnDashboard.classList.add('active');
+      tabBtnPreferences.classList.remove('active');
+      viewDashboard.classList.remove('hidden');
+      viewDashboard.classList.add('active');
+      viewPreferences.classList.add('hidden');
+      viewPreferences.classList.remove('active');
+    } else {
+      tabBtnPreferences.classList.add('active');
+      tabBtnDashboard.classList.remove('active');
+      viewPreferences.classList.remove('hidden');
+      viewPreferences.classList.add('active');
+      viewDashboard.classList.add('hidden');
+      viewDashboard.classList.remove('active');
+      populatePreferencesForm();
+    }
+  }
+
+  tabBtnDashboard.addEventListener('click', () => showTab('dashboard'));
+  tabBtnPreferences.addEventListener('click', () => showTab('preferences'));
+  btnBackToDashboard.addEventListener('click', () => showTab('dashboard'));
+  btnSettings.addEventListener('click', () => showTab('preferences'));
+
   // Window Controls
   btnMinimize.addEventListener('click', () => window.portalsync.minimizeWindow());
   btnClose.addEventListener('click', () => window.portalsync.closeWindow());
 
-  // Runner Toggle
+  // -------------------------------------------------------------
+  // BROWSER MODE SELECTION & SAVE PREFERENCE
+  // -------------------------------------------------------------
+  btnModeVisible.addEventListener('click', () => applyModeSelection('visible', true));
+  btnModeHeadless.addEventListener('click', () => applyModeSelection('headless', true));
+
+  if (btnSaveModePref) {
+    btnSaveModePref.addEventListener('click', async () => {
+      await saveBrowserModePreference(selectedMode);
+    });
+  }
+
+  function applyModeSelection(mode, autoPersist = false) {
+    selectedMode = mode;
+    if (mode === 'headless') {
+      btnModeHeadless.classList.add('active');
+      btnModeVisible.classList.remove('active');
+      if (prefCardHeadless && prefCardVisible) {
+        prefCardHeadless.classList.add('selected');
+        prefCardVisible.classList.remove('selected');
+      }
+    } else {
+      btnModeVisible.classList.add('active');
+      btnModeHeadless.classList.remove('active');
+      if (prefCardVisible && prefCardHeadless) {
+        prefCardVisible.classList.add('selected');
+        prefCardHeadless.classList.remove('selected');
+      }
+    }
+
+    if (autoPersist) {
+      saveBrowserModePreference(mode);
+    }
+  }
+
+  async function saveBrowserModePreference(mode) {
+    try {
+      currentConfig.browserMode = mode;
+      currentConfig = await window.portalsync.saveConfig({ browserMode: mode });
+
+      // Visual feedback on the button
+      if (btnSaveModePref) {
+        btnSaveModePref.classList.add('saved');
+        saveModeBtnText.innerText = '✓ Saved!';
+        setTimeout(() => {
+          btnSaveModePref.classList.remove('saved');
+          saveModeBtnText.innerText = 'Save Preference';
+        }, 1800);
+      }
+
+      // Feedback toast
+      if (modeSavedFeedback && modeSavedFeedbackText) {
+        const readable = mode === 'headless' ? 'Headless (Background)' : 'Visible (2FA)';
+        modeSavedFeedbackText.innerText = `Saved preference: ${readable}`;
+        modeSavedFeedback.classList.remove('hidden');
+        setTimeout(() => {
+          modeSavedFeedback.classList.add('hidden');
+        }, 3000);
+      }
+    } catch (err) {
+      alert(`Could not save mode preference: ${err.message}`);
+    }
+  }
+
+  // -------------------------------------------------------------
+  // PREFERENCES FORM HANDLERS
+  // -------------------------------------------------------------
+  function populatePreferencesForm() {
+    inputCloudUrl.value = currentConfig.cloudUrl || 'https://web-fawn-ten-55.vercel.app';
+    inputToken.value = currentConfig.runnerToken || '';
+    inputTargetFolder.value = currentConfig.targetFolder || '';
+    prefAutoStartRunner.checked = currentConfig.autoStartRunner !== false;
+    prefMinimizeToTray.checked = currentConfig.minimizeToTray !== false;
+
+    applyModeSelection(currentConfig.browserMode || 'visible', false);
+
+    if (testConnectionResult) testConnectionResult.classList.add('hidden');
+    if (preferencesSaveResult) preferencesSaveResult.classList.add('hidden');
+  }
+
+  if (prefCardVisible && prefCardHeadless) {
+    prefCardVisible.addEventListener('click', () => applyModeSelection('visible', false));
+    prefCardHeadless.addEventListener('click', () => applyModeSelection('headless', false));
+  }
+
+  if (btnToggleTokenVisibility) {
+    btnToggleTokenVisibility.addEventListener('click', () => {
+      if (inputToken.type === 'password') {
+        inputToken.type = 'text';
+        btnToggleTokenVisibility.innerText = '🔒';
+      } else {
+        inputToken.type = 'password';
+        btnToggleTokenVisibility.innerText = '👁️';
+      }
+    });
+  }
+
+  if (btnBrowseFolder) {
+    btnBrowseFolder.addEventListener('click', async () => {
+      try {
+        const folder = await window.portalsync.selectFolder();
+        if (folder) {
+          inputTargetFolder.value = folder;
+        }
+      } catch (err) {
+        console.warn('Folder selection notice:', err);
+      }
+    });
+  }
+
+  preferencesForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const updated = {
+      browserMode: selectedMode,
+      runnerToken: inputToken.value.trim(),
+      cloudUrl: inputCloudUrl.value.trim() || 'https://web-fawn-ten-55.vercel.app',
+      targetFolder: inputTargetFolder.value.trim(),
+      autoStartRunner: prefAutoStartRunner.checked,
+      minimizeToTray: prefMinimizeToTray.checked,
+    };
+
+    try {
+      currentConfig = await window.portalsync.saveConfig(updated);
+      updateConfigUI(currentConfig);
+
+      if (preferencesSaveResult) {
+        preferencesSaveResult.innerText = '✓ All preferences saved successfully!';
+        preferencesSaveResult.classList.remove('hidden');
+        setTimeout(() => {
+          preferencesSaveResult.classList.add('hidden');
+        }, 3000);
+      }
+    } catch (err) {
+      alert(`Error saving preferences: ${err.message}`);
+    }
+  });
+
+  if (btnResetDefaults) {
+    btnResetDefaults.addEventListener('click', () => {
+      if (confirm('Reset preferences to default settings?')) {
+        inputCloudUrl.value = 'https://web-fawn-ten-55.vercel.app';
+        inputTargetFolder.value = '';
+        prefAutoStartRunner.checked = true;
+        prefMinimizeToTray.checked = true;
+        applyModeSelection('visible', false);
+      }
+    });
+  }
+
+  // Test Cloud Connection
+  btnTestConnection.addEventListener('click', async () => {
+    btnTestConnection.disabled = true;
+    btnTestConnection.innerText = 'Testing...';
+    testConnectionResult.classList.add('hidden');
+
+    try {
+      const token = inputToken.value.trim().replace(/[\.\s]+$/, '');
+      const cloudUrl = inputCloudUrl.value.trim() || 'https://web-fawn-ten-55.vercel.app';
+
+      // Persist prior to test
+      await window.portalsync.saveConfig({
+        runnerToken: token,
+        cloudUrl: cloudUrl,
+      });
+
+      const res = await window.portalsync.testConnection({
+        runnerToken: token,
+        cloudUrl: cloudUrl,
+      });
+
+      if (res && res.connected) {
+        showTestResult(`✓ Connected (${res.pendingRunsCount ?? 0} pending run(s))`, true);
+      } else {
+        showTestResult(`✕ Connection Failed: ${res?.error || 'Unreachable endpoint'}`, false);
+      }
+    } catch (err) {
+      showTestResult(`✕ Error: ${err.message}`, false);
+    } finally {
+      btnTestConnection.disabled = false;
+      btnTestConnection.innerText = 'Test Connection';
+    }
+  });
+
+  function showTestResult(msg, isSuccess) {
+    testConnectionResult.innerText = msg;
+    testConnectionResult.className = `test-result ${isSuccess ? 'test-success' : 'test-fail'}`;
+    testConnectionResult.classList.remove('hidden');
+  }
+
+  // -------------------------------------------------------------
+  // RUNNER ACTIONS & FEEDBACK
+  // -------------------------------------------------------------
   btnToggleRunner.addEventListener('click', async () => {
     btnToggleRunner.disabled = true;
     try {
@@ -65,7 +306,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateStatusUI(next);
       } else {
         if (!currentConfig.runnerToken) {
-          openSettings();
+          showTab('preferences');
           showTestResult('Please enter and save your Runner Token first.', false);
           btnToggleRunner.disabled = false;
           return;
@@ -80,7 +321,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Stop Active Run Button
   if (btnStopActiveRun) {
     btnStopActiveRun.addEventListener('click', async () => {
       btnStopActiveRun.disabled = true;
@@ -127,103 +367,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Browser Mode Selector
-  btnModeVisible.addEventListener('click', () => setBrowserMode('visible'));
-  btnModeHeadless.addEventListener('click', () => setBrowserMode('headless'));
-
-  async function setBrowserMode(mode) {
-    currentConfig.browserMode = mode;
-    await window.portalsync.saveConfig({ browserMode: mode });
-    updateConfigUI(currentConfig);
-  }
-
   // Quick Action Buttons
   btnOpenFolder.addEventListener('click', () => {
     window.portalsync.openFolder(currentConfig.targetFolder);
   });
 
   btnOpenWeb.addEventListener('click', () => {
-    window.portalsync.openExternal(`${currentConfig.cloudUrl || 'http://localhost:3000'}/dashboard`);
+    window.portalsync.openExternal(`${currentConfig.cloudUrl || 'https://web-fawn-ten-55.vercel.app'}/dashboard`);
   });
 
-  // Settings Modal Handlers
-  btnSettings.addEventListener('click', openSettings);
-  btnCloseSettings.addEventListener('click', closeSettings);
-
-  function openSettings() {
-    inputToken.value = currentConfig.runnerToken || '';
-    inputCloudUrl.value = currentConfig.cloudUrl || 'http://localhost:3000';
-    inputTargetFolder.value = currentConfig.targetFolder || '';
-    testConnectionResult.classList.add('hidden');
-    settingsModal.classList.remove('hidden');
-  }
-
-  function closeSettings() {
-    settingsModal.classList.add('hidden');
-  }
-
-  settingsForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const updated = {
-      runnerToken: inputToken.value.trim(),
-      cloudUrl: inputCloudUrl.value.trim() || 'http://localhost:3000',
-      targetFolder: inputTargetFolder.value.trim(),
-    };
-
-    currentConfig = await window.portalsync.saveConfig(updated);
-    updateConfigUI(currentConfig);
-    closeSettings();
-  });
-
-  btnTestConnection.addEventListener('click', async () => {
-    btnTestConnection.disabled = true;
-    btnTestConnection.innerText = 'Testing...';
-    testConnectionResult.classList.add('hidden');
-
-    try {
-      const token = inputToken.value.trim().replace(/[\.\s]+$/, '');
-      const cloudUrl = inputCloudUrl.value.trim() || 'https://web-fawn-ten-55.vercel.app';
-
-      // Save before test
-      await window.portalsync.saveConfig({
-        runnerToken: token,
-        cloudUrl: cloudUrl,
-      });
-
-      const res = await window.portalsync.testConnection({
-        runnerToken: token,
-        cloudUrl: cloudUrl,
-      });
-      if (res && res.connected) {
-        showTestResult(`✓ Connected to ${res.url} (${res.pendingRunsCount ?? 0} pending runs)`, true);
-      } else {
-        showTestResult(`✕ Connection Failed: ${res?.error || 'Unknown error'}`, false);
-      }
-    } catch (err) {
-      showTestResult(`✕ Error: ${err.message}`, false);
-    } finally {
-      btnTestConnection.disabled = false;
-      btnTestConnection.innerText = 'Test Connection';
-    }
-  });
-
-  function showTestResult(msg, isSuccess) {
-    testConnectionResult.innerText = msg;
-    testConnectionResult.className = `test-result ${isSuccess ? 'test-success' : 'test-fail'}`;
-    testConnectionResult.classList.remove('hidden');
-  }
-
-  // Real-time Status listener from Main Process
+  // -------------------------------------------------------------
+  // REAL-TIME EVENT LISTENERS
+  // -------------------------------------------------------------
   window.portalsync.onStatusUpdate((state) => {
     currentStatus = state;
     updateStatusUI(state);
+    checkEngineStatus();
   });
 
-  // Real-time Recorder listener from Main Process
   if (typeof window.portalsync.onRecordingUpdate === 'function') {
     window.portalsync.onRecordingUpdate((recState) => {
       updateRecorderUI(recState);
     });
+  }
+
+  // Periodic engine CDP status probe
+  async function checkEngineStatus() {
+    try {
+      if (typeof window.portalsync.checkCdpStatus === 'function') {
+        const cdp = await window.portalsync.checkCdpStatus();
+        if (cdp && cdp.open) {
+          cdpStatus.innerText = 'Active (Port 9222)';
+          cdpStatus.className = 'status-pill status-ready';
+        } else {
+          cdpStatus.innerText = 'Standby (On Demand)';
+          cdpStatus.className = 'status-pill status-ready';
+        }
+      }
+    } catch {}
   }
 
   function updateRecorderUI(recState) {
@@ -245,18 +426,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // UI Updaters
   function updateConfigUI(cfg) {
-    cloudUrlDisplay.innerText = cfg.cloudUrl || 'http://localhost:3000';
-    if (cfg.browserMode === 'headless') {
-      btnModeHeadless.classList.add('active');
-      btnModeVisible.classList.remove('active');
-    } else {
-      btnModeVisible.classList.add('active');
-      btnModeHeadless.classList.remove('active');
-    }
+    cloudUrlDisplay.innerText = cfg.cloudUrl || 'https://web-fawn-ten-55.vercel.app';
+    applyModeSelection(cfg.browserMode || 'visible', false);
   }
 
   function updateStatusUI(state) {
-    // Dot & Label
     statusDot.className = `dot dot-${state.status}`;
     switch (state.status) {
       case 'active':
@@ -266,7 +440,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         liveRunBadge.classList.toggle('hidden', !state.activeRun);
         break;
       case 'starting':
-        statusLabel.innerText = 'Starting Chrome & Engine...';
+        statusLabel.innerText = 'Starting Engine...';
         btnToggleRunner.className = 'big-toggle-btn btn-start';
         toggleBtnText.innerText = 'Starting...';
         liveRunBadge.classList.add('hidden');

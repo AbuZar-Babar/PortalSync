@@ -55,10 +55,8 @@ class RunnerController {
     }
 
     try {
-      // 1. Ensure Chrome is running on port 9222 (Visible or Headless per config)
-      await chromeSpawner.ensureChrome(config.browserMode || 'visible');
-
-      // 2. Load engine modules from packages/engine
+      // 1. Load engine modules from packages/engine
+      // (Chrome is launched lazily on-demand when a workflow run is claimed)
       const enginePath = path.resolve(__dirname, '../../../../packages/engine/src/runner');
       const RunnerDaemonModule = require(path.join(enginePath, 'runner-daemon'));
       const RunnerDaemon = RunnerDaemonModule.RunnerDaemon || RunnerDaemonModule;
@@ -70,7 +68,7 @@ class RunnerController {
         token: config.runnerToken,
       });
 
-      // 3. Initialize daemon with custom logger forwarding to desktop UI
+      // 2. Initialize daemon with custom logger forwarding to desktop UI
       this.daemon = new RunnerDaemon({
         cloudClient,
         cdpPort: 9222,
@@ -97,6 +95,10 @@ class RunnerController {
         this._notifyStatus();
 
         try {
+          // Lazily ensure Chrome is running only when an automation job is actively executing
+          const currentConfig = configManager.get();
+          await chromeSpawner.ensureChrome(currentConfig.browserMode || 'visible');
+
           const result = await originalExecuteRun(run);
 
           const completedRun = {

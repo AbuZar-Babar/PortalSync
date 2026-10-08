@@ -81,6 +81,24 @@ class DesktopNotifier {
 
     notif.show();
   }
+
+  notifyMinimizedToTray() {
+    if (!Notification || typeof Notification.isSupported !== 'function' || !Notification.isSupported()) return;
+
+    const notif = new Notification({
+      title: 'PortalSync Local Worker',
+      body: 'PortalSync is running in the background. Click to restore window.',
+      silent: true,
+    });
+
+    if (this.onClickHandler) {
+      notif.on('click', () => {
+        this.onClickHandler('tray');
+      });
+    }
+
+    notif.show();
+  }
 }
 
 module.exports = new DesktopNotifier();

@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('portalsync', {
   testConnection: (customConfig) => ipcRenderer.invoke('test-connection', customConfig),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   openFolder: (path) => ipcRenderer.invoke('open-folder', path),
+  selectFolder: () => ipcRenderer.invoke('select-folder'),
+  checkCdpStatus: () => ipcRenderer.invoke('check-cdp-status'),
   minimizeWindow: () => ipcRenderer.send('window-minimize'),
   closeWindow: () => ipcRenderer.send('window-close'),
   onStatusUpdate: (callback) => {
