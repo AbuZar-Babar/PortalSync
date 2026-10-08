@@ -184,6 +184,7 @@ app.whenReady().then(async () => {
   // Workflow Recording IPC handlers
   ipcMain.handle('start-recording', (event, options) => httpBridge.startRecording(options));
   ipcMain.handle('stop-recording', () => httpBridge.stopRecording());
+  ipcMain.handle('reset-recording', () => httpBridge.resetRecording());
   ipcMain.handle('get-recording-status', () => httpBridge.getStatus());
 
   ipcMain.handle('test-connection', async (event, customConfig) => {

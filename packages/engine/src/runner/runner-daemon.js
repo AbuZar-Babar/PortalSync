@@ -89,7 +89,7 @@ class RunnerDaemon {
 
     this.cdpPort = options.cdpPort || 9222;
     this.cdpHost = options.cdpHost || '127.0.0.1';
-    this.pollIntervalMs = options.pollIntervalMs || 10000;
+    this.pollIntervalMs = options.pollIntervalMs || 3000;
     this.targetFolder = options.targetFolder || path.join(os.homedir(), 'Downloads', 'PortalSync');
     this.hitlTimeoutMs = options.hitlTimeoutMs || 90000;
 
@@ -196,17 +196,23 @@ class RunnerDaemon {
     }
 
     this.logger.info(`Found ${pendingRuns.length} pending run(s). Attempting to claim...`);
-    const candidate = pendingRuns[0];
-
     let claimedRun = null;
-    try {
-      claimedRun = await this.cloudClient.claimRun(candidate.id);
-    } catch (err) {
-      this.logger.warn(`Could not claim run ${candidate.id} (status: ${err.status || 'err'}): ${err.message}`);
+    let runToExecute = null;
+
+    for (const candidate of pendingRuns) {
+      try {
+        claimedRun = await this.cloudClient.claimRun(candidate.id);
+        runToExecute = claimedRun || candidate;
+        break;
+      } catch (err) {
+        this.logger.warn(`Could not claim candidate run ${candidate.id} (status: ${err.status || 'err'}): ${err.message}`);
+      }
+    }
+
+    if (!runToExecute) {
       return null;
     }
 
-    const runToExecute = claimedRun || candidate;
     return await this.executeRun(runToExecute);
   }
 

@@ -165,8 +165,14 @@ class CloudClient {
    * @returns {Promise<Array<any>>} Array of ExecutionRun objects
    */
   async getPendingRuns() {
-    const data = await this._request('/api/v1/runs?status=pending', {
+    const timestamp = Date.now();
+    const data = await this._request(`/api/v1/runs?status=pending&_t=${timestamp}`, {
       method: 'GET',
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+      },
     });
     if (data && Array.isArray(data.runs)) {
       return data.runs;

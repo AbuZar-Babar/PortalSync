@@ -20,6 +20,9 @@ const VALID_STATUSES: Set<string> = new Set([
   'cancelled',
 ]);
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: NextRequest) {
   const auth = await authenticateRunnerOrUser(request);
   if (!auth.success) {
@@ -51,7 +54,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ runs: runs || [] });
+  return NextResponse.json(
+    { runs: runs || [] },
+    {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    }
+  );
 }
 
 export async function POST(request: NextRequest) {

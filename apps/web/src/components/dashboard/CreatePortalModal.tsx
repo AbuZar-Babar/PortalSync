@@ -94,7 +94,39 @@ export function CreatePortalModal({
     }
   };
 
-  // Auto-detect desktop recording status or completed recordings whenever record tab is opened
+  // Clean reset helper for all modal & desktop recorder state
+  const resetAllState = useCallback(async (alsoResetDesktop = true) => {
+    setRecordedActions([]);
+    setActionCount(0);
+    setCapturedRecipe(null);
+    setRecordName('');
+    setRecordUrl('');
+    setRecordingPhase('idle');
+    setQuickName('');
+    setQuickUrl('');
+    setJsonText('');
+    setFormError(null);
+    setSubmitting(false);
+
+    if (alsoResetDesktop) {
+      try {
+        await fetch('http://127.0.0.1:49152/record/reset', { method: 'POST' });
+      } catch {}
+    }
+  }, []);
+
+  // When modal opens fresh, guarantee clean state from scratch
+  const prevIsOpenRef = useRef(false);
+  useEffect(() => {
+    if (isOpen && !prevIsOpenRef.current) {
+      if (recordingPhase !== 'recording') {
+        resetAllState(true);
+      }
+    }
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, recordingPhase, resetAllState]);
+
+  // Periodic health check for desktop daemon connectivity (does NOT hijack activeTab or force preview)
   useEffect(() => {
     if (!isOpen) return;
 
@@ -113,8 +145,8 @@ export function CreatePortalModal({
             const data = await res.json();
             setAgentConnected(data.status === 'ok');
 
-            // If a recording was completed or in progress on the desktop daemon, auto-sync and show preview!
-            if (data.isRecording || data.completedRecording || (data.actionCount && data.actionCount > 0)) {
+            // Only sync actions if recording is actively live in Chrome
+            if (data.isRecording) {
               try {
                 const statusRes = await fetch('http://127.0.0.1:49152/record/status');
                 if (statusRes.ok) {
@@ -125,14 +157,7 @@ export function CreatePortalModal({
                     if (statusData.name && !recordName) setRecordName(statusData.name);
                     if (statusData.url && !recordUrl) setRecordUrl(statusData.url);
                     if (statusData.recipe) setCapturedRecipe(statusData.recipe);
-
-                    if (statusData.completedRecording || (!statusData.isRecording && statusData.actions.length > 0)) {
-                      setRecordingPhase('preview');
-                      setActiveTab('record');
-                    } else if (statusData.isRecording) {
-                      setRecordingPhase('recording');
-                      setActiveTab('record');
-                    }
+                    setRecordingPhase('recording');
                   }
                 }
               } catch {}
@@ -195,24 +220,20 @@ export function CreatePortalModal({
     return () => clearInterval(pollInterval);
   }, [recordingPhase, recordName, recordUrl]);
 
-  // Clean handleClose: if actively recording or reviewing steps, do NOT wipe out user's recorded steps
-  const handleClose = useCallback(() => {
+  // Clean handleClose: reset state when dismissing
+  const handleClose = useCallback(async () => {
     setFormError(null);
     setSubmitting(false);
-    // Don't kill active recording or wipe preview if user just clicked backdrop or close
+    if (recordingPhase !== 'recording') {
+      await resetAllState(true);
+    }
     onClose();
-  }, [onClose]);
+  }, [onClose, recordingPhase, resetAllState]);
 
   // Explicit cancel/reset recording session button handler
-  const handleResetRecordingState = useCallback(() => {
-    if (recordingPhase === 'recording') {
-      fetch('http://127.0.0.1:49152/record/stop', { method: 'POST' }).catch(() => {});
-    }
-    setRecordedActions([]);
-    setActionCount(0);
-    setCapturedRecipe(null);
-    setRecordingPhase('idle');
-  }, [recordingPhase]);
+  const handleResetRecordingState = useCallback(async () => {
+    await resetAllState(true);
+  }, [resetAllState]);
 
   // Close on Escape key
   useEffect(() => {
@@ -500,6 +521,9 @@ export function CreatePortalModal({
 
     setRecordingPhase('starting');
     try {
+      // Clean stale desktop recorder buffer if any
+      await fetch('http://127.0.0.1:49152/record/reset', { method: 'POST' }).catch(() => {});
+
       const res = await fetch('http://127.0.0.1:49152/record/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -612,7 +636,8 @@ export function CreatePortalModal({
       if (res.ok) {
         const data = await res.json();
         onWorkflowCreated(data.workflow);
-        handleClose();
+        await resetAllState(true);
+        onClose();
         return;
       }
 
@@ -634,7 +659,8 @@ export function CreatePortalModal({
       if (insertError) throw new Error(insertError.message);
 
       onWorkflowCreated(wf as unknown as Workflow);
-      handleClose();
+      await resetAllState(true);
+      onClose();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to save workflow';
       setFormError(msg);
@@ -1265,7 +1291,7 @@ export function CreatePortalModal({
                   <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
                     <button
                       type="button"
-                      onClick={() => setRecordingPhase('idle')}
+                      onClick={() => resetAllState(true)}
                       disabled={recordingPhase === 'saving'}
                       className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-slate-400 hover:text-white transition cursor-pointer"
                     >

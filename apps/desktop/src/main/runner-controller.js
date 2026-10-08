@@ -75,7 +75,7 @@ class RunnerController {
         cloudClient,
         cdpPort: 9222,
         targetFolder: config.targetFolder,
-        pollIntervalMs: 10000,
+        pollIntervalMs: 3000,
         logger: {
           info: (...args) => console.log('[RunnerDaemon:INFO]', ...args),
           warn: (...args) => console.warn('[RunnerDaemon:WARN]', ...args),

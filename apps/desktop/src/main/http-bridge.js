@@ -184,6 +184,16 @@ class HttpBridge {
           }
         }
 
+        // 6. Reset / Clear Recording State Endpoint
+        if ((pathname === '/record/reset' || pathname === '/api/record/reset') && req.method === 'POST') {
+          try {
+            const result = await this.resetRecording();
+            return this.sendJson(req, res, 200, result);
+          } catch (err) {
+            return this.sendJson(req, res, 500, { error: err.message });
+          }
+        }
+
         // 6. Stop Active Execution Run Endpoint
         if ((pathname === '/run/stop' || pathname === '/api/run/stop') && req.method === 'POST') {
           try {
@@ -361,6 +371,32 @@ class HttpBridge {
       actionCount: this.actions.length,
       actions: this.actions,
       recipe: this.lastRecipe
+    };
+  }
+
+  async resetRecording() {
+    if (this.activeRecorder && this.activeRecorder.isRecording) {
+      try {
+        await this.activeRecorder.stop();
+      } catch {}
+      this.activeRecorder = null;
+    }
+
+    this.isRecording = false;
+    this.isStopping = false;
+    this.completedRecording = false;
+    this.actions = [];
+    this.lastRecipe = null;
+    this.sessionMeta = null;
+    this.notifyStatus();
+
+    return {
+      success: true,
+      message: 'Recording state reset cleanly',
+      isRecording: false,
+      completedRecording: false,
+      actionCount: 0,
+      actions: []
     };
   }
 
