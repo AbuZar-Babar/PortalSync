@@ -434,9 +434,21 @@ export function RunDetailsDrawer({ isOpen, onClose, run, onStopRun }: RunDetails
                             </td>
                             <td className="px-3 py-3 text-right">
                               {art.cloud_storage_path ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-teal-500/10 text-teal-300 border border-teal-500/20">
-                                  <Cloud className="h-2.5 w-2.5" /> Synced
-                                </span>
+                                <div className="inline-flex items-center gap-2 justify-end">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-teal-500/10 text-teal-300 border border-teal-500/20">
+                                    <Cloud className="h-2.5 w-2.5" /> Synced
+                                  </span>
+                                  <a
+                                    href={`/api/v1/artifacts/download?id=${encodeURIComponent(art.id)}`}
+                                    download={art.file_name}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-teal-500/15 hover:bg-teal-500/25 text-teal-300 border border-teal-500/30 text-[10px] font-medium transition cursor-pointer"
+                                    title={`Download ${art.file_name} from cloud storage`}
+                                  >
+                                    <Download className="h-3 w-3" /> Download
+                                  </a>
+                                </div>
                               ) : (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-400 border border-slate-700">
                                   <HardDrive className="h-2.5 w-2.5" /> Local
@@ -456,7 +468,7 @@ export function RunDetailsDrawer({ isOpen, onClose, run, onStopRun }: RunDetails
           {/* Footer */}
           <div className="border-t border-slate-800 px-6 py-4 bg-slate-950/60 flex items-center justify-between">
             <span className="text-[11px] text-slate-500 font-mono">
-              PortalSync Desktop Engine Bridge v1.0
+              FlowMind Desktop Engine Bridge v1.0
             </span>
             <button
               onClick={handleClose}

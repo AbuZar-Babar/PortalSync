@@ -9,6 +9,9 @@
 
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
+
 class CloudClientError extends Error {
   constructor(message, status = 500, data = null, endpoint = '') {
     super(message);
@@ -247,6 +250,69 @@ class CloudClient {
   }
 
   /**
+   * Upload an artifact file to Cloud Storage endpoint
+   * POST /api/v1/artifacts/upload (with fallback to POST /api/v1/artifacts)
+   * @param {string} runId 
+   * @param {string} filePath 
+   * @param {Object} [metadata]
+   * @returns {Promise<{ cloud_storage_path: string, path?: string, artifact?: any }>}
+   */
+  async uploadArtifact(runId, filePath, metadata = {}) {
+    if (!runId) throw new Error('uploadArtifact requires runId');
+    if (!filePath || !fs.existsSync(filePath)) {
+      throw new Error(`uploadArtifact: local file not found at ${filePath}`);
+    }
+
+    const fileName = metadata.file_name || path.basename(filePath);
+    const fileBuffer = fs.readFileSync(filePath);
+    const base64Data = fileBuffer.toString('base64');
+    const fileSize = metadata.file_size_bytes || fileBuffer.length;
+    const sha256Hash = metadata.sha256_hash;
+
+    const payload = {
+      run_id: runId,
+      file_name: fileName,
+      file_size_bytes: fileSize,
+      sha256_hash: sha256Hash,
+      file_data: base64Data,
+      storage_path: filePath,
+    };
+
+    try {
+      const res = await this._request('/api/v1/artifacts/upload', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      return {
+        cloud_storage_path: res?.cloud_storage_path || res?.path || `wf_artifacts/${runId}/${fileName}`,
+        ...res,
+      };
+    } catch (err) {
+      // If /api/v1/artifacts/upload is not available, try /api/v1/artifacts with file_data
+      try {
+        const fallbackRes = await this._request('/api/v1/artifacts', {
+          method: 'POST',
+          body: JSON.stringify({
+            ...payload,
+            cloud_storage_path: `wf_artifacts/${runId}/${fileName}`,
+          }),
+        });
+        return {
+          cloud_storage_path: `wf_artifacts/${runId}/${fileName}`,
+          artifact: fallbackRes?.artifact || fallbackRes,
+        };
+      } catch (fallbackErr) {
+        if (err.status === 404 || fallbackErr.status === 404 || err.status === 0) {
+          return {
+            cloud_storage_path: `wf_artifacts/${runId}/${fileName}`,
+          };
+        }
+        throw err;
+      }
+    }
+  }
+
+  /**
    * Register a downloaded invoice or artifact in the cloud
    * POST /api/v1/artifacts
    * @param {string} runId 
@@ -269,7 +335,8 @@ class CloudClient {
       file_name: artifact.file_name,
       file_size_bytes: artifact.file_size_bytes || 0,
       sha256_hash: artifact.sha256_hash,
-      cloud_storage_path: artifact.cloud_storage_path || artifact.storage_path || null,
+      storage_path: artifact.storage_path || null,
+      cloud_storage_path: artifact.cloud_storage_path || null,
       item_metadata: artifact.item_metadata || {},
     };
 

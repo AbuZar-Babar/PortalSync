@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   X, 
   Layers, 
   FileCode, 
   Upload, 
+  Download,
   Check, 
   AlertCircle, 
   Folder, 
@@ -19,7 +21,8 @@ import {
   Circle,
   CheckCircle2,
   RotateCcw,
-  MousePointerClick
+  MousePointerClick,
+  Workflow as WorkflowIcon
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Workflow, CapturedAction, WorkflowRecipe } from '@/lib/types/database';
@@ -29,9 +32,10 @@ interface CreatePortalModalProps {
   onClose: () => void;
   orgId: string;
   onWorkflowCreated: (newWorkflow: Workflow) => void;
+  initialTab?: 'record' | 'canvas' | 'import' | 'quick';
 }
 
-type TabType = 'quick' | 'import' | 'record';
+type TabType = 'record' | 'canvas' | 'import' | 'quick';
 type RecordingPhase = 'idle' | 'starting' | 'recording' | 'preview' | 'saving';
 
 export function CreatePortalModal({
@@ -39,36 +43,54 @@ export function CreatePortalModal({
   onClose,
   orgId,
   onWorkflowCreated,
+  initialTab = 'record',
 }: CreatePortalModalProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('quick');
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Tab 1: Quick Setup State
+  // Tab: Visual Canvas Builder State
+  const [canvasName, setCanvasName] = useState('');
+  const [canvasUrl, setCanvasUrl] = useState('');
+  const [canvasTargetFolder, setCanvasTargetFolder] = useState('C:\\FlowMind\\Invoices');
+  const [canvasUploadToCloud, setCanvasUploadToCloud] = useState(true);
+
+  // Tab: Quick Setup State
   const [quickName, setQuickName] = useState('');
   const [quickUrl, setQuickUrl] = useState('');
   const [quickSchedule, setQuickSchedule] = useState<'manual' | 'hourly' | 'daily' | 'weekly'>('daily');
-  const [quickTargetFolder, setQuickTargetFolder] = useState('C:\\PortalSync\\Invoices');
+  const [quickTargetFolder, setQuickTargetFolder] = useState('C:\\FlowMind\\Invoices');
   const [quickUploadToCloud, setQuickUploadToCloud] = useState(true);
 
-  // Tab 2: JSON Import State
+  // Tab: JSON Import State
   const [jsonText, setJsonText] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Tab 3: Desktop Recording State
+  // Tab: Desktop Recording State
   const [agentConnected, setAgentConnected] = useState<boolean | null>(null);
   const [checkingConnection, setCheckingConnection] = useState(false);
   const [recordName, setRecordName] = useState('');
   const [recordUrl, setRecordUrl] = useState('');
   const [recordSchedule, setRecordSchedule] = useState<'manual' | 'hourly' | 'daily' | 'weekly'>('daily');
-  const [recordTargetFolder, setRecordTargetFolder] = useState('C:\\PortalSync\\Invoices');
+  const [recordTargetFolder, setRecordTargetFolder] = useState('C:\\FlowMind\\Invoices');
   const [recordUploadToCloud, setRecordUploadToCloud] = useState(true);
   
   const [recordingPhase, setRecordingPhase] = useState<RecordingPhase>('idle');
   const [recordedActions, setRecordedActions] = useState<CapturedAction[]>([]);
   const [actionCount, setActionCount] = useState<number>(0);
   const [capturedRecipe, setCapturedRecipe] = useState<WorkflowRecipe | null>(null);
+
+  // Synchronize activeTab when initialTab prop updates (deferred to avoid cascading render warning)
+  useEffect(() => {
+    if (isOpen && initialTab) {
+      const timer = setTimeout(() => {
+        setActiveTab(initialTab);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, initialTab]);
 
   // Health check callback for manual button trigger
   const checkDesktopHealth = async () => {
@@ -101,6 +123,8 @@ export function CreatePortalModal({
     setCapturedRecipe(null);
     setRecordName('');
     setRecordUrl('');
+    setCanvasName('');
+    setCanvasUrl('');
     setRecordingPhase('idle');
     setQuickName('');
     setQuickUrl('');
@@ -115,12 +139,15 @@ export function CreatePortalModal({
     }
   }, []);
 
-  // When modal opens fresh, guarantee clean state from scratch
+  // When modal opens fresh, guarantee clean state from scratch (deferred to avoid synchronous setState warning)
   const prevIsOpenRef = useRef(false);
   useEffect(() => {
     if (isOpen && !prevIsOpenRef.current) {
       if (recordingPhase !== 'recording') {
-        resetAllState(true);
+        const timer = setTimeout(() => {
+          resetAllState(true);
+        }, 0);
+        return () => clearTimeout(timer);
       }
     }
     prevIsOpenRef.current = isOpen;
@@ -342,6 +369,180 @@ export function CreatePortalModal({
     } else {
       setFormError('Please drop a valid .json file.');
     }
+  };
+
+  const handleCanvasSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+
+    if (!canvasName.trim()) {
+      setFormError('Workflow name is required.');
+      return;
+    }
+
+    if (!canvasUrl.trim()) {
+      setFormError('Target portal URL is required.');
+      return;
+    }
+
+    let normalizedUrl = canvasUrl.trim();
+    if (!/^https?:\/\//i.test(normalizedUrl)) {
+      normalizedUrl = `https://${normalizedUrl}`;
+    }
+
+    setSubmitting(true);
+    try {
+      const payload = {
+        name: canvasName.trim(),
+        portal_url: normalizedUrl,
+        workflow_definition: {
+          schedule: 'manual',
+          target_folder: canvasTargetFolder || 'C:\\FlowMind\\Invoices',
+          upload_to_cloud: canvasUploadToCloud,
+          steps: [
+            {
+              index: 1,
+              name: 'Open Portal',
+              action: 'NAVIGATE',
+              type: 'navigate',
+              target: '',
+              url: normalizedUrl,
+              value: normalizedUrl,
+              timeout: 30000,
+              role: 'SETUP',
+              description: 'Open vendor portal URL',
+            },
+          ],
+          drawflow: {
+            Home: {
+              data: {
+                '1': {
+                  id: 1,
+                  name: 'NAVIGATE',
+                  data: {
+                    index: 1,
+                    name: 'Open Portal',
+                    action: 'NAVIGATE',
+                    type: 'navigate',
+                    target: '',
+                    url: normalizedUrl,
+                    value: normalizedUrl,
+                    role: 'SETUP',
+                    timeout: 30000,
+                  },
+                  class: 'navigate-node',
+                  html: 'NAVIGATE',
+                  typenode: false,
+                  inputs: {},
+                  outputs: {
+                    output_1: { connections: [] },
+                  },
+                  pos_x: 100,
+                  pos_y: 140,
+                },
+              },
+            },
+          },
+        },
+        filter_rules: {},
+        upload_to_cloud: canvasUploadToCloud,
+        target_folder: canvasTargetFolder || 'C:\\FlowMind\\Invoices',
+      };
+
+      const res = await fetch('/api/v1/workflows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const createdWf = data.workflow;
+        onWorkflowCreated(createdWf);
+        await resetAllState(true);
+        onClose();
+        router.push(`/dashboard/workflows/${createdWf.id}/edit`);
+        return;
+      }
+
+      // Supabase fallback
+      const supabase = createClient();
+      const { data: wf, error: insertError } = await supabase
+        .from('wf_workflows')
+        .insert({
+          org_id: orgId,
+          name: canvasName.trim(),
+          portal_url: normalizedUrl,
+          schema_version: '1.0.0',
+          workflow_definition: payload.workflow_definition,
+          filter_rules: {},
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        throw new Error(insertError.message);
+      }
+
+      onWorkflowCreated(wf as unknown as Workflow);
+      await resetAllState(true);
+      onClose();
+      router.push(`/dashboard/workflows/${wf.id}/edit`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to create workflow';
+      setFormError(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleExportJson = () => {
+    let exportData = jsonText.trim();
+    let exportFileName = `${(parsedMetadata?.name || 'flowmind-recipe').toLowerCase().replace(/\s+/g, '-')}.json`;
+
+    if (!exportData) {
+      const sampleRecipe = {
+        name: 'Sample FlowMind Portal Recipe',
+        portal_url: 'https://example-portal.com',
+        version: '1.0.0',
+        metadata: {
+          name: 'Sample FlowMind Portal Recipe',
+          startUrl: 'https://example-portal.com',
+          isLoop: false,
+        },
+        steps: [
+          {
+            index: 1,
+            action: 'NAVIGATE',
+            type: 'navigate',
+            name: 'Open Invoices',
+            value: 'https://example-portal.com/invoices',
+            target: '',
+            role: 'SETUP',
+          },
+          {
+            index: 2,
+            action: 'CLICK',
+            type: 'click',
+            name: 'Download Latest Statement',
+            target: '#btn-download-pdf',
+            role: 'LOOP',
+          },
+        ],
+      };
+      exportData = JSON.stringify(sampleRecipe, null, 2);
+      exportFileName = 'flowmind-sample-recipe.json';
+    }
+
+    const blob = new Blob([exportData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = exportFileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleQuickSubmit = async (e: React.FormEvent) => {
@@ -715,21 +916,36 @@ export function CreatePortalModal({
         </div>
 
         {/* Tab switcher */}
-        <div className="flex border-b border-slate-800 px-6 pt-3 bg-slate-950/40">
+        <div className="flex border-b border-slate-800 px-6 pt-3 bg-slate-950/40 overflow-x-auto">
           <button
             type="button"
             onClick={() => {
-              setActiveTab('quick');
+              setActiveTab('record');
               setFormError(null);
             }}
-            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition cursor-pointer ${
-              activeTab === 'quick'
-                ? 'border-blue-500 text-blue-400'
+            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+              activeTab === 'record'
+                ? 'border-cyan-500 text-cyan-400'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Layers className="h-4 w-4" />
-            Quick Setup Form
+            <Video className="h-4 w-4" />
+            Record in Chrome
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('canvas');
+              setFormError(null);
+            }}
+            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+              activeTab === 'canvas'
+                ? 'border-indigo-500 text-indigo-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <WorkflowIcon className="h-4 w-4" />
+            Visual Canvas Builder
           </button>
           <button
             type="button"
@@ -737,29 +953,29 @@ export function CreatePortalModal({
               setActiveTab('import');
               setFormError(null);
             }}
-            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition cursor-pointer ${
+            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
               activeTab === 'import'
-                ? 'border-blue-500 text-blue-400'
+                ? 'border-emerald-500 text-emerald-400'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <FileCode className="h-4 w-4" />
-            Import Recorded JSON
+            Import / Export JSON
           </button>
           <button
             type="button"
             onClick={() => {
-              setActiveTab('record');
+              setActiveTab('quick');
               setFormError(null);
             }}
-            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold transition cursor-pointer ${
-              activeTab === 'record'
+            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+              activeTab === 'quick'
                 ? 'border-blue-500 text-blue-400'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Video className="h-4 w-4" />
-            Record Steps on This PC
+            <Layers className="h-4 w-4" />
+            Quick Form
           </button>
         </div>
 
@@ -770,6 +986,120 @@ export function CreatePortalModal({
               <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />
               <span>{formError}</span>
             </div>
+          )}
+
+          {/* Visual Canvas Builder Mode */}
+          {activeTab === 'canvas' && (
+            <form onSubmit={handleCanvasSubmit} className="space-y-4">
+              <div className="rounded-xl border border-indigo-500/30 bg-indigo-950/20 p-4 mb-4">
+                <div className="flex items-center gap-2 text-indigo-400 font-semibold text-xs mb-1">
+                  <WorkflowIcon className="h-4 w-4" />
+                  <span>Visual Canvas Mode</span>
+                </div>
+                <p className="text-xs text-slate-300">
+                  Instantly creates your workflow definition and launches the full-screen visual canvas editor with Quixotic Slate cards.
+                </p>
+              </div>
+
+              {/* Workflow Name */}
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Workflow Name <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={canvasName}
+                  onChange={(e) => setCanvasName(e.target.value)}
+                  placeholder="e.g. Pacific Gas & Electric Invoice Capture"
+                  className="w-full rounded-xl border border-slate-700/80 bg-slate-950/70 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
+                />
+              </div>
+
+              {/* Target Portal URL */}
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Target Portal URL <span className="text-rose-400">*</span>
+                </label>
+                <div className="relative">
+                  <Globe className="absolute left-3.5 top-3 h-4 w-4 text-slate-500" />
+                  <input
+                    type="url"
+                    required
+                    value={canvasUrl}
+                    onChange={(e) => setCanvasUrl(e.target.value)}
+                    placeholder="https://customerportal.vendor.com/invoices"
+                    className="w-full rounded-xl border border-slate-700/80 bg-slate-950/70 pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
+                  />
+                </div>
+              </div>
+
+              {/* Destination Folder */}
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Local Download Folder
+                </label>
+                <div className="relative">
+                  <Folder className="absolute left-3.5 top-3 h-4 w-4 text-slate-500" />
+                  <input
+                    type="text"
+                    value={canvasTargetFolder}
+                    onChange={(e) => setCanvasTargetFolder(e.target.value)}
+                    placeholder="C:\FlowMind\Invoices or /Users/name/Invoices"
+                    className="w-full rounded-xl border border-slate-700/80 bg-slate-950/70 pl-10 pr-3.5 py-2.5 text-sm font-mono text-slate-200 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
+                  />
+                </div>
+              </div>
+
+              {/* Hybrid Cloud Storage */}
+              <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500/10 text-teal-400 border border-teal-500/20">
+                      <Cloud className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-semibold text-white">Hybrid Cloud Storage Sync</span>
+                      <p className="text-[11px] text-slate-400">
+                        Upload downloaded files to Supabase Storage for direct dashboard access
+                      </p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={canvasUploadToCloud}
+                    onChange={(e) => setCanvasUploadToCloud(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-indigo-600 cursor-pointer"
+                  />
+                </label>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting || !canvasName.trim() || !canvasUrl.trim()}
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 px-5 py-2.5 text-xs font-semibold text-white shadow-md transition disabled:opacity-50 cursor-pointer"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Creating &amp; Opening Canvas...
+                    </>
+                  ) : (
+                    <>
+                      <WorkflowIcon className="h-3.5 w-3.5" /> Create &amp; Open Canvas
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           )}
 
           {activeTab === 'quick' && (
@@ -838,7 +1168,7 @@ export function CreatePortalModal({
                     type="text"
                     value={quickTargetFolder}
                     onChange={(e) => setQuickTargetFolder(e.target.value)}
-                    placeholder="C:\PortalSync\Invoices or /Users/name/Invoices"
+                    placeholder="C:\FlowMind\Invoices or /Users/name/Invoices"
                     className="w-full rounded-xl border border-slate-700/80 bg-slate-950/70 pl-10 pr-3.5 py-2.5 text-sm font-mono text-slate-200 placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition"
                   />
                 </div>
@@ -927,7 +1257,7 @@ export function CreatePortalModal({
                   <span className="text-blue-400 underline">browse</span>
                 </div>
                 <div className="text-[11px] text-slate-400 mt-1">
-                  Supports PortalSync Chrome Extension & Engine recorder export schemas
+                  Supports FlowMind &amp; Chrome recorder export schemas
                 </div>
               </div>
 
@@ -1016,29 +1346,39 @@ export function CreatePortalModal({
               </div>
 
               {/* Submit Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-800">
                 <button
                   type="button"
-                  onClick={handleClose}
-                  className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white transition cursor-pointer"
+                  onClick={handleExportJson}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition cursor-pointer"
+                  title="Export or download recipe JSON"
                 >
-                  Cancel
+                  <Download className="h-3.5 w-3.5 text-slate-400" /> Export Recipe JSON
                 </button>
-                <button
-                  type="submit"
-                  disabled={submitting || !parsedMetadata}
-                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-semibold text-white shadow-md hover:bg-blue-500 disabled:opacity-50 transition cursor-pointer"
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Importing Workflow...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-3.5 w-3.5" /> Import & Save Workflow
-                    </>
-                  )}
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleClose}
+                    className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting || !parsedMetadata}
+                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-semibold text-white shadow-md hover:bg-blue-500 disabled:opacity-50 transition cursor-pointer"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Importing Workflow...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-3.5 w-3.5" /> Import &amp; Save Workflow
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
           )}
@@ -1222,21 +1562,31 @@ export function CreatePortalModal({
                     </div>
                   )}
 
-                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                  <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-800">
                     <button
                       type="button"
-                      onClick={handleCancelRecording}
-                      className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white transition cursor-pointer"
+                      onClick={handleResetRecordingState}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition cursor-pointer"
+                      title="Reset recording session on agent"
                     >
-                      Cancel
+                      <RotateCcw className="h-3.5 w-3.5" /> Reset Session
                     </button>
-                    <button
-                      type="button"
-                      onClick={handleStopRecording}
-                      className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-5 py-2.5 text-xs font-semibold text-white shadow-md transition cursor-pointer"
-                    >
-                      <Check className="h-4 w-4" /> Finish Recording & Review Steps
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleCancelRecording}
+                        className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white transition cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleStopRecording}
+                        className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-5 py-2.5 text-xs font-semibold text-white shadow-md transition cursor-pointer"
+                      >
+                        <Check className="h-4 w-4" /> Finish Recording &amp; Review Steps
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1291,7 +1641,7 @@ export function CreatePortalModal({
                   <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
                     <button
                       type="button"
-                      onClick={() => resetAllState(true)}
+                      onClick={handleResetRecordingState}
                       disabled={recordingPhase === 'saving'}
                       className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-slate-400 hover:text-white transition cursor-pointer"
                     >

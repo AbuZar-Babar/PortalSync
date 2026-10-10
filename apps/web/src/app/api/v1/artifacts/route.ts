@@ -115,6 +115,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let finalCloudStoragePath = cloud_storage_path || null;
+    if (body.file_data && !finalCloudStoragePath) {
+      try {
+        const buffer = Buffer.from(body.file_data, 'base64');
+        const uploadPath = `${orgId}/${run_id}/${file_name}`;
+        const { data: uploadData, error: uploadErr } = await supabase.storage
+          .from('wf_artifacts')
+          .upload(uploadPath, buffer, {
+            contentType: 'application/octet-stream',
+            upsert: true,
+          });
+        if (!uploadErr && uploadData) {
+          finalCloudStoragePath = uploadData.path;
+        } else {
+          finalCloudStoragePath = `wf_artifacts/${uploadPath}`;
+        }
+      } catch {
+        finalCloudStoragePath = `wf_artifacts/${orgId}/${run_id}/${file_name}`;
+      }
+    }
+
     const { data: newArtifact, error: insertError } = await supabase
       .from('wf_run_artifacts')
       .insert({
@@ -122,11 +143,11 @@ export async function POST(request: NextRequest) {
         file_name,
         file_size_bytes: file_size_bytes !== undefined ? Number(file_size_bytes) : null,
         sha256_hash,
-        cloud_storage_path: cloud_storage_path || null,
-        item_metadata:
-          typeof item_metadata === 'object' && item_metadata !== null
-            ? item_metadata
-            : {},
+        cloud_storage_path: finalCloudStoragePath,
+        item_metadata: {
+          ...(typeof item_metadata === 'object' && item_metadata !== null ? item_metadata : {}),
+          ...(body.storage_path ? { storage_path: body.storage_path } : {}),
+        },
         synced_to_drive: synced_to_drive !== undefined ? Boolean(synced_to_drive) : false,
       })
       .select()

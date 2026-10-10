@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #060913;
+  --foreground: #f8fafc;
 }
 
 @theme inline {
@@ -10,17 +10,488 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-flowmind-canvas: #060913;
+  --color-flowmind-cyan: #00f0ff;
+  --color-flowmind-sky: #38bdf8;
+  --color-flowmind-indigo: #6366f1;
+  --color-flowmind-emerald: #10b981;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: #060913;
+  color: #f8fafc;
+  min-height: 100vh;
+}
+
+/* ========================================================
+   FlowMind Dark Space Design Tokens & Ambient Glows
+   ======================================================== */
+
+.bg-flowmind-canvas {
+  background-color: #060913;
+  background-image: 
+    radial-gradient(at 10% 12%, rgba(0, 240, 255, 0.08) 0px, transparent 50%),
+    radial-gradient(at 88% 18%, rgba(99, 102, 241, 0.1) 0px, transparent 50%),
+    radial-gradient(at 50% 60%, rgba(56, 189, 248, 0.05) 0px, transparent 60%);
+}
+
+.robot-ambient-glow {
+  background: radial-gradient(circle, rgba(0, 240, 255, 0.45) 0%, rgba(99, 102, 241, 0.25) 50%, transparent 70%);
+  filter: blur(36px);
+}
+
+.text-gradient-purple-blue {
+  background: linear-gradient(135deg, #60a5fa 0%, #818cf8 45%, #c084fc 85%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ========================================================
+   SaaS Product Demo Animation Suite (5.6s Seamless Loop)
+   ======================================================== */
+
+/* 1. Cursor smooth motion path across web interface */
+@keyframes saasCursorLoop {
+  0% {
+    transform: translate(24px, 32px) scale(1);
+    opacity: 0;
+  }
+  4% {
+    transform: translate(24px, 32px) scale(1);
+    opacity: 1;
+  }
+  /* Glide to Filter Button */
+  12% {
+    transform: translate(98px, 48px) scale(1);
+    opacity: 1;
+  }
+  15% {
+    transform: translate(98px, 48px) scale(0.88);
+    opacity: 1;
+  }
+  18% {
+    transform: translate(98px, 48px) scale(1);
+    opacity: 1;
+  }
+  /* Glide to Form Search Input */
+  26% {
+    transform: translate(240px, 48px) scale(1);
+    opacity: 1;
+  }
+  29% {
+    transform: translate(240px, 48px) scale(0.88);
+    opacity: 1;
+  }
+  32% {
+    transform: translate(240px, 48px) scale(1);
+    opacity: 1;
+  }
+  /* Glide to Table Row 2 Action Button */
+  42% {
+    transform: translate(450px, 142px) scale(1);
+    opacity: 1;
+  }
+  46% {
+    transform: translate(450px, 142px) scale(0.88);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(450px, 142px) scale(1);
+    opacity: 1;
+  }
+  /* Fade out before Workflow Saved Checkmark */
+  53% {
+    opacity: 1;
+  }
+  55% {
+    transform: translate(460px, 145px) scale(1);
+    opacity: 0;
+  }
+  /* Hidden during Saved Checkmark & Full Automation Replay */
+  98% {
+    transform: translate(24px, 32px) scale(1);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(24px, 32px) scale(1);
+    opacity: 0;
+  }
+}
+.animate-saas-cursor {
+  animation: saasCursorLoop 5.6s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+}
+
+/* 2. Glowing scan lines sweeping across interface */
+@keyframes saasScanlineLoop {
+  0% {
+    transform: translateY(-20%);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.9;
+  }
+  45% {
+    opacity: 0.9;
+  }
+  52% {
+    transform: translateY(290%);
+    opacity: 0;
+  }
+  /* Second subtle sweep during fast automation replay */
+  70% {
+    transform: translateY(-10%);
+    opacity: 0;
+  }
+  78% {
+    opacity: 0.65;
+  }
+  92% {
+    transform: translateY(290%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(290%);
+    opacity: 0;
+  }
+}
+.animate-saas-scanline {
+  animation: saasScanlineLoop 5.6s ease-in-out infinite;
+}
+
+/* 3. Filter button highlight pulses (Manual click at 15%, Auto replay at 72%) */
+@keyframes saasFilterBtnPulse {
+  0%, 13% {
+    box-shadow: none;
+    border-color: rgba(226, 232, 240, 0.9);
+    background-color: #ffffff;
+  }
+  15%, 20% {
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.6), 0 4px 14px rgba(99, 102, 241, 0.25);
+    border-color: #6366f1;
+    background-color: #f5f3ff;
+  }
+  22%, 70% {
+    box-shadow: none;
+    border-color: rgba(226, 232, 240, 0.9);
+    background-color: #ffffff;
+  }
+  /* Fast replay auto pulse */
+  72%, 77% {
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.7), 0 4px 14px rgba(16, 185, 129, 0.3);
+    border-color: #10b981;
+    background-color: #ecfdf5;
+  }
+  80%, 100% {
+    box-shadow: none;
+    border-color: rgba(226, 232, 240, 0.9);
+    background-color: #ffffff;
+  }
+}
+.animate-filter-btn {
+  animation: saasFilterBtnPulse 5.6s ease-in-out infinite;
+}
+
+/* 4. Form input field typing & focus (Manual focus at 29%, Auto replay at 78%) */
+@keyframes saasInputPulse {
+  0%, 27% {
+    border-color: rgba(226, 232, 240, 0.9);
+    box-shadow: none;
+  }
+  29%, 40% {
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.4), 0 6px 18px rgba(139, 92, 246, 0.15);
+  }
+  43%, 76% {
+    border-color: rgba(226, 232, 240, 0.9);
+    box-shadow: none;
+  }
+  /* Fast replay auto fill */
+  78%, 84% {
+    border-color: #10b981;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.6), 0 6px 18px rgba(16, 185, 129, 0.2);
+    background-color: #f0fdf4;
+  }
+  86%, 100% {
+    border-color: rgba(226, 232, 240, 0.9);
+    box-shadow: none;
+  }
+}
+.animate-input-field {
+  animation: saasInputPulse 5.6s ease-in-out infinite;
+}
+
+/* Typed text reveal */
+@keyframes saasTypingReveal {
+  0%, 28% {
+    width: 0;
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+    width: 4ch;
+  }
+  36%, 53% {
+    opacity: 1;
+    width: 12ch;
+  }
+  54%, 76% {
+    opacity: 0.4;
+    width: 12ch;
+  }
+  78%, 96% {
+    opacity: 1;
+    width: 12ch;
+  }
+  100% {
+    opacity: 0;
+    width: 0;
+  }
+}
+.animate-typing-text {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: bottom;
+  animation: saasTypingReveal 5.6s steps(12, end) infinite;
+}
+
+/* 5. Table row & button click highlight (Manual at 46%, Auto at 84%) */
+@keyframes saasTableActionPulse {
+  0%, 44% {
+    border-color: rgba(241, 245, 249, 0.9);
+    background-color: #ffffff;
+  }
+  46%, 53% {
+    border-color: #6366f1;
+    background-color: #f5f3ff;
+  }
+  55%, 82% {
+    border-color: rgba(241, 245, 249, 0.9);
+    background-color: #ffffff;
+  }
+  /* Fast replay highlight */
+  84%, 93% {
+    border-color: #10b981;
+    background-color: #ecfdf5;
+  }
+  96%, 100% {
+    border-color: rgba(241, 245, 249, 0.9);
+    background-color: #ffffff;
+  }
+}
+.animate-table-row-highlight {
+  animation: saasTableActionPulse 5.6s ease-in-out infinite;
+}
+
+@keyframes saasExportBtnPulse {
+  0%, 44% {
+    background-color: #4f46e5;
+    box-shadow: none;
+  }
+  46%, 52% {
+    background-color: #4338ca;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5), 0 4px 12px rgba(99, 102, 241, 0.35);
+  }
+  54%, 82% {
+    background-color: #4f46e5;
+    box-shadow: none;
+  }
+  84%, 92% {
+    background-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.5), 0 4px 14px rgba(16, 185, 129, 0.4);
+  }
+  95%, 100% {
+    background-color: #4f46e5;
+    box-shadow: none;
+  }
+}
+.animate-export-btn {
+  animation: saasExportBtnPulse 5.6s ease-in-out infinite;
+}
+
+/* 6. Saved Checkmark Fade In with Soft Green Glow (at 54% - 68%) */
+@keyframes saasSavedCheckmarkModal {
+  0%, 52% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.92);
+    pointer-events: none;
+  }
+  55%, 66% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    pointer-events: auto;
+  }
+  69% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.04);
+    pointer-events: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.92);
+    pointer-events: none;
+  }
+}
+.animate-saved-checkmark {
+  animation: saasSavedCheckmarkModal 5.6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+/* 7. Live Loop Phase Badge Switcher */
+@keyframes saasPhaseHuman {
+  0%, 52% { opacity: 1; transform: translateY(0); }
+  54%, 100% { opacity: 0; transform: translateY(-8px); }
+}
+@keyframes saasPhaseSaved {
+  0%, 53% { opacity: 0; transform: translateY(8px); }
+  55%, 67% { opacity: 1; transform: translateY(0); }
+  69%, 100% { opacity: 0; transform: translateY(-8px); }
+}
+@keyframes saasPhaseAuto {
+  0%, 68% { opacity: 0; transform: translateY(8px); }
+  70%, 97% { opacity: 1; transform: translateY(0); }
+  99%, 100% { opacity: 0; transform: translateY(8px); }
+}
+.animate-phase-human { animation: saasPhaseHuman 5.6s ease-in-out infinite; }
+.animate-phase-saved { animation: saasPhaseSaved 5.6s ease-in-out infinite; }
+.animate-phase-auto  { animation: saasPhaseAuto 5.6s ease-in-out infinite; }
+
+/* 8. Synchronized 4-Step Cards Highlights */
+@keyframes stepCard1Sync {
+  0%, 25% {
+    border-color: rgba(99, 102, 241, 0.85);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25), 0 14px 30px -4px rgba(99, 102, 241, 0.18);
+    transform: translateY(-3px);
+  }
+  28%, 100% {
+    border-color: rgba(226, 232, 240, 0.2);
+    box-shadow: none;
+    transform: translateY(0);
+  }
+}
+@keyframes stepCard2Sync {
+  0%, 26% {
+    border-color: rgba(226, 232, 240, 0.2);
+    box-shadow: none;
+    transform: translateY(0);
+  }
+  28%, 53% {
+    border-color: rgba(139, 92, 246, 0.85);
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.25), 0 14px 30px -4px rgba(139, 92, 246, 0.18);
+    transform: translateY(-3px);
+  }
+  56%, 100% {
+    border-color: rgba(226, 232, 240, 0.2);
+    box-shadow: none;
+    transform: translateY(0);
+  }
+}
+@keyframes stepCard3Sync {
+  0%, 53% {
+    border-color: rgba(226, 232, 240, 0.2);
+    box-shadow: none;
+    transform: translateY(0);
+  }
+  55%, 68% {
+    border-color: rgba(16, 185, 129, 0.85);
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3), 0 14px 30px -4px rgba(16, 185, 129, 0.2);
+    transform: translateY(-3px);
+  }
+  71%, 100% {
+    border-color: rgba(226, 232, 240, 0.2);
+    box-shadow: none;
+    transform: translateY(0);
+  }
+}
+@keyframes stepCard4Sync {
+  0%, 68% {
+    border-color: rgba(226, 232, 240, 0.2);
+    box-shadow: none;
+    transform: translateY(0);
+  }
+  70%, 98% {
+    border-color: rgba(16, 185, 129, 0.95);
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.35), 0 16px 36px -4px rgba(16, 185, 129, 0.25);
+    transform: translateY(-3px);
+  }
+  100% {
+    border-color: rgba(226, 232, 240, 0.2);
+    box-shadow: none;
+    transform: translateY(0);
+  }
+}
+.sync-step-1 { animation: stepCard1Sync 5.6s ease-in-out infinite; }
+.sync-step-2 { animation: stepCard2Sync 5.6s ease-in-out infinite; }
+.sync-step-3 { animation: stepCard3Sync 5.6s ease-in-out infinite; }
+.sync-step-4 { animation: stepCard4Sync 5.6s ease-in-out infinite; }
+
+/* 9. Shimmer, Glow & Micro-interactions */
+@keyframes countFillShimmer {
+  0% { width: 14%; opacity: 0.8; }
+  50% { width: 94%; opacity: 1; }
+  100% { width: 14%; opacity: 0.8; }
+}
+.animate-count-bar-smooth {
+  animation: countFillShimmer 5.6s ease-in-out infinite;
+}
+
+@keyframes livePillBreathe {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50% { transform: scale(1.03); box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15); }
+}
+.animate-live-pill {
+  animation: livePillBreathe 2.8s ease-in-out infinite;
+}
+
+/* Mascot gentle float */
+@keyframes gentleFloat {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+.animate-gentle-float {
+  animation: gentleFloat 4s ease-in-out infinite;
+}
+
+/* Wave bar equalizer */
+@keyframes waveBar1 { 0%, 100% { height: 35%; } 50% { height: 85%; } }
+@keyframes waveBar2 { 0%, 100% { height: 70%; } 50% { height: 30%; } }
+@keyframes waveBar3 { 0%, 100% { height: 45%; } 50% { height: 95%; } }
+@keyframes waveBar4 { 0%, 100% { height: 90%; } 50% { height: 40%; } }
+@keyframes waveBar5 { 0%, 100% { height: 60%; } 50% { height: 100%; } }
+.wave-bar-1 { animation: waveBar1 2.2s ease-in-out infinite; }
+.wave-bar-2 { animation: waveBar2 2.6s ease-in-out infinite 0.2s; }
+.wave-bar-3 { animation: waveBar3 2.1s ease-in-out infinite 0.4s; }
+.wave-bar-4 { animation: waveBar4 2.8s ease-in-out infinite 0.1s; }
+.wave-bar-5 { animation: waveBar5 2.4s ease-in-out infinite 0.3s; }
+
+/* Bezier trail glide */
+@keyframes bezierDotGlide {
+  0% { offset-distance: 0%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+.animate-bezier-dot {
+  offset-path: path('M 10 35 C 40 10, 80 50, 140 20');
+  animation: bezierDotGlide 3.2s ease-in-out infinite;
+}
+
+/* Energy pulse along node line */
+@keyframes nodeEnergyPulse {
+  0% { transform: translateX(0); opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translateX(95px); opacity: 0; }
+}
+.animate-node-pulse {
+  animation: nodeEnergyPulse 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Radar scan */
+@keyframes radarSweep {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.animate-radar {
+  animation: radarSweep 4s linear infinite;
 }

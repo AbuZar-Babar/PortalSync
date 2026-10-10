@@ -1,0 +1,470 @@
+/* ===================================================================
+   FlowMind — Dedicated Drawflow Theme (Quixotic Slate / Emerald)
+   =================================================================== */
+
+/* Full Canvas Viewport & Background */
+.workflow-editor-canvas,
+.parent-drawflow {
+  position: relative;
+  display: flex;
+  overflow: hidden;
+  touch-action: none;
+  outline: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #060913 !important;
+  background-size: 26px 26px !important;
+  background-image: radial-gradient(circle, rgba(16, 185, 129, 0.18) 1.25px, transparent 1.25px) !important;
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+.drawflow {
+  position: relative;
+  width: 100% !important;
+  height: 100% !important;
+  background: transparent !important;
+  background-image: none !important;
+  user-select: none;
+  perspective: 0;
+  transform: translateZ(0);
+}
+
+.drawflow,
+.drawflow .parent-node {
+  position: relative;
+}
+
+.drawflow svg {
+  z-index: 0;
+  position: absolute;
+  overflow: visible !important;
+}
+
+/* ===================================================================
+   Base Node Card Styling
+   =================================================================== */
+.drawflow .drawflow-node {
+  display: flex !important;
+  flex-direction: column !important;
+  position: absolute !important;
+  background: #0b1120 !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #1e293b !important;
+  border-radius: 12px !important;
+  min-width: 310px !important;
+  max-width: 350px !important;
+  width: auto !important;
+  min-height: auto !important;
+  padding: 0 !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.5) !important;
+  overflow: visible !important;
+  font-family: inherit !important;
+  cursor: grab !important;
+  z-index: 2 !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.drawflow .drawflow-node:active {
+  cursor: grabbing !important;
+}
+
+.drawflow .drawflow-node:hover {
+  border-color: #059669 !important;
+  box-shadow: 0 12px 30px -5px rgba(16, 185, 129, 0.15), 0 0 0 1px rgba(16, 185, 129, 0.25) !important;
+}
+
+.drawflow .drawflow-node.selected {
+  background: #0f172a !important;
+  border: 2px solid #10b981 !important;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.3), 0 15px 35px -5px rgba(0, 0, 0, 0.8) !important;
+  z-index: 5 !important;
+}
+
+/* Loop / Repeating Node Accent */
+.drawflow .drawflow-node.is-loop-node {
+  border-color: rgba(245, 158, 11, 0.45) !important;
+}
+
+.drawflow .drawflow-node.is-loop-node:hover {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25), 0 12px 30px -5px rgba(0, 0, 0, 0.6) !important;
+}
+
+.drawflow .drawflow-node.is-loop-anchor {
+  border: 2px solid #10b981 !important;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.35), 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
+}
+
+/* Inner content wrapper */
+.drawflow .drawflow-node .drawflow_content_node {
+  width: 100% !important;
+  display: block !important;
+}
+
+/* ===================================================================
+   Node Header
+   =================================================================== */
+.df-node-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 10px 14px !important;
+  background: rgba(15, 23, 42, 0.95) !important;
+  border-bottom: 1px solid #1e293b !important;
+  border-top-left-radius: 11px !important;
+  border-top-right-radius: 11px !important;
+}
+
+.df-action-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+
+/* Action Badges with Neon Highlights */
+.df-action-badge.click {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.df-action-badge.type {
+  background: rgba(6, 182, 212, 0.15);
+  color: #22d3ee;
+  border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+.df-action-badge.select {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.df-action-badge.navigate {
+  background: rgba(14, 165, 233, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.3);
+}
+
+.df-action-badge.wait {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.df-action-badge.loop_start,
+.df-action-badge.loop {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  border: 1px solid #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.35);
+}
+
+.df-action-badge.extract {
+  background: rgba(20, 184, 166, 0.15);
+  color: #2dd4bf;
+  border: 1px solid rgba(20, 184, 166, 0.3);
+}
+
+.df-action-badge.download {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.df-step-number {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  padding: 2px 7px;
+  border-radius: 9999px;
+}
+
+/* ===================================================================
+   Node Hero Title & Description
+   =================================================================== */
+.df-node-hero {
+  padding: 11px 14px 9px 14px !important;
+  background: #0b1120 !important;
+  border-bottom: 1px solid #1e293b !important;
+}
+
+.df-node-title {
+  font-size: 0.88rem !important;
+  font-weight: 700 !important;
+  color: #f8fafc !important;
+  line-height: 1.3 !important;
+  word-break: break-word !important;
+  display: block !important;
+}
+
+.df-node-desc {
+  font-size: 0.72rem !important;
+  color: #94a3b8 !important;
+  line-height: 1.4 !important;
+  margin-top: 3px !important;
+  display: block !important;
+}
+
+/* ===================================================================
+   Node Body & Selector Summary Pills
+   =================================================================== */
+.df-node-body {
+  padding: 12px 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  background: #0b1120 !important;
+  border-bottom-left-radius: 11px !important;
+  border-bottom-right-radius: 11px !important;
+}
+
+.df-selector-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid #1e293b;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.df-selector-pill .df-selector-label {
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.df-selector-pill .df-selector-val {
+  color: #38bdf8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.df-value-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid #1e293b;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #e2e8f0;
+}
+
+.df-value-pill .df-value-label {
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.df-value-pill .df-value-text {
+  color: #34d399;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.df-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
+
+.df-idempotent-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  letter-spacing: 0.02em;
+}
+
+.df-timeout-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.64rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: rgba(100, 116, 139, 0.15);
+  color: #94a3b8;
+  border: 1px solid #1e293b;
+  font-family: ui-monospace, monospace;
+}
+
+/* ===================================================================
+   Input & Output Ports (Connectors)
+   =================================================================== */
+.drawflow .drawflow-node .inputs,
+.drawflow .drawflow-node .outputs {
+  position: absolute !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  height: 0 !important;
+  width: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 10 !important;
+}
+
+.drawflow .drawflow-node .inputs {
+  left: 0 !important;
+}
+
+.drawflow .drawflow-node .outputs {
+  right: 0 !important;
+}
+
+.drawflow .drawflow-node .input,
+.drawflow .drawflow-node .output {
+  width: 18px !important;
+  height: 18px !important;
+  background: #0b1120 !important;
+  border: 3px solid #10b981 !important;
+  border-radius: 50% !important;
+  cursor: crosshair !important;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4) !important;
+  transition: all 0.2s ease !important;
+  z-index: 10 !important;
+}
+
+.drawflow .drawflow-node .input {
+  left: -10px !important;
+  position: absolute !important;
+  border-color: #059669 !important;
+}
+
+.drawflow .drawflow-node .output {
+  right: -10px !important;
+  position: absolute !important;
+  border-color: #10b981 !important;
+}
+
+.drawflow .drawflow-node .output:hover {
+  background: #10b981 !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.9) !important;
+  transform: scale(1.35) !important;
+}
+
+.drawflow .drawflow-node .input:hover {
+  background: #059669 !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 0 14px rgba(5, 150, 105, 0.9) !important;
+  transform: scale(1.35) !important;
+}
+
+/* ===================================================================
+   Connection Lines (Cables)
+   =================================================================== */
+.drawflow .connection {
+  cursor: pointer !important;
+}
+
+.drawflow .connection .main-path {
+  stroke-width: 3.5px !important;
+  stroke: #10b981 !important;
+  stroke-linecap: round !important;
+  cursor: pointer !important;
+  filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.5)) !important;
+  transition: stroke 0.15s ease, stroke-width 0.15s ease !important;
+}
+
+.drawflow .connection:hover .main-path,
+.drawflow .connection .main-path:hover {
+  stroke: #ef4444 !important;
+  stroke-width: 5px !important;
+  filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.7)) !important;
+}
+
+.drawflow .connection.selected .main-path,
+.drawflow .connection .main-path.selected {
+  stroke: #ef4444 !important;
+  stroke-width: 5px !important;
+}
+
+/* Delete Connection Button (Drawflow Native) */
+.drawflow .drawflow-delete,
+.drawflow-delete {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.5) !important;
+  border-radius: 50% !important;
+  width: 26px !important;
+  height: 26px !important;
+  line-height: 22px !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  text-align: center !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 9999 !important;
+}
+
+.drawflow .drawflow-delete:hover,
+.drawflow-delete:hover {
+  transform: scale(1.25) !important;
+  background: #dc2626 !important;
+}
+
+/* Node Header Delete Button */
+.df-btn-delete-node {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  color: #64748b !important;
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+  transition: all 0.15s ease !important;
+}
+
+.df-btn-delete-node:hover {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  color: #f87171 !important;
+  transform: scale(1.1) !important;
+}

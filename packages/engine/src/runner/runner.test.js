@@ -66,7 +66,7 @@ test('CloudClient - getPendingRuns', async () => {
   });
 
   const runs = await client.getPendingRuns();
-  assert.strictEqual(calledUrl, 'http://localhost:3000/api/v1/runs?status=pending');
+  assert.match(calledUrl, /^http:\/\/localhost:3000\/api\/v1\/runs\?status=pending(&_t=\d+)?$/);
   assert.strictEqual(calledHeaders['Authorization'], 'Bearer ps_live_org_abc');
   assert.strictEqual(runs.length, 2);
   assert.strictEqual(runs[0].id, 'run_1');
@@ -161,6 +161,81 @@ test('CloudClient - registerArtifact', async () => {
   assert.strictEqual(artifactPayload.sha256_hash, 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890');
   assert.strictEqual(artifactPayload.file_size_bytes, 45012);
   assert.strictEqual(artifact.id, 'art_1');
+});
+
+test('CloudClient - uploadArtifact uploads base64 file and returns cloud_storage_path', async () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'upload-test-'));
+  const testFile = path.join(tmpDir, 'statement.pdf');
+  fs.writeFileSync(testFile, 'PDF statement mock binary content');
+
+  let uploadUrl = '';
+  let uploadBody = null;
+
+  const mockFetch = async (url, options) => {
+    uploadUrl = url;
+    uploadBody = JSON.parse(options.body);
+    return {
+      ok: true,
+      headers: { get: () => 'application/json' },
+      json: async () => ({
+        success: true,
+        cloud_storage_path: `wf_artifacts/${uploadBody.run_id}/${uploadBody.file_name}`,
+        file_name: uploadBody.file_name,
+        file_size_bytes: uploadBody.file_size_bytes,
+      }),
+    };
+  };
+
+  const client = new CloudClient({
+    baseUrl: 'http://localhost:3000',
+    token: 'ps_live_org_abc',
+    fetch: mockFetch,
+  });
+
+  const res = await client.uploadArtifact('run_456', testFile, {
+    file_name: 'statement.pdf',
+    sha256_hash: 'hash_test_123',
+  });
+
+  assert.strictEqual(uploadUrl, 'http://localhost:3000/api/v1/artifacts/upload');
+  assert.strictEqual(uploadBody.run_id, 'run_456');
+  assert.strictEqual(uploadBody.file_name, 'statement.pdf');
+  assert.strictEqual(uploadBody.sha256_hash, 'hash_test_123');
+  assert.ok(uploadBody.file_data.length > 0);
+  assert.strictEqual(res.cloud_storage_path, 'wf_artifacts/run_456/statement.pdf');
+
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+});
+
+test('CloudClient - registerArtifact preserves null cloud_storage_path when local only', async () => {
+  let artifactPayload = null;
+
+  const mockFetch = async (url, options) => {
+    artifactPayload = JSON.parse(options.body);
+    return {
+      ok: true,
+      headers: { get: () => 'application/json' },
+      json: async () => ({ artifact: { id: 'art_local_only', ...artifactPayload } }),
+    };
+  };
+
+  const client = new CloudClient({
+    baseUrl: 'http://localhost:3000',
+    token: 'ps_live_org_abc',
+    fetch: mockFetch,
+  });
+
+  const artifact = await client.registerArtifact('run_123', {
+    file_name: 'local_invoice.pdf',
+    file_size_bytes: 1234,
+    sha256_hash: 'hash_local_only',
+    storage_path: 'C:/Downloads/PortalSync/local_invoice.pdf',
+    cloud_storage_path: null,
+  });
+
+  assert.strictEqual(artifactPayload.storage_path, 'C:/Downloads/PortalSync/local_invoice.pdf');
+  assert.strictEqual(artifactPayload.cloud_storage_path, null);
+  assert.strictEqual(artifact.cloud_storage_path, null);
 });
 
 test('CloudClient - getWorkflow', async () => {

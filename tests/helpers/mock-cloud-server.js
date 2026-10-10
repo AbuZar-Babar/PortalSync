@@ -272,6 +272,14 @@ class MockCloudServer {
     // 2. /api/v1/workflows
     if (pathname === '/api/v1/workflows') {
       if (method === 'GET') {
+        const workflowId = parsedUrl.searchParams.get('id') || parsedUrl.searchParams.get('workflow_id');
+        if (workflowId) {
+          const wf = this.workflows.get(workflowId);
+          if (!wf || wf.org_id !== req.auth.orgId) {
+            return this.sendJson(res, 404, { error: 'Workflow not found' });
+          }
+          return this.sendJson(res, 200, { workflow: wf, workflows: [wf] });
+        }
         const workflows = Array.from(this.workflows.values()).filter((w) => w.org_id === req.auth.orgId);
         return this.sendJson(res, 200, { workflows });
       }
@@ -315,13 +323,14 @@ class MockCloudServer {
           return this.sendJson(res, 400, { error: err.message });
         }
 
-        if (!body.workflow_id) {
+        const targetId = body.workflow_id || body.id;
+        if (!targetId) {
           return this.sendJson(res, 400, { error: 'Missing required field: workflow_id' });
         }
 
-        const workflow = this.workflows.get(body.workflow_id);
+        const workflow = this.workflows.get(targetId);
         if (!workflow) {
-          return this.sendJson(res, 404, { error: `Workflow with id ${body.workflow_id} not found` });
+          return this.sendJson(res, 404, { error: `Workflow with id ${targetId} not found` });
         }
         if (workflow.org_id !== req.auth.orgId) {
           return this.sendJson(res, 403, { error: 'Forbidden: workflow belongs to different organization' });
@@ -337,6 +346,49 @@ class MockCloudServer {
         workflow.updated_at = new Date().toISOString();
 
         return this.sendJson(res, 200, { workflow });
+      }
+
+      return this.sendJson(res, 405, { error: 'Method Not Allowed' });
+    }
+
+    // 2b. /api/v1/workflows/:id (Next.js dynamic route contract)
+    const workflowPathMatch = pathname.match(/^\/api\/v1\/workflows\/([a-zA-Z0-9_-]+)$/);
+    if (workflowPathMatch) {
+      const targetWfId = workflowPathMatch[1];
+      if (method === 'GET') {
+        const wf = this.workflows.get(targetWfId);
+        if (!wf || wf.org_id !== req.auth.orgId) {
+          return this.sendJson(res, 404, { error: 'Workflow not found' });
+        }
+        return this.sendJson(res, 200, { workflow: wf });
+      }
+
+      if (method === 'PATCH') {
+        let body;
+        try {
+          body = await this.parseBody(req);
+        } catch (err) {
+          return this.sendJson(res, 400, { error: err.message });
+        }
+
+        const wf = this.workflows.get(targetWfId);
+        if (!wf) {
+          return this.sendJson(res, 404, { error: `Workflow with id ${targetWfId} not found` });
+        }
+        if (wf.org_id !== req.auth.orgId) {
+          return this.sendJson(res, 403, { error: 'Forbidden: workflow belongs to different organization' });
+        }
+
+        if (body.name) wf.name = body.name;
+        if (body.portal_url) wf.portal_url = body.portal_url;
+        if (body.upload_to_cloud !== undefined) wf.workflow_definition.upload_to_cloud = body.upload_to_cloud;
+        if (body.target_folder !== undefined) wf.workflow_definition.target_folder = body.target_folder;
+        if (body.workflow_definition) {
+          wf.workflow_definition = { ...wf.workflow_definition, ...body.workflow_definition };
+        }
+        wf.updated_at = new Date().toISOString();
+
+        return this.sendJson(res, 200, { workflow: wf });
       }
 
       return this.sendJson(res, 405, { error: 'Method Not Allowed' });
@@ -387,6 +439,47 @@ class MockCloudServer {
 
         this.artifacts.set(artifact.id, artifact);
         return this.sendJson(res, 201, { artifact });
+      }
+
+      return this.sendJson(res, 405, { error: 'Method Not Allowed' });
+    }
+
+    // 3b. /api/v1/artifacts/download
+    if (pathname === '/api/v1/artifacts/download') {
+      if (method === 'GET') {
+        const artifactId = parsedUrl.searchParams.get('id');
+        if (!artifactId) {
+          return this.sendJson(res, 400, { error: 'Missing artifact id parameter' });
+        }
+
+        const artifact = this.artifacts.get(artifactId);
+        if (!artifact) {
+          return this.sendJson(res, 404, { error: 'Artifact not found' });
+        }
+
+        const run = this.runs.get(artifact.run_id);
+        if (run && run.org_id !== req.auth.orgId) {
+          return this.sendJson(res, 403, { error: 'Unauthorized: Artifact belongs to a different organization' });
+        }
+
+        if (!artifact.cloud_storage_path) {
+          return this.sendJson(res, 404, { error: 'Artifact is stored locally only and has not been synced to cloud storage' });
+        }
+
+        if (parsedUrl.searchParams.get('redirect') === 'true' || artifact.signed_redirect) {
+          res.writeHead(307, {
+            Location: `https://storage.supabase.co/object/sign/wf_artifacts/${encodeURIComponent(artifact.file_name)}?token=mock_signed_token`,
+          });
+          return res.end();
+        }
+
+        const fileContent = artifact.content || Buffer.from(`FlowMind Cloud Artifact Export\nFile: ${artifact.file_name}\nSHA-256: ${artifact.sha256_hash}\n`);
+        res.writeHead(200, {
+          'Content-Type': 'application/octet-stream',
+          'Content-Disposition': `attachment; filename="${encodeURIComponent(artifact.file_name)}"`,
+          'Content-Length': String(Buffer.byteLength(fileContent)),
+        });
+        return res.end(fileContent);
       }
 
       return this.sendJson(res, 405, { error: 'Method Not Allowed' });

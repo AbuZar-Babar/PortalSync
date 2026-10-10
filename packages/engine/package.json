@@ -4,6 +4,11 @@
   "description": "Standalone Core Browser Automation & Replay Engine for Workflow-Capture",
   "main": "src/replay/loop-replay-runner.js",
   "license": "MIT",
+  "scripts": {
+    "test": "node --test --test-concurrency=1 test/*.test.js src/runner/runner.test.js",
+    "test:fast": "node --test --test-concurrency=1 test/*.test.js",
+    "test:runner": "node --test src/runner/runner.test.js"
+  },
   "dependencies": {
     "puppeteer-core": "^22.15.0"
   }

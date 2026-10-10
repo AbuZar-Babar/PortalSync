@@ -22,7 +22,11 @@ import {
   Square,
   Trash2,
   AlertTriangle,
-  Clock
+  Clock,
+  Workflow as WorkflowIcon,
+  Sparkles,
+  Video,
+  FileCode
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { CreatePortalModal } from '@/components/dashboard/CreatePortalModal';
@@ -82,6 +86,12 @@ export default function DashboardPage() {
   const [workflowToDelete, setWorkflowToDelete] = useState<DashboardWorkflowItem | null>(null);
   const [deletingWorkflow, setDeletingWorkflow] = useState(false);
   const [isRunnerOnline, setIsRunnerOnline] = useState<boolean>(false);
+  const [modalInitialTab, setModalInitialTab] = useState<'record' | 'canvas' | 'import' | 'quick'>('record');
+
+  const handleOpenCreateModal = (tab: 'record' | 'canvas' | 'import' | 'quick' = 'record') => {
+    setModalInitialTab(tab);
+    setIsCreateModalOpen(true);
+  };
 
   useEffect(() => {
     async function loadDashboardData() {
@@ -449,15 +459,15 @@ export default function DashboardPage() {
       {/* Top Navigation */}
       <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur px-8 h-16 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white text-sm">
-              P
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center font-bold text-white text-sm shadow-md shadow-cyan-500/20 group-hover:scale-105 transition-transform">
+              F
             </div>
-            <span className="font-semibold tracking-tight text-white">PortalSync Console</span>
+            <span className="font-semibold tracking-tight text-white group-hover:text-cyan-300 transition-colors">FlowMind Console</span>
           </Link>
           <span className="text-slate-600">/</span>
           <div className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded bg-slate-800 text-slate-200 border border-slate-700/60">
-            <Building className="w-3.5 h-3.5 text-blue-400" />
+            <Building className="w-3.5 h-3.5 text-cyan-400" />
             <span>{organizationName}</span>
           </div>
         </div>
@@ -476,18 +486,18 @@ export default function DashboardPage() {
                 }, 2500);
               }
             }}
-            title={orgId ? `Click to copy runner token: ps_live_${orgId}` : 'Loading runner token...'}
-            className="hidden sm:flex items-center gap-2 text-xs bg-blue-950/60 hover:bg-blue-900/60 text-blue-300 border border-blue-800/40 px-3 py-1.5 rounded-lg transition cursor-pointer group"
+            title={orgId ? `FlowMind Live Runner Token: ps_live_${orgId}` : 'Loading FlowMind Live Runner Token...'}
+            className="hidden sm:flex items-center gap-2 text-xs bg-cyan-950/40 hover:bg-cyan-900/50 text-cyan-300 border border-cyan-800/40 px-3 py-1.5 rounded-lg transition cursor-pointer group"
           >
-            <Key className="h-3.5 w-3.5 text-blue-400" />
-            <span>Runner Token:</span>
-            <code className="font-mono text-[11px] text-blue-200">
+            <Key className="h-3.5 w-3.5 text-cyan-400" />
+            <span className="font-medium">FlowMind Live Runner Token:</span>
+            <code className="font-mono text-[11px] text-cyan-200">
               {orgId ? `ps_live_${orgId}` : 'Loading...'}
             </code>
             {copiedToken ? (
               <Check className="h-3.5 w-3.5 text-emerald-400 ml-1" />
             ) : (
-              <Copy className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-300 ml-1 transition" />
+              <Copy className="h-3.5 w-3.5 text-slate-400 group-hover:text-cyan-300 ml-1 transition" />
             )}
             {copiedToken && <span className="text-[10px] text-emerald-400 font-medium">Copied!</span>}
           </button>
@@ -570,7 +580,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <div className="text-sm font-semibold text-white">
-                {isRunnerOnline ? 'Desktop Agent Online' : 'Desktop Agent Offline'}
+                {isRunnerOnline ? 'FlowMind Desktop Runner Online' : 'FlowMind Desktop Runner Offline'}
               </div>
               <div className="text-xs text-slate-400">
                 {isRunnerOnline ? (
@@ -581,7 +591,7 @@ export default function DashboardPage() {
                     )}
                   </>
                 ) : (
-                  'Launch PortalSync Desktop app to execute local browser workflows'
+                  'Launch FlowMind Desktop Runner to execute local browser workflows'
                 )}
               </div>
             </div>
@@ -590,12 +600,12 @@ export default function DashboardPage() {
             {isRunnerOnline ? (
               <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
                 <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>🟢 Desktop Agent Online</span>
+                <span>🟢 FlowMind Desktop Runner Online</span>
               </div>
             ) : (
               <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-xs font-medium">
                 <span className="flex h-2 w-2 rounded-full bg-slate-500" />
-                <span>⚪ Desktop Agent Offline</span>
+                <span>⚪ FlowMind Desktop Runner Offline</span>
               </div>
             )}
           </div>
@@ -630,29 +640,101 @@ export default function DashboardPage() {
           </div>
 
           <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm transition cursor-pointer"
+            onClick={() => handleOpenCreateModal('record')}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white text-xs font-semibold shadow-md shadow-cyan-500/20 transition cursor-pointer"
           >
-            <Plus className="h-3.5 w-3.5" /> Record New Portal
+            <Plus className="h-3.5 w-3.5" /> Create Workflow
           </button>
         </div>
 
         {/* Table Content */}
         {activeTab === 'workflows' ? (
           workflows.length === 0 ? (
-            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-12 text-center flex flex-col items-center justify-center">
-              <div className="h-12 w-12 rounded-xl bg-slate-800/80 flex items-center justify-center text-slate-400 mb-4 border border-slate-700/50">
-                <FileText className="h-6 w-6 text-slate-400" />
+            <div className="rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900/90 via-slate-900/50 to-slate-950/90 p-8 md:p-12 text-center shadow-2xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs font-semibold mb-4">
+                <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+                <span>FlowMind Quickstart</span>
               </div>
-              <h3 className="text-base font-semibold text-white mb-1">No Vendor Portals Configured</h3>
-              <p className="text-xs text-slate-400 max-w-sm mb-6">
-                You have not added any vendor portals to this workspace yet. Record or configure a portal to begin automated invoice downloads.
+              <h3 className="text-xl md:text-2xl font-bold text-white tracking-tight">
+                Welcome to FlowMind — Create Your First Workflow
+              </h3>
+              <p className="text-xs md:text-sm text-slate-400 max-w-xl mx-auto mt-2 mb-8">
+                Automate vendor portals and invoice collection in minutes. Choose how you want to build your workflow:
               </p>
+
+              {/* 3-card pathway */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 text-left mb-8 max-w-4xl mx-auto">
+                {/* 1. Record in Chrome */}
+                <div
+                  onClick={() => handleOpenCreateModal('record')}
+                  className="group relative rounded-xl border border-slate-800 bg-slate-900/60 p-5 hover:border-cyan-500/40 hover:bg-slate-900/90 transition-all cursor-pointer shadow-lg hover:shadow-cyan-500/10"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="p-2.5 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 group-hover:scale-105 transition-transform">
+                      <Video className="h-5 w-5" />
+                    </div>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800/40">
+                      CDP Capture
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-semibold text-white group-hover:text-cyan-300 transition-colors">
+                    1. Record in Chrome
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                    Web-to-Desktop CDP capture. Perform actions naturally in Chrome; FlowMind records selectors, clicks, and downloads.
+                  </p>
+                </div>
+
+                {/* 2. Visual Canvas Builder */}
+                <div
+                  onClick={() => handleOpenCreateModal('canvas')}
+                  className="group relative rounded-xl border border-slate-800 bg-slate-900/60 p-5 hover:border-indigo-500/40 hover:bg-slate-900/90 transition-all cursor-pointer shadow-lg hover:shadow-indigo-500/10"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="p-2.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 group-hover:scale-105 transition-transform">
+                      <WorkflowIcon className="h-5 w-5" />
+                    </div>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400 bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800/40">
+                      Visual Editor
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-semibold text-white group-hover:text-indigo-300 transition-colors">
+                    2. Visual Canvas Builder
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                    Direct visual node editor. Build and customize workflows with Quixotic Slate cards, loop iterations, and property drawers.
+                  </p>
+                </div>
+
+                {/* 3. Import Workflow JSON */}
+                <div
+                  onClick={() => handleOpenCreateModal('import')}
+                  className="group relative rounded-xl border border-slate-800 bg-slate-900/60 p-5 hover:border-emerald-500/40 hover:bg-slate-900/90 transition-all cursor-pointer shadow-lg hover:shadow-emerald-500/10"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 group-hover:scale-105 transition-transform">
+                      <FileCode className="h-5 w-5" />
+                    </div>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
+                      Recipe JSON
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-semibold text-white group-hover:text-emerald-300 transition-colors">
+                    3. Import Workflow JSON
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                    Upload existing recipes or JSON migration scripts. Full schema validation, step inspection, and instant dispatch.
+                  </p>
+                </div>
+              </div>
+
+              {/* Primary CTA */}
               <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm transition cursor-pointer"
+                onClick={() => handleOpenCreateModal('record')}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white text-xs font-semibold shadow-lg shadow-cyan-500/20 transition-all cursor-pointer group"
               >
-                <Plus className="h-3.5 w-3.5" /> Record New Portal
+                <Plus className="h-4 w-4 group-hover:rotate-90 transition-transform" />
+                <span>Create Your First Workflow</span>
               </button>
             </div>
           ) : (
@@ -709,6 +791,14 @@ export default function DashboardPage() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="inline-flex items-center gap-2">
+                            <Link
+                              href={`/dashboard/workflows/${wf.id}/edit`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/35 text-indigo-300 border border-indigo-500/30 text-xs font-medium transition cursor-pointer"
+                              title="Open Visual Canvas Editor"
+                            >
+                              <WorkflowIcon className="h-3.5 w-3.5" />
+                              <span>Visual Canvas</span>
+                            </Link>
                             {activeRun ? (
                               <button
                                 onClick={() => handleStopRun(activeRun.id)}
@@ -833,12 +923,13 @@ export default function DashboardPage() {
         )}
       </main>
 
-      {/* Dual-Mode Portal Creator Modal */}
+      {/* Create Portal Modal */}
       <CreatePortalModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         orgId={orgId || ''}
         onWorkflowCreated={handleWorkflowCreated}
+        initialTab={modalInitialTab}
       />
 
       {/* Run Details & Artifacts Slide-over Drawer */}
@@ -864,7 +955,7 @@ export default function DashboardPage() {
             </div>
 
             <p className="text-sm text-slate-300">
-              Are you sure you want to delete <span className="font-semibold text-white">"{workflowToDelete.name}"</span>?
+              Are you sure you want to delete <span className="font-semibold text-white">&quot;{workflowToDelete.name}&quot;</span>?
               All associated execution runs and recorded artifacts will be permanently removed.
             </p>
 

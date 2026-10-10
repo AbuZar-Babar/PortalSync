@@ -10,6 +10,29 @@ export async function GET(request: NextRequest) {
 
   const { orgId, supabase } = auth.context;
 
+  const workflowId =
+    request.nextUrl.searchParams.get('id') ||
+    request.nextUrl.searchParams.get('workflow_id');
+
+  if (workflowId) {
+    const { data: workflow, error } = await supabase
+      .from('wf_workflows')
+      .select('*')
+      .eq('id', workflowId)
+      .eq('org_id', orgId)
+      .maybeSingle();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    if (!workflow) {
+      return NextResponse.json({ error: 'Workflow not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ workflow, workflows: [workflow] });
+  }
+
   const { data: workflows, error } = await supabase
     .from('wf_workflows')
     .select('*')

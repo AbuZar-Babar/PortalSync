@@ -267,6 +267,7 @@ class RunnerDaemon {
     };
 
     const isLoop = def.metadata?.isLoop || metadata.isLoop || workflow?.isLoop || false;
+    const uploadToCloud = Boolean(def.upload_to_cloud ?? workflow?.upload_to_cloud ?? false);
 
     // Determine target download directory organized by portal name
     const workflowTargetFolder = def.target_folder || workflow?.target_folder;
@@ -417,7 +418,13 @@ class RunnerDaemon {
       }
 
       // Check downloaded artifacts, compute SHA-256, deduplicate, and register in cloud
-      const newArtifacts = await this.collectAndRegisterArtifacts(run.id, runTargetDir, runner, sanitizedPortalName);
+      const newArtifacts = await this.collectAndRegisterArtifacts(
+        run.id,
+        runTargetDir,
+        runner,
+        sanitizedPortalName,
+        uploadToCloud
+      );
       itemsDownloaded = Math.max(itemsDownloaded, newArtifacts.length);
 
       // Determine final run status
@@ -591,7 +598,7 @@ class RunnerDaemon {
    * @param {string} [portalName]
    * @returns {Promise<Array<any>>} List of registered artifacts
    */
-  async collectAndRegisterArtifacts(runId, targetDir, runner, portalName = null) {
+  async collectAndRegisterArtifacts(runId, targetDir, runner, portalName = null, uploadToCloud = false) {
     const directoriesToScan = new Set();
     if (fs.existsSync(targetDir)) directoriesToScan.add(targetDir);
     if (runner?.runsDir && fs.existsSync(runner.runsDir)) directoriesToScan.add(runner.runsDir);
@@ -618,21 +625,38 @@ class RunnerDaemon {
           continue;
         }
 
+        let cloudStoragePath = null;
+        if (uploadToCloud) {
+          try {
+            this.logger.info(`[Hybrid Storage] Uploading artifact to cloud: ${artifactResult.fileName}`);
+            const uploadRes = await this.cloudClient.uploadArtifact(runId, artifactResult.targetPath, {
+              file_name: artifactResult.fileName,
+              file_size_bytes: artifactResult.sizeBytes,
+              sha256_hash: artifactResult.hash,
+            });
+            cloudStoragePath = uploadRes?.cloud_storage_path || uploadRes?.path || `wf_artifacts/${runId}/${artifactResult.fileName}`;
+            this.logger.success(`[Hybrid Storage] Uploaded to cloud storage: ${cloudStoragePath}`);
+          } catch (uploadErr) {
+            this.logger.warn(`[Hybrid Storage] Cloud upload failed: ${uploadErr.message}. Registering as local artifact.`);
+          }
+        }
+
         try {
           const registeredArtifact = await this.cloudClient.registerArtifact(runId, {
             file_name: artifactResult.fileName,
             file_size_bytes: artifactResult.sizeBytes,
             sha256_hash: artifactResult.hash,
             storage_path: artifactResult.targetPath,
-            cloud_storage_path: artifactResult.targetPath,
+            cloud_storage_path: cloudStoragePath,
             item_metadata: {
               source: 'desktop-runner',
               run_id: runId,
               portal: portalName || 'DefaultPortal',
               discovered_at: new Date().toISOString(),
+              uploaded_to_cloud: Boolean(cloudStoragePath),
             },
           });
-          this.logger.success(`Registered artifact: ${artifactResult.fileName} [SHA-256: ${artifactResult.hash.substring(0, 10)}...]`);
+          this.logger.success(`Registered artifact: ${artifactResult.fileName} [SHA-256: ${artifactResult.hash.substring(0, 10)}...] (Storage: ${cloudStoragePath ? 'Cloud' : 'Local'})`);
           registered.push(registeredArtifact);
         } catch (err) {
           this.logger.warn(`Failed to register artifact in cloud: ${err.message}`);

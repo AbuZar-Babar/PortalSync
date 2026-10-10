@@ -37,6 +37,7 @@ const TEST_TIERS = [
       { name: 'R1 Localhost Bridge', file: './tier1-features/test-r1-localhost-bridge.js' },
       { name: 'R2 Dashboard Recording Flow', file: './tier1-features/test-r2-recording-flow.js' },
       { name: 'R3 Portal Storage & Deduplication', file: './tier1-features/test-r3-portal-storage-dedup.js' },
+      { name: 'R4 Visual Editor & Hybrid Storage', file: './tier1-features/test-r4-visual-editor-storage.js' },
     ],
   },
   {
