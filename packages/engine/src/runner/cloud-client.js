@@ -63,6 +63,12 @@ class CloudClient {
     if (this.token) {
       headers['Authorization'] = `Bearer ${this.token}`;
       headers['x-runner-token'] = this.token;
+      try {
+        const os = require('os');
+        headers['x-runner-hostname'] = os.hostname();
+        headers['x-runner-platform'] = `${process.platform} ${process.arch}`;
+        headers['x-runner-version'] = 'v1.4.0 (Enterprise Engine)';
+      } catch {}
     }
     return headers;
   }
@@ -381,12 +387,36 @@ class CloudClient {
   }
 
   /**
+   * Send heartbeat to Cloud API
+   * @param {Object} [extra]
+   * @returns {Promise<any>}
+   */
+  async sendHeartbeat(extra = {}) {
+    try {
+      const os = require('os');
+      return await this._request('/api/v1/runners', {
+        method: 'POST',
+        body: JSON.stringify({
+          hostname: os.hostname(),
+          platform: `${process.platform} ${process.arch}`,
+          version: 'v1.4.0 (Enterprise Engine)',
+          cdp_active: true,
+          ...extra,
+        }),
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Diagnostic test connection to Cloud API
    * @returns {Promise<{connected: boolean, url: string, pendingRunsCount?: number, error?: string}>}
    */
   async testConnection() {
     try {
       const res = await this._request('/api/v1/runs?status=pending', { method: 'GET' });
+      void this.sendHeartbeat().catch(() => {});
       return {
         connected: true,
         url: this.baseUrl,

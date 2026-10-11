@@ -132,7 +132,8 @@ class RunnerController {
         }
       };
 
-      // Start polling
+      // Start polling & send initial heartbeat
+      void cloudClient.sendHeartbeat().catch(() => {});
       this.daemon.start().catch((err) => {
         console.error('Daemon polling error:', err);
       });

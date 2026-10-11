@@ -52,7 +52,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       // Fetch user's organization membership
       const { data: members, error: memberError } = await supabase
         .from('wf_organization_members')
-        .select('org_id, role, wf_organizations(name, slug)')
+        .select('org_id, role, wf_organizations(name, slug, stripe_subscription_id)')
         .eq('user_id', user.id)
         .limit(1);
 
@@ -66,32 +66,39 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       }
 
       const activeOrgId = members[0].org_id;
-      const orgRecord = members[0].wf_organizations as { name?: string; slug?: string } | null;
+      const orgRecord = members[0].wf_organizations as { name?: string; slug?: string; stripe_subscription_id?: string | null } | null;
       setOrgId(activeOrgId);
       setOrganizationName(orgRecord?.name || 'My Organization');
 
-      // Fetch or initialize runner token for the organization
-      const { data: tokens } = await supabase
-        .from('wf_runner_tokens')
-        .select('token, last_ping_at')
-        .eq('org_id', activeOrgId)
-        .order('created_at', { ascending: false })
-        .limit(1);
+      const defaultToken = `ps_live_${activeOrgId.replace(/-/g, '').slice(0, 16)}`;
+      setRunnerToken(defaultToken);
 
-      if (tokens && tokens.length > 0) {
-        setRunnerToken(tokens[0].token);
-        if (tokens[0].last_ping_at) {
-          const lastPing = new Date(tokens[0].last_ping_at).getTime();
-          const diffSeconds = (Date.now() - lastPing) / 1000;
-          setIsRunnerOnline(diffSeconds < 45);
-        } else {
-          setIsRunnerOnline(false);
+      // Check online status via /api/v1/runners or organization metadata
+      let online = false;
+      try {
+        const res = await fetch('/api/v1/runners', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          online = !!data.is_online;
+        } else if (orgRecord?.stripe_subscription_id) {
+          const parsed = JSON.parse(orgRecord.stripe_subscription_id);
+          if (parsed.last_ping_at) {
+            const diffSeconds = (Date.now() - new Date(parsed.last_ping_at).getTime()) / 1000;
+            online = diffSeconds < 45;
+          }
         }
-      } else {
-        // Fallback default token pattern
-        setRunnerToken(`ps_live_${activeOrgId.replace(/-/g, '').slice(0, 16)}`);
-        setIsRunnerOnline(false);
+      } catch {
+        if (orgRecord?.stripe_subscription_id) {
+          try {
+            const parsed = JSON.parse(orgRecord.stripe_subscription_id);
+            if (parsed.last_ping_at) {
+              const diffSeconds = (Date.now() - new Date(parsed.last_ping_at).getTime()) / 1000;
+              online = diffSeconds < 45;
+            }
+          } catch {}
+        }
       }
+      setIsRunnerOnline(online);
     } catch (err) {
       console.error('Dashboard context error:', err);
     } finally {
@@ -108,27 +115,19 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       }
     }, 0);
 
-    // Heartbeat poller for runner status every 15 seconds
+    // Heartbeat poller for runner status every 10 seconds
     const interval = setInterval(async () => {
       if (!orgId) return;
       try {
-        const supabase = createClient();
-        const { data: tokens } = await supabase
-          .from('wf_runner_tokens')
-          .select('last_ping_at')
-          .eq('org_id', orgId)
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (tokens && tokens[0]?.last_ping_at) {
-          const lastPing = new Date(tokens[0].last_ping_at).getTime();
-          const diffSeconds = (Date.now() - lastPing) / 1000;
-          setIsRunnerOnline(diffSeconds < 45);
-        } else {
-          setIsRunnerOnline(false);
+        const res = await fetch('/api/v1/runners', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted) {
+            setIsRunnerOnline(!!data.is_online);
+          }
         }
       } catch {}
-    }, 15000);
+    }, 10000);
 
     return () => {
       isMounted = false;

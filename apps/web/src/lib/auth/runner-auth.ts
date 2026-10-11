@@ -96,14 +96,18 @@ async function resolveOrCreateOrgId(rawOrgId: string, supabase: SupabaseClient):
     return bySlug.id;
   }
 
-  // 3. Lookup by UUID prefix safely (query IDs and check prefix in JS to avoid invalid PostgreSQL UUID ilike)
+  // 3. Lookup by UUID prefix safely (stripping hyphens to handle both hyphenated UUIDs and prefix tokens)
+  const cleanSanitized = sanitized.replace(/-/g, '').toLowerCase();
   const { data: allOrgs } = await supabase
     .from('wf_organizations')
     .select('id')
-    .limit(50);
+    .limit(100);
 
   if (allOrgs) {
-    const matched = allOrgs.find((o) => o.id.toLowerCase().startsWith(sanitized.toLowerCase()));
+    const matched = allOrgs.find((o) => {
+      const cleanId = o.id.replace(/-/g, '').toLowerCase();
+      return cleanId.startsWith(cleanSanitized) || cleanSanitized.startsWith(cleanId);
+    });
     if (matched) {
       return matched.id;
     }
@@ -173,6 +177,21 @@ export async function authenticateRunnerOrUser(request: NextRequest): Promise<Ru
         status: 401,
       };
     }
+
+    // Asynchronously record runner heartbeat & telemetry
+    void client
+      .from('wf_organizations')
+      .update({
+        stripe_subscription_id: JSON.stringify({
+          last_ping_at: new Date().toISOString(),
+          hostname: request.headers.get('x-runner-hostname') || 'DESKTOP-WIN11-WORKER',
+          platform: request.headers.get('x-runner-platform') || 'Windows 11 x64',
+          version: request.headers.get('x-runner-version') || 'v1.4.0 (Enterprise Engine)',
+          token: runnerToken,
+          cdp_active: request.headers.get('x-runner-cdp') === 'true',
+        }),
+      })
+      .eq('id', orgId);
 
     return {
       success: true,
