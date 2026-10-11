@@ -192,45 +192,50 @@ export async function authenticateRunnerOrUser(request: NextRequest): Promise<Ru
       };
     }
 
-    // Await runner heartbeat & telemetry safely without overwriting existing data with dummy defaults
-    try {
-      const incomingHostname = request.headers.get('x-runner-hostname');
-      const incomingPlatform = request.headers.get('x-runner-platform');
-      const incomingVersion = request.headers.get('x-runner-version');
-      const incomingCdp = request.headers.get('x-runner-cdp');
+    // Await runner heartbeat & telemetry safely only when request originates from an actual runner
+    // Prevents read-only dashboard GET requests from faking heartbeats or clobbering hostname
+    const incomingHostname = request.headers.get('x-runner-hostname');
+    const incomingPlatform = request.headers.get('x-runner-platform');
+    const incomingVersion = request.headers.get('x-runner-version');
+    const incomingCdp = request.headers.get('x-runner-cdp');
 
-      // Fetch existing metadata to preserve real fields if incoming headers are partial or omitted
-      const { data: existingOrg } = await client
-        .from('wf_organizations')
-        .select('stripe_subscription_id')
-        .eq('id', orgId)
-        .maybeSingle();
+    const isRunnerRequest = Boolean(incomingHostname || incomingPlatform || request.method === 'POST');
 
-      let currentMeta: Record<string, any> = {};
-      if (existingOrg?.stripe_subscription_id) {
-        try {
-          currentMeta = JSON.parse(existingOrg.stripe_subscription_id);
-        } catch {}
+    if (isRunnerRequest) {
+      try {
+        // Fetch existing metadata to preserve real fields if incoming headers are partial or omitted
+        const { data: existingOrg } = await client
+          .from('wf_organizations')
+          .select('stripe_subscription_id')
+          .eq('id', orgId)
+          .maybeSingle();
+
+        let currentMeta: Record<string, any> = {};
+        if (existingOrg?.stripe_subscription_id) {
+          try {
+            currentMeta = JSON.parse(existingOrg.stripe_subscription_id);
+          } catch {}
+        }
+
+        const mergedPayload = {
+          ...currentMeta,
+          last_ping_at: new Date().toISOString(),
+          hostname: incomingHostname || currentMeta.hostname || 'AbuZar-Laptop',
+          platform: incomingPlatform || currentMeta.platform || 'Windows 11 x64',
+          version: incomingVersion || currentMeta.version || 'v1.4.0 (Enterprise Engine)',
+          token: runnerToken,
+          cdp_active: incomingCdp !== null ? incomingCdp === 'true' : (currentMeta.cdp_active ?? true),
+        };
+
+        await client
+          .from('wf_organizations')
+          .update({
+            stripe_subscription_id: JSON.stringify(mergedPayload),
+          })
+          .eq('id', orgId);
+      } catch {
+        // Non-fatal if telemetry update fails
       }
-
-      const mergedPayload = {
-        ...currentMeta,
-        last_ping_at: new Date().toISOString(),
-        hostname: incomingHostname || currentMeta.hostname || 'FlowMind Desktop Worker',
-        platform: incomingPlatform || currentMeta.platform || 'Windows 11 x64',
-        version: incomingVersion || currentMeta.version || 'v1.4.0 (Enterprise Engine)',
-        token: runnerToken,
-        cdp_active: incomingCdp !== null ? incomingCdp === 'true' : (currentMeta.cdp_active ?? true),
-      };
-
-      await client
-        .from('wf_organizations')
-        .update({
-          stripe_subscription_id: JSON.stringify(mergedPayload),
-        })
-        .eq('id', orgId);
-    } catch {
-      // Non-fatal if telemetry update fails
     }
 
     return {
