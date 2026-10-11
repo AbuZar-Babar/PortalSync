@@ -12,7 +12,8 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Home
+  Home,
+  LogOut
 } from 'lucide-react';
 import { RobotAvatar } from './RobotAvatar';
 
@@ -202,6 +203,27 @@ export function Sidebar({ isRunnerOnline = false }: SidebarProps) {
           <Home className="w-4 h-4 flex-shrink-0" />
           {!isCollapsed && <span>Public Home</span>}
         </Link>
+
+        {/* Sign Out Button */}
+        <button
+          onClick={async () => {
+            try {
+              const { createClient } = await import('@/lib/supabase/client');
+              const supabase = createClient();
+              await supabase.auth.signOut();
+              await fetch('/auth/signout', { method: 'POST' }).catch(() => {});
+            } finally {
+              window.location.href = '/';
+            }
+          }}
+          title={isCollapsed ? 'Sign Out' : undefined}
+          className={`flex items-center gap-3 h-9 px-3 rounded-lg text-xs font-medium text-rose-400/80 hover:text-rose-300 hover:bg-rose-500/10 transition-colors ${
+            isCollapsed ? 'justify-center px-0' : ''
+          }`}
+        >
+          <LogOut className="w-4 h-4 flex-shrink-0" />
+          {!isCollapsed && <span>Sign Out</span>}
+        </button>
 
         {/* Sidebar Collapse Toggle Button */}
         <button

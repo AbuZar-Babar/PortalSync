@@ -50,9 +50,9 @@ export function Header({
     try {
       const supabase = createClient();
       await supabase.auth.signOut();
-      router.push('/login');
-    } catch {
-      window.location.href = '/login';
+      await fetch('/auth/signout', { method: 'POST' }).catch(() => {});
+    } finally {
+      window.location.href = '/';
     }
   };
 

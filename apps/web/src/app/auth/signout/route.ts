@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
   await supabase.auth.signOut();
 
   const url = request.nextUrl.clone();
-  url.pathname = '/login';
+  url.pathname = '/';
   return NextResponse.redirect(url, { status: 302 });
 }
 
@@ -15,6 +15,6 @@ export async function GET(request: NextRequest) {
   await supabase.auth.signOut();
 
   const url = request.nextUrl.clone();
-  url.pathname = '/login';
+  url.pathname = '/';
   return NextResponse.redirect(url, { status: 302 });
 }
