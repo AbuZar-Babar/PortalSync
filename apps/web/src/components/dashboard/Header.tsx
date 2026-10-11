@@ -137,7 +137,7 @@ export function Header({
 
           {/* Dropdown Popover */}
           {isDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-56 bg-[#0f172a] border border-white/10 rounded-xl shadow-2xl p-1.5 z-50 text-xs">
+            <div className="absolute right-0 mt-2 w-56 bg-[var(--surface-bg,#0f172a)] border border-[var(--border-color,rgba(255,255,255,0.1))] rounded-xl shadow-2xl p-1.5 z-50 text-xs">
               <div className="px-3 py-2 border-b border-white/5">
                 <p className="text-[11px] font-medium text-slate-400">Signed in as</p>
                 <p className="font-semibold text-white truncate">{userEmail || 'User'}</p>

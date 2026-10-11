@@ -34,7 +34,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen flex bg-flowmind-canvas text-slate-100 selection:bg-cyan-500/20 selection:text-cyan-300">
+    <div className="min-h-screen flex bg-flowmind-canvas text-[var(--foreground,#f8fafc)] selection:bg-[rgba(var(--primary-rgb,0,240,255),0.2)] selection:text-[var(--primary-color,#00f0ff)]">
       {/* Persistent Left Sidebar */}
       <Sidebar isRunnerOnline={isRunnerOnline} />
 

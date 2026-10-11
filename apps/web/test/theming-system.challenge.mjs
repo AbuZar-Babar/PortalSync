@@ -269,4 +269,58 @@ test('DashboardContext and Settings Page Integration', async (t) => {
     assert.ok(settingsContent.includes('wf_dashboard_theme'), 'settings/page.tsx must persist wf_dashboard_theme');
     assert.ok(settingsContent.includes('wf_dashboard_mode'), 'settings/page.tsx must persist wf_dashboard_mode');
   });
+
+  await t.test('SettingsPage load effect does NOT depend on contextTheme/contextMode to prevent selection reversion', () => {
+    // Verify that the load effect only depends on orgId and organizationName
+    assert.ok(!settingsContent.includes('}, [orgId, organizationName, contextTheme, contextMode]);'),
+      'SettingsPage load effect must NOT depend on contextTheme/contextMode');
+    assert.ok(settingsContent.includes('isInitializedRef'), 'SettingsPage must use isInitializedRef');
+  });
+
+  await t.test('SettingsPage auto-saves theme preferences immediately on palette and mode selection', () => {
+    assert.ok(settingsContent.includes('void saveThemePreferences(paletteId, settings.themes.mode);'),
+      'handlePaletteSelect must trigger immediate saveThemePreferences');
+    assert.ok(settingsContent.includes('void saveThemePreferences(settings.themes.palette, mode);'),
+      'handleModeSelect must trigger immediate saveThemePreferences');
+  });
+});
+
+// ----------------------------------------------------------------------------
+// 6. Comprehensive Button Gradients & CSS Token Mappings
+// ----------------------------------------------------------------------------
+
+test('Theme Palettes Button Gradients and Surface Adaptations in globals.css', async (t) => {
+  const cssPath = path.resolve('src/app/globals.css');
+  const css = fs.readFileSync(cssPath, 'utf8');
+
+  await t.test('globals.css defines theme-specific button gradient overrides', () => {
+    const NON_DEFAULT_THEMES = [
+      'charcoal-indigo',
+      'emerald-matrix',
+      'slate-dark',
+      'crimson-rose',
+      'forest'
+    ];
+    for (const theme of NON_DEFAULT_THEMES) {
+      assert.ok(
+        css.includes(`[data-theme="${theme}"] .from-cyan-500`),
+        `globals.css must override .from-cyan-500 for ${theme}`
+      );
+      assert.ok(
+        css.includes(`[data-theme="${theme}"] .to-indigo-600`),
+        `globals.css must override .to-indigo-600 for ${theme}`
+      );
+    }
+  });
+
+  await t.test('globals.css defines active nav link and ambient surface gradient tokens', () => {
+    assert.ok(css.includes('[data-theme] .from-cyan-500\\/15'), 'Must adapt active nav from gradient');
+    assert.ok(css.includes('[data-theme] .to-indigo-500\\/15'), 'Must adapt active nav to gradient');
+    assert.ok(css.includes('[data-theme] .from-\\[\\#0c101d\\]'), 'Must adapt hero banner surface gradient');
+  });
+
+  await t.test('globals.css declares native browser color-scheme for light and dark', () => {
+    assert.ok(css.includes('color-scheme: light;'), 'Must set color-scheme: light');
+    assert.ok(css.includes('color-scheme: dark;'), 'Must set color-scheme: dark');
+  });
 });

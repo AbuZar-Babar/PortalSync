@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Building,
   Palette,
@@ -579,6 +579,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<UnifiedSettings>(DEFAULT_SETTINGS);
   const [lastSavedSnapshot, setLastSavedSnapshot] = useState<string>('');
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
+  const isInitializedRef = useRef<boolean>(false);
 
   // Feedback & Action States
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -645,7 +646,8 @@ export default function SettingsPage() {
       // Check individual theme overrides
       try {
         const savedTheme = (localStorage.getItem('wf_dashboard_theme') ||
-          localStorage.getItem('workflow_capture_theme')) as ThemePaletteId | null;
+          localStorage.getItem('workflow_capture_theme') ||
+          localStorage.getItem('flowmind_theme')) as ThemePaletteId | null;
         if (savedTheme) {
           const validPalettes: ThemePaletteId[] = [
             'flowmind-cyber',
@@ -679,6 +681,7 @@ export default function SettingsPage() {
       setSettings(initial);
       setLastSavedSnapshot(JSON.stringify(initial));
       setIsInitialized(true);
+      isInitializedRef.current = true;
 
       // 2. Fetch latest organization fields from Supabase
       if (orgId) {
@@ -730,7 +733,33 @@ export default function SettingsPage() {
       isMounted = false;
       clearTimeout(timer);
     };
-  }, [orgId, organizationName, contextTheme, contextMode]);
+  }, [orgId, organizationName]);
+
+  // Synchronize when context theme changes externally (e.g., cross-tab or event)
+  useEffect(() => {
+    if (contextTheme && isInitializedRef.current) {
+      setSettings((prev) => {
+        if (prev.themes.palette === contextTheme) return prev;
+        return {
+          ...prev,
+          themes: { ...prev.themes, palette: contextTheme }
+        };
+      });
+    }
+  }, [contextTheme]);
+
+  // Synchronize when context mode changes externally
+  useEffect(() => {
+    if (contextMode && isInitializedRef.current) {
+      setSettings((prev) => {
+        if (prev.themes.mode === contextMode) return prev;
+        return {
+          ...prev,
+          themes: { ...prev.themes, mode: contextMode }
+        };
+      });
+    }
+  }, [contextMode]);
 
   // ============================================================================
   // Theme Application Logic
@@ -742,10 +771,21 @@ export default function SettingsPage() {
         ...prev,
         themes: { ...prev.themes, palette: paletteId }
       };
-      applyThemeToDOM(paletteId, next.themes.mode);
+      setLastSavedSnapshot((snap) => {
+        try {
+          const parsed = JSON.parse(snap);
+          parsed.themes = parsed.themes || {};
+          parsed.themes.palette = paletteId;
+          return JSON.stringify(parsed);
+        } catch {
+          return snap;
+        }
+      });
       return next;
     });
     setTheme(paletteId);
+    applyThemeToDOM(paletteId, settings.themes.mode);
+    void saveThemePreferences(paletteId, settings.themes.mode);
   };
 
   const handleModeSelect = (mode: InterfaceMode) => {
@@ -754,10 +794,21 @@ export default function SettingsPage() {
         ...prev,
         themes: { ...prev.themes, mode }
       };
-      applyThemeToDOM(next.themes.palette, mode);
+      setLastSavedSnapshot((snap) => {
+        try {
+          const parsed = JSON.parse(snap);
+          parsed.themes = parsed.themes || {};
+          parsed.themes.mode = mode;
+          return JSON.stringify(parsed);
+        } catch {
+          return snap;
+        }
+      });
       return next;
     });
     setMode(mode);
+    applyThemeToDOM(settings.themes.palette, mode);
+    void saveThemePreferences(settings.themes.palette, mode);
   };
 
   // ============================================================================
@@ -897,17 +948,6 @@ export default function SettingsPage() {
           console.warn('Notice updating organization details in Supabase:', orgErr.message);
         }
 
-        // Safely attempt settings column in try/catch to avoid unhandled postgrest 42703 errors
-        try {
-          await supabase
-            .from('wf_organizations')
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .update({ settings: settings } as any)
-            .eq('id', orgId);
-        } catch {
-          // Gracefully ignored if settings column is not present
-        }
-
         await refreshDashboard();
       }
 
@@ -941,6 +981,7 @@ export default function SettingsPage() {
       applyThemeToDOM(reset.themes.palette, reset.themes.mode);
       setTheme(reset.themes.palette);
       setMode(reset.themes.mode);
+      void saveThemePreferences(reset.themes.palette, reset.themes.mode);
     }
   };
 

@@ -31,20 +31,39 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
 (function() {
   try {
     var validPalettes = ['flowmind-cyber', 'charcoal-indigo', 'emerald-matrix', 'slate-dark', 'crimson-rose', 'forest'];
-    var theme = localStorage.getItem('wf_dashboard_theme') || localStorage.getItem('workflow_capture_theme') || 'flowmind-cyber';
+    var theme = localStorage.getItem('wf_dashboard_theme') || localStorage.getItem('workflow_capture_theme') || localStorage.getItem('flowmind_theme');
+    if (!theme) {
+      try {
+        var cfg = JSON.parse(localStorage.getItem('wf_saas_automation_config') || '{}');
+        if (cfg && cfg.themes && cfg.themes.palette) {
+          theme = cfg.themes.palette;
+        }
+      } catch (err) {}
+    }
     if (!validPalettes.includes(theme)) {
       theme = 'flowmind-cyber';
     }
-    var mode = localStorage.getItem('wf_dashboard_mode') || localStorage.getItem('workflow_capture_mode') || 'dark';
-    if (mode === 'system') {
-      mode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    var rawMode = localStorage.getItem('wf_dashboard_mode') || localStorage.getItem('workflow_capture_mode') || 'dark';
+    if (!['dark', 'light', 'system'].includes(rawMode)) {
+      try {
+        var cfg2 = JSON.parse(localStorage.getItem('wf_saas_automation_config') || '{}');
+        if (cfg2 && cfg2.themes && cfg2.themes.mode) {
+          rawMode = cfg2.themes.mode;
+        }
+      } catch (err2) {}
+    }
+    var resolvedMode = rawMode;
+    if (rawMode === 'system') {
+      resolvedMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
     var root = document.documentElement;
     root.setAttribute('data-theme', theme);
     root.setAttribute('data-palette', theme);
-    root.setAttribute('data-mode', mode);
+    root.setAttribute('data-mode', resolvedMode);
+    root.setAttribute('data-theme-mode', rawMode);
+    validPalettes.forEach(function(p) { root.classList.remove('theme-' + p); });
     root.classList.add('theme-' + theme);
-    if (mode === 'light') {
+    if (resolvedMode === 'light') {
       root.classList.add('light');
       root.classList.remove('dark');
     } else {

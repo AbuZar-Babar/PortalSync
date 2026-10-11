@@ -166,9 +166,10 @@ export function Sidebar({ isRunnerOnline = false }: SidebarProps) {
                 title={isCollapsed ? item.tooltip : undefined}
                 className={`relative flex items-center gap-3 h-10 px-3 rounded-lg text-xs font-semibold transition-all duration-150 group ${
                   active
-                    ? 'bg-gradient-to-r from-cyan-500/15 to-indigo-500/15 text-cyan-300 border border-cyan-500/30 shadow-[0_0_12px_rgba(0,240,255,0.15)] font-bold'
+                    ? 'bg-gradient-to-r from-cyan-500/15 to-indigo-500/15 text-cyan-300 border border-cyan-500/30 font-bold'
                     : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
                 } ${isCollapsed ? 'justify-center px-0' : ''}`}
+                style={active ? { boxShadow: '0 0 12px var(--glow-color, rgba(0,240,255,0.15))' } : undefined}
               >
                 <Icon
                   className={`w-4 h-4 flex-shrink-0 transition-transform group-hover:scale-110 ${

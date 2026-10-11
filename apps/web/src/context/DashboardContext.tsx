@@ -37,6 +37,7 @@ export function applyThemeToDOM(palette: ThemePaletteId, mode: InterfaceMode): v
   root.setAttribute('data-theme', palette);
   root.setAttribute('data-palette', palette);
   root.setAttribute('data-mode', resolvedMode);
+  root.setAttribute('data-theme-mode', mode);
 
   VALID_THEME_PALETTES.forEach((p) => root.classList.remove(`theme-${p}`));
   root.classList.add(`theme-${palette}`);
@@ -61,7 +62,7 @@ export function applyThemeToDOM(palette: ThemePaletteId, mode: InterfaceMode): v
   try {
     window.dispatchEvent(
       new CustomEvent('workflow-capture-theme-change', {
-        detail: { theme: palette, palette, mode: resolvedMode }
+        detail: { theme: palette, palette, mode, resolvedMode }
       })
     );
   } catch {}
@@ -448,14 +449,6 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
               stripe_subscription_id: JSON.stringify(updatedMeta),
             })
             .eq('id', orgId);
-
-          try {
-            await supabase
-              .from('wf_organizations')
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              .update({ settings: { themes: { palette: newTheme, mode: newMode } } } as any)
-              .eq('id', orgId);
-          } catch {}
         } catch (err) {
           console.warn('Failed to sync theme preference to Supabase:', err);
         }
