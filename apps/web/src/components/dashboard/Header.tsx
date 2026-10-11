@@ -69,7 +69,7 @@ export function Header({
   };
 
   return (
-    <header className="h-14 bg-[#0a0e1a]/95 backdrop-blur-md border-b border-white/5 px-6 flex items-center justify-between sticky top-0 z-20 select-none">
+    <header className="h-14 bg-[var(--header-bg,#0a0e1a)]/95 backdrop-blur-md border-b border-[var(--border-color,rgba(255,255,255,0.05))] px-6 flex items-center justify-between sticky top-0 z-20 select-none">
       {/* Left: Breadcrumbs */}
       <div className="flex items-center gap-2 text-xs">
         <span className="text-slate-400 font-semibold tracking-wide flex items-center gap-1.5">

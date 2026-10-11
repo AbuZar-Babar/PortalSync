@@ -3,48 +3,426 @@
 :root {
   --background: #060913;
   --foreground: #f8fafc;
+  --canvas-bg: #060913;
+  --surface-bg: #0c101d;
+  --surface-hover: #11182c;
+  --sidebar-bg: #090d1a;
+  --header-bg: #0a0e1a;
+  --border-color: rgba(0, 240, 255, 0.14);
+  --border-hover: rgba(0, 240, 255, 0.4);
+  --primary-color: #00f0ff;
+  --primary-rgb: 0, 240, 255;
+  --accent-color: #6366f1;
+  --accent-rgb: 99, 102, 241;
+  --glow-color: rgba(0, 240, 255, 0.45);
+  --text-muted: #94a3b8;
+  --input-bg: rgba(6, 9, 19, 0.85);
+  --input-border: rgba(255, 255, 255, 0.1);
+}
+
+/* ========================================================
+   Theme Palettes: 6 Bespoke Themes
+   ======================================================== */
+
+/* 1. FlowMind Cyber (Default Neon) */
+[data-theme="flowmind-cyber"],
+.theme-flowmind-cyber {
+  --canvas-bg: #060913;
+  --surface-bg: #0c101d;
+  --surface-hover: #11182c;
+  --sidebar-bg: #090d1a;
+  --header-bg: #0a0e1a;
+  --border-color: rgba(0, 240, 255, 0.14);
+  --border-hover: rgba(0, 240, 255, 0.4);
+  --primary-color: #00f0ff;
+  --primary-rgb: 0, 240, 255;
+  --accent-color: #6366f1;
+  --accent-rgb: 99, 102, 241;
+  --glow-color: rgba(0, 240, 255, 0.45);
+  --foreground: #f8fafc;
+  --text-muted: #94a3b8;
+  --input-bg: rgba(6, 9, 19, 0.85);
+  --input-border: rgba(255, 255, 255, 0.1);
+}
+
+/* 2. Charcoal Indigo (Developer Slate) */
+[data-theme="charcoal-indigo"],
+.theme-charcoal-indigo {
+  --canvas-bg: #0f172a;
+  --surface-bg: #1e293b;
+  --surface-hover: #273549;
+  --sidebar-bg: #0b1120;
+  --header-bg: #0d1527;
+  --border-color: rgba(129, 140, 248, 0.18);
+  --border-hover: rgba(129, 140, 248, 0.45);
+  --primary-color: #818cf8;
+  --primary-rgb: 129, 140, 248;
+  --accent-color: #a855f7;
+  --accent-rgb: 168, 85, 247;
+  --glow-color: rgba(129, 140, 248, 0.45);
+  --foreground: #f8fafc;
+  --text-muted: #94a3b8;
+  --input-bg: rgba(15, 23, 42, 0.85);
+  --input-border: rgba(129, 140, 248, 0.2);
+}
+
+/* 3. Emerald Matrix (Cyber Mint) */
+[data-theme="emerald-matrix"],
+.theme-emerald-matrix {
+  --canvas-bg: #06120b;
+  --surface-bg: #0c1f14;
+  --surface-hover: #122b1c;
+  --sidebar-bg: #050e08;
+  --header-bg: #07150c;
+  --border-color: rgba(16, 185, 129, 0.18);
+  --border-hover: rgba(16, 185, 129, 0.45);
+  --primary-color: #10b981;
+  --primary-rgb: 16, 185, 129;
+  --accent-color: #34d399;
+  --accent-rgb: 52, 211, 153;
+  --glow-color: rgba(16, 185, 129, 0.45);
+  --foreground: #f0fdf4;
+  --text-muted: #86efac;
+  --input-bg: rgba(6, 18, 11, 0.85);
+  --input-border: rgba(16, 185, 129, 0.2);
+}
+
+/* 4. Slate Dark (Cloud Console IDE) */
+[data-theme="slate-dark"],
+.theme-slate-dark {
+  --canvas-bg: #0b1120;
+  --surface-bg: #111827;
+  --surface-hover: #1a2436;
+  --sidebar-bg: #080d19;
+  --header-bg: #0a101f;
+  --border-color: rgba(56, 189, 248, 0.18);
+  --border-hover: rgba(56, 189, 248, 0.45);
+  --primary-color: #38bdf8;
+  --primary-rgb: 56, 189, 248;
+  --accent-color: #60a5fa;
+  --accent-rgb: 96, 165, 250;
+  --glow-color: rgba(56, 189, 248, 0.45);
+  --foreground: #f8fafc;
+  --text-muted: #94a3b8;
+  --input-bg: rgba(11, 17, 32, 0.85);
+  --input-border: rgba(56, 189, 248, 0.2);
+}
+
+/* 5. Crimson Rose (High Contrast Ruby) */
+[data-theme="crimson-rose"],
+.theme-crimson-rose {
+  --canvas-bg: #12080a;
+  --surface-bg: #1e0e12;
+  --surface-hover: #291318;
+  --sidebar-bg: #0c0507;
+  --header-bg: #100709;
+  --border-color: rgba(244, 63, 94, 0.18);
+  --border-hover: rgba(244, 63, 94, 0.45);
+  --primary-color: #f43f5e;
+  --primary-rgb: 244, 63, 94;
+  --accent-color: #fb7185;
+  --accent-rgb: 251, 113, 133;
+  --glow-color: rgba(244, 63, 94, 0.45);
+  --foreground: #fff1f2;
+  --text-muted: #fda4af;
+  --input-bg: rgba(18, 8, 10, 0.85);
+  --input-border: rgba(244, 63, 94, 0.2);
+}
+
+/* 6. Forest (Biophilic Calm) */
+[data-theme="forest"],
+.theme-forest {
+  --canvas-bg: #07130c;
+  --surface-bg: #0e2216;
+  --surface-hover: #14301f;
+  --sidebar-bg: #050e08;
+  --header-bg: #08160d;
+  --border-color: rgba(52, 211, 153, 0.18);
+  --border-hover: rgba(52, 211, 153, 0.45);
+  --primary-color: #34d399;
+  --primary-rgb: 52, 211, 153;
+  --accent-color: #10b981;
+  --accent-rgb: 16, 185, 129;
+  --glow-color: rgba(52, 211, 153, 0.45);
+  --foreground: #f0fdf4;
+  --text-muted: #a7f3d0;
+  --input-bg: rgba(7, 19, 12, 0.85);
+  --input-border: rgba(52, 211, 153, 0.2);
+}
+
+/* ========================================================
+   Light Mode Variations
+   ======================================================== */
+
+[data-mode="light"],
+.light {
+  --canvas-bg: #f8fafc;
+  --surface-bg: #ffffff;
+  --surface-hover: #f1f5f9;
+  --sidebar-bg: #ffffff;
+  --header-bg: rgba(255, 255, 255, 0.95);
+  --border-color: #e2e8f0;
+  --border-hover: rgba(var(--primary-rgb), 0.5);
+  --foreground: #0f172a;
+  --text-muted: #64748b;
+  --input-bg: #ffffff;
+  --input-border: #cbd5e1;
+  --glow-color: rgba(var(--primary-rgb), 0.15);
+}
+
+[data-mode="light"][data-theme="flowmind-cyber"],
+.light.theme-flowmind-cyber {
+  --canvas-bg: #f0f9ff;
+  --surface-bg: #ffffff;
+  --primary-color: #0284c7;
+  --primary-rgb: 2, 132, 199;
+  --accent-color: #4f46e5;
+  --accent-rgb: 79, 70, 229;
+  --border-color: #e0f2fe;
+}
+
+[data-mode="light"][data-theme="charcoal-indigo"],
+.light.theme-charcoal-indigo {
+  --canvas-bg: #f5f3ff;
+  --surface-bg: #ffffff;
+  --primary-color: #4f46e5;
+  --primary-rgb: 79, 70, 229;
+  --accent-color: #7c3aed;
+  --accent-rgb: 124, 58, 237;
+  --border-color: #ede9fe;
+}
+
+[data-mode="light"][data-theme="emerald-matrix"],
+.light.theme-emerald-matrix {
+  --canvas-bg: #f0fdf4;
+  --surface-bg: #ffffff;
+  --primary-color: #059669;
+  --primary-rgb: 5, 150, 105;
+  --accent-color: #0d9488;
+  --accent-rgb: 13, 148, 136;
+  --border-color: #dcfce7;
+  --foreground: #064e3b;
+  --text-muted: #047857;
+}
+
+[data-mode="light"][data-theme="slate-dark"],
+.light.theme-slate-dark {
+  --canvas-bg: #f8fafc;
+  --surface-bg: #ffffff;
+  --primary-color: #0284c7;
+  --primary-rgb: 2, 132, 199;
+  --accent-color: #2563eb;
+  --accent-rgb: 37, 99, 235;
+  --border-color: #e2e8f0;
+}
+
+[data-mode="light"][data-theme="crimson-rose"],
+.light.theme-crimson-rose {
+  --canvas-bg: #fff1f2;
+  --surface-bg: #ffffff;
+  --primary-color: #e11d48;
+  --primary-rgb: 225, 29, 72;
+  --accent-color: #be123c;
+  --accent-rgb: 190, 18, 60;
+  --border-color: #ffe4e6;
+  --foreground: #881337;
+  --text-muted: #9f1239;
+}
+
+[data-mode="light"][data-theme="forest"],
+.light.theme-forest {
+  --canvas-bg: #f2f8f4;
+  --surface-bg: #ffffff;
+  --primary-color: #15803d;
+  --primary-rgb: 21, 128, 61;
+  --accent-color: #047857;
+  --accent-rgb: 4, 120, 87;
+  --border-color: #dcfce7;
+  --foreground: #14532d;
+  --text-muted: #166534;
 }
 
 @theme inline {
-  --color-background: var(--background);
+  --color-background: var(--canvas-bg);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --color-flowmind-canvas: #060913;
-  --color-flowmind-cyan: #00f0ff;
+  --color-flowmind-canvas: var(--canvas-bg);
+  --color-flowmind-surface: var(--surface-bg);
+  --color-flowmind-sidebar: var(--sidebar-bg);
+  --color-flowmind-header: var(--header-bg);
+  --color-flowmind-border: var(--border-color);
+  --color-flowmind-cyan: var(--primary-color);
   --color-flowmind-sky: #38bdf8;
-  --color-flowmind-indigo: #6366f1;
+  --color-flowmind-indigo: var(--accent-color);
   --color-flowmind-emerald: #10b981;
 }
 
 body {
-  background-color: #060913;
-  color: #f8fafc;
+  background-color: var(--canvas-bg);
+  color: var(--foreground);
   min-height: 100vh;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 /* ========================================================
-   FlowMind Dark Space Design Tokens & Ambient Glows
+   FlowMind Design Tokens & Ambient Theme Adaptation
    ======================================================== */
 
 .bg-flowmind-canvas {
-  background-color: #060913;
+  background-color: var(--canvas-bg);
   background-image: 
-    radial-gradient(at 10% 12%, rgba(0, 240, 255, 0.08) 0px, transparent 50%),
-    radial-gradient(at 88% 18%, rgba(99, 102, 241, 0.1) 0px, transparent 50%),
-    radial-gradient(at 50% 60%, rgba(56, 189, 248, 0.05) 0px, transparent 60%);
+    radial-gradient(at 10% 12%, rgba(var(--primary-rgb), 0.08) 0px, transparent 50%),
+    radial-gradient(at 88% 18%, rgba(var(--accent-rgb), 0.1) 0px, transparent 50%),
+    radial-gradient(at 50% 60%, rgba(var(--primary-rgb), 0.05) 0px, transparent 60%);
+  transition: background-color 0.25s ease;
 }
 
 .robot-ambient-glow {
-  background: radial-gradient(circle, rgba(0, 240, 255, 0.45) 0%, rgba(99, 102, 241, 0.25) 50%, transparent 70%);
+  background: radial-gradient(circle, rgba(var(--primary-rgb), 0.45) 0%, rgba(var(--accent-rgb), 0.25) 50%, transparent 70%);
   filter: blur(36px);
 }
 
 .text-gradient-purple-blue {
-  background: linear-gradient(135deg, #60a5fa 0%, #818cf8 45%, #c084fc 85%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 70%, #c084fc 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+/* Automatic Adaptation for Component Surface Classes */
+[data-theme] .bg-\[\#0c101d\],
+[data-theme] .bg-\[\#0c101d\]\/90,
+[data-theme] .bg-\[\#0c101d\]\/60 {
+  background-color: var(--surface-bg) !important;
+  border-color: var(--border-color) !important;
+}
+
+[data-theme] .bg-\[\#060913\] {
+  background-color: var(--canvas-bg) !important;
+}
+
+[data-theme] .bg-\[\#0a0e1a\],
+[data-theme] .bg-\[\#0a0e1a\]\/95 {
+  background-color: var(--header-bg) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* Theme-Specific Primary Accent Highlights */
+[data-theme="charcoal-indigo"] .text-cyan-400,
+[data-theme="charcoal-indigo"] .text-cyan-300 {
+  color: #818cf8 !important;
+}
+[data-theme="charcoal-indigo"] .bg-cyan-500\/10,
+[data-theme="charcoal-indigo"] .bg-cyan-500\/15,
+[data-theme="charcoal-indigo"] .bg-cyan-500\/20 {
+  background-color: rgba(129, 140, 248, 0.15) !important;
+}
+[data-theme="charcoal-indigo"] .border-cyan-500\/20,
+[data-theme="charcoal-indigo"] .border-cyan-500\/30,
+[data-theme="charcoal-indigo"] .border-cyan-500\/40,
+[data-theme="charcoal-indigo"] .border-cyan-400\/30 {
+  border-color: rgba(129, 140, 248, 0.3) !important;
+}
+
+[data-theme="emerald-matrix"] .text-cyan-400,
+[data-theme="emerald-matrix"] .text-cyan-300 {
+  color: #10b981 !important;
+}
+[data-theme="emerald-matrix"] .bg-cyan-500\/10,
+[data-theme="emerald-matrix"] .bg-cyan-500\/15,
+[data-theme="emerald-matrix"] .bg-cyan-500\/20 {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+}
+[data-theme="emerald-matrix"] .border-cyan-500\/20,
+[data-theme="emerald-matrix"] .border-cyan-500\/30,
+[data-theme="emerald-matrix"] .border-cyan-500\/40,
+[data-theme="emerald-matrix"] .border-cyan-400\/30 {
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+[data-theme="slate-dark"] .text-cyan-400,
+[data-theme="slate-dark"] .text-cyan-300 {
+  color: #38bdf8 !important;
+}
+[data-theme="slate-dark"] .bg-cyan-500\/10,
+[data-theme="slate-dark"] .bg-cyan-500\/15,
+[data-theme="slate-dark"] .bg-cyan-500\/20 {
+  background-color: rgba(56, 189, 248, 0.15) !important;
+}
+[data-theme="slate-dark"] .border-cyan-500\/20,
+[data-theme="slate-dark"] .border-cyan-500\/30,
+[data-theme="slate-dark"] .border-cyan-500\/40,
+[data-theme="slate-dark"] .border-cyan-400\/30 {
+  border-color: rgba(56, 189, 248, 0.3) !important;
+}
+
+[data-theme="crimson-rose"] .text-cyan-400,
+[data-theme="crimson-rose"] .text-cyan-300 {
+  color: #f43f5e !important;
+}
+[data-theme="crimson-rose"] .bg-cyan-500\/10,
+[data-theme="crimson-rose"] .bg-cyan-500\/15,
+[data-theme="crimson-rose"] .bg-cyan-500\/20 {
+  background-color: rgba(244, 63, 94, 0.15) !important;
+}
+[data-theme="crimson-rose"] .border-cyan-500\/20,
+[data-theme="crimson-rose"] .border-cyan-500\/30,
+[data-theme="crimson-rose"] .border-cyan-500\/40,
+[data-theme="crimson-rose"] .border-cyan-400\/30 {
+  border-color: rgba(244, 63, 94, 0.3) !important;
+}
+
+[data-theme="forest"] .text-cyan-400,
+[data-theme="forest"] .text-cyan-300 {
+  color: #34d399 !important;
+}
+[data-theme="forest"] .bg-cyan-500\/10,
+[data-theme="forest"] .bg-cyan-500\/15,
+[data-theme="forest"] .bg-cyan-500\/20 {
+  background-color: rgba(52, 211, 153, 0.15) !important;
+}
+[data-theme="forest"] .border-cyan-500\/20,
+[data-theme="forest"] .border-cyan-500\/30,
+[data-theme="forest"] .border-cyan-500\/40,
+[data-theme="forest"] .border-cyan-400\/30 {
+  border-color: rgba(52, 211, 153, 0.3) !important;
+}
+
+/* Light Mode Global Text and Form Adaptations */
+[data-mode="light"] .text-white {
+  color: var(--foreground) !important;
+}
+[data-mode="light"] .text-slate-100 {
+  color: #1e293b !important;
+}
+[data-mode="light"] .text-slate-200 {
+  color: #334155 !important;
+}
+[data-mode="light"] .text-slate-300 {
+  color: #475569 !important;
+}
+[data-mode="light"] .text-slate-400 {
+  color: var(--text-muted) !important;
+}
+[data-mode="light"] .border-white\/5,
+[data-mode="light"] .border-white\/10 {
+  border-color: var(--border-color) !important;
+}
+[data-mode="light"] input,
+[data-mode="light"] select,
+[data-mode="light"] textarea {
+  background-color: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+  color: var(--foreground) !important;
+}
+[data-mode="light"] .bg-slate-950\/80,
+[data-mode="light"] .bg-slate-950\/50,
+[data-mode="light"] .bg-slate-950\/40,
+[data-mode="light"] .bg-slate-900\/60,
+[data-mode="light"] .bg-slate-900\/80 {
+  background-color: var(--input-bg) !important;
+  border-color: var(--border-color) !important;
 }
 
 /* ========================================================

@@ -22,7 +22,41 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+(function() {
+  try {
+    var validPalettes = ['flowmind-cyber', 'charcoal-indigo', 'emerald-matrix', 'slate-dark', 'crimson-rose', 'forest'];
+    var theme = localStorage.getItem('wf_dashboard_theme') || localStorage.getItem('workflow_capture_theme') || 'flowmind-cyber';
+    if (!validPalettes.includes(theme)) {
+      theme = 'flowmind-cyber';
+    }
+    var mode = localStorage.getItem('wf_dashboard_mode') || localStorage.getItem('workflow_capture_mode') || 'dark';
+    if (mode === 'system') {
+      mode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    var root = document.documentElement;
+    root.setAttribute('data-theme', theme);
+    root.setAttribute('data-palette', theme);
+    root.setAttribute('data-mode', mode);
+    root.classList.add('theme-' + theme);
+    if (mode === 'light') {
+      root.classList.add('light');
+      root.classList.remove('dark');
+    } else {
+      root.classList.add('dark');
+      root.classList.remove('light');
+    }
+  } catch (e) {}
+})();
+`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

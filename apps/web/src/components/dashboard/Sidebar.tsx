@@ -102,7 +102,7 @@ export function Sidebar({ isRunnerOnline = false }: SidebarProps) {
 
   return (
     <aside
-      className={`relative flex flex-col justify-between h-screen sticky top-0 bg-[#0c101d] border-r border-white/5 transition-all duration-300 ease-in-out z-30 select-none flex-shrink-0 ${
+      className={`relative flex flex-col justify-between h-screen sticky top-0 bg-[var(--sidebar-bg,#0c101d)] border-r border-[var(--border-color,rgba(255,255,255,0.05))] transition-all duration-300 ease-in-out z-30 select-none flex-shrink-0 ${
         isCollapsed ? 'w-[72px] px-2.5 py-4' : 'w-[230px] px-3.5 py-4'
       }`}
       aria-label="Sidebar navigation"

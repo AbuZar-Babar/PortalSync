@@ -23,7 +23,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#060913] flex flex-col items-center justify-center gap-4 text-slate-300">
+      <div className="min-h-screen bg-[var(--canvas-bg,#060913)] flex flex-col items-center justify-center gap-4 text-slate-300">
         <RobotAvatar size="medium" state="running" />
         <div className="flex items-center gap-2 text-sm font-semibold text-cyan-400">
           <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
@@ -34,7 +34,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen flex bg-[#060913] text-slate-100 selection:bg-cyan-500/20 selection:text-cyan-300">
+    <div className="min-h-screen flex bg-flowmind-canvas text-slate-100 selection:bg-cyan-500/20 selection:text-cyan-300">
       {/* Persistent Left Sidebar */}
       <Sidebar isRunnerOnline={isRunnerOnline} />
 

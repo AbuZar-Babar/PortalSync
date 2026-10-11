@@ -41,7 +41,7 @@ import {
   HardDrive,
   Activity
 } from 'lucide-react';
-import { useDashboard } from '@/context/DashboardContext';
+import { useDashboard, applyThemeToDOM } from '@/context/DashboardContext';
 import { createClient } from '@/lib/supabase/client';
 import { RobotAvatar } from '@/components/dashboard/RobotAvatar';
 
@@ -528,38 +528,6 @@ function slugify(text: string): string {
 }
 
 // ============================================================================
-// Top-Level Helper: DOM Theme Application (Hoisted for ESLint compliance)
-// ============================================================================
-
-function applyThemeToDOM(palette: ThemePaletteId, mode: InterfaceMode): void {
-  if (typeof document === 'undefined') return;
-  const root = document.documentElement;
-
-  let resolvedMode = mode;
-  if (mode === 'system') {
-    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    resolvedMode = prefersDark ? 'dark' : 'light';
-  }
-
-  root.setAttribute('data-theme', palette);
-  root.setAttribute('data-palette', palette);
-  root.setAttribute('data-mode', resolvedMode);
-
-  try {
-    localStorage.setItem('workflow_capture_theme', palette);
-    localStorage.setItem('flowmind_theme', palette);
-    localStorage.setItem('workflow_capture_mode', mode);
-    localStorage.setItem('workflow_capture_palette', palette);
-  } catch {}
-
-  window.dispatchEvent(
-    new CustomEvent('workflow-capture-theme-change', {
-      detail: { theme: palette, palette, mode: resolvedMode }
-    })
-  );
-}
-
-// ============================================================================
 // Web Crypto AES-256-GCM Encryption Helper
 // ============================================================================
 
@@ -592,7 +560,17 @@ async function encryptVaultSecret(plainText: string, secretSeed: string): Promis
 // ============================================================================
 
 export default function SettingsPage() {
-  const { orgId, organizationName, userEmail, refreshDashboard } = useDashboard();
+  const {
+    orgId,
+    organizationName,
+    userEmail,
+    refreshDashboard,
+    theme: contextTheme,
+    mode: contextMode,
+    setTheme,
+    setMode,
+    saveThemePreferences
+  } = useDashboard();
 
   // Active Navigation Tab
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
@@ -666,7 +644,8 @@ export default function SettingsPage() {
 
       // Check individual theme overrides
       try {
-        const savedTheme = localStorage.getItem('workflow_capture_theme');
+        const savedTheme = (localStorage.getItem('wf_dashboard_theme') ||
+          localStorage.getItem('workflow_capture_theme')) as ThemePaletteId | null;
         if (savedTheme) {
           const validPalettes: ThemePaletteId[] = [
             'flowmind-cyber',
@@ -676,15 +655,23 @@ export default function SettingsPage() {
             'crimson-rose',
             'forest'
           ];
-          if (validPalettes.includes(savedTheme as ThemePaletteId)) {
-            initial.themes.palette = savedTheme as ThemePaletteId;
+          if (validPalettes.includes(savedTheme)) {
+            initial.themes.palette = savedTheme;
           }
         }
-        const savedMode = localStorage.getItem('workflow_capture_mode');
+        const savedMode = (localStorage.getItem('wf_dashboard_mode') ||
+          localStorage.getItem('workflow_capture_mode')) as InterfaceMode | null;
         if (savedMode === 'dark' || savedMode === 'light' || savedMode === 'system') {
           initial.themes.mode = savedMode;
         }
       } catch {}
+
+      if (contextTheme) {
+        initial.themes.palette = contextTheme;
+      }
+      if (contextMode) {
+        initial.themes.mode = contextMode;
+      }
 
       // Apply active theme to document root
       applyThemeToDOM(initial.themes.palette, initial.themes.mode);
@@ -698,22 +685,40 @@ export default function SettingsPage() {
         const supabase = createClient();
         void supabase
           .from('wf_organizations')
-          .select('name, slug')
+          .select('name, slug, stripe_subscription_id')
           .eq('id', orgId)
           .limit(1)
           .then(({ data, error }) => {
             if (!error && data && data.length > 0 && isMounted) {
               const row = data[0];
               setSettings((prev) => {
+                let syncedPalette = prev.themes.palette;
+                let syncedMode = prev.themes.mode;
+
+                if (row.stripe_subscription_id) {
+                  try {
+                    const parsedMeta = JSON.parse(row.stripe_subscription_id);
+                    const orgPal = parsedMeta.theme_settings?.palette || parsedMeta.theme;
+                    const orgMod = parsedMeta.theme_settings?.mode || parsedMeta.mode;
+                    if (orgPal) syncedPalette = orgPal;
+                    if (orgMod) syncedMode = orgMod;
+                  } catch {}
+                }
+
                 const updated = {
                   ...prev,
                   general: {
                     ...prev.general,
                     orgName: row.name || prev.general.orgName,
                     orgSlug: row.slug || slugify(row.name || prev.general.orgName)
+                  },
+                  themes: {
+                    palette: syncedPalette,
+                    mode: syncedMode
                   }
                 };
                 setLastSavedSnapshot(JSON.stringify(updated));
+                applyThemeToDOM(syncedPalette, syncedMode);
                 return updated;
               });
             }
@@ -725,7 +730,7 @@ export default function SettingsPage() {
       isMounted = false;
       clearTimeout(timer);
     };
-  }, [orgId, organizationName]);
+  }, [orgId, organizationName, contextTheme, contextMode]);
 
   // ============================================================================
   // Theme Application Logic
@@ -740,6 +745,7 @@ export default function SettingsPage() {
       applyThemeToDOM(paletteId, next.themes.mode);
       return next;
     });
+    setTheme(paletteId);
   };
 
   const handleModeSelect = (mode: InterfaceMode) => {
@@ -751,6 +757,7 @@ export default function SettingsPage() {
       applyThemeToDOM(next.themes.palette, mode);
       return next;
     });
+    setMode(mode);
   };
 
   // ============================================================================
@@ -792,8 +799,13 @@ export default function SettingsPage() {
     setSaveError(null);
 
     try {
-      // 1. Persist to localStorage for local daemon synchronization
+      // 1. Persist to localStorage for local daemon and dashboard synchronization
       localStorage.setItem('wf_saas_automation_config', JSON.stringify(settings));
+      localStorage.setItem('wf_dashboard_theme', settings.themes.palette);
+      localStorage.setItem('wf_dashboard_mode', settings.themes.mode);
+      localStorage.setItem('workflow_capture_theme', settings.themes.palette);
+      localStorage.setItem('workflow_capture_mode', settings.themes.mode);
+      localStorage.setItem('flowmind_theme', settings.themes.palette);
 
       // 2. Persist backwards-compatible runner configuration
       const runnerConfig = {
@@ -833,18 +845,51 @@ export default function SettingsPage() {
         maskCredentials: settings.security.maskCredentials
       };
       localStorage.setItem('workflow_capture_settings', JSON.stringify(runnerConfig));
-      localStorage.setItem('workflow_capture_theme', settings.themes.palette);
 
-      // 3. Persist to Supabase wf_organizations
+      // 3. Save via DashboardContext to ensure global state & DOM stay perfectly in sync
+      await saveThemePreferences(settings.themes.palette, settings.themes.mode);
+
+      // 4. Persist to Supabase wf_organizations
       if (orgId) {
         const supabase = createClient();
 
-        // Update supported columns: name and slug
+        // Fetch current stripe_subscription_id to preserve heartbeat and runner telemetry
+        let existingMeta: Record<string, unknown> = {};
+        const { data: currentOrg } = await supabase
+          .from('wf_organizations')
+          .select('stripe_subscription_id')
+          .eq('id', orgId)
+          .maybeSingle();
+
+        if (currentOrg?.stripe_subscription_id) {
+          try {
+            existingMeta = JSON.parse(currentOrg.stripe_subscription_id);
+          } catch {}
+        }
+
+        const updatedMeta = {
+          ...existingMeta,
+          theme_settings: {
+            palette: settings.themes.palette,
+            mode: settings.themes.mode
+          },
+          theme: settings.themes.palette,
+          mode: settings.themes.mode,
+          automation_settings: {
+            general: settings.general,
+            browser: settings.browser,
+            workflows: settings.workflows,
+            notifications: settings.notifications
+          }
+        };
+
+        // Update supported columns: name, slug, and stripe_subscription_id metadata
         const { error: orgErr } = await supabase
           .from('wf_organizations')
           .update({
             name: settings.general.orgName,
-            slug: settings.general.orgSlug
+            slug: settings.general.orgSlug,
+            stripe_subscription_id: JSON.stringify(updatedMeta)
           })
           .eq('id', orgId);
 
@@ -894,6 +939,8 @@ export default function SettingsPage() {
       };
       setSettings(reset);
       applyThemeToDOM(reset.themes.palette, reset.themes.mode);
+      setTheme(reset.themes.palette);
+      setMode(reset.themes.mode);
     }
   };
 

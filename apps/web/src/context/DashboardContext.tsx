@@ -5,6 +5,68 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { DrawerRunItem } from '@/components/dashboard/RunDetailsDrawer';
 
+export type ThemePaletteId =
+  | 'flowmind-cyber'
+  | 'charcoal-indigo'
+  | 'emerald-matrix'
+  | 'slate-dark'
+  | 'crimson-rose'
+  | 'forest';
+
+export type InterfaceMode = 'dark' | 'light' | 'system';
+
+export const VALID_THEME_PALETTES: ThemePaletteId[] = [
+  'flowmind-cyber',
+  'charcoal-indigo',
+  'emerald-matrix',
+  'slate-dark',
+  'crimson-rose',
+  'forest',
+];
+
+export function applyThemeToDOM(palette: ThemePaletteId, mode: InterfaceMode): void {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+
+  let resolvedMode = mode;
+  if (mode === 'system') {
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    resolvedMode = prefersDark ? 'dark' : 'light';
+  }
+
+  root.setAttribute('data-theme', palette);
+  root.setAttribute('data-palette', palette);
+  root.setAttribute('data-mode', resolvedMode);
+
+  VALID_THEME_PALETTES.forEach((p) => root.classList.remove(`theme-${p}`));
+  root.classList.add(`theme-${palette}`);
+
+  if (resolvedMode === 'light') {
+    root.classList.remove('dark');
+    root.classList.add('light');
+  } else {
+    root.classList.remove('light');
+    root.classList.add('dark');
+  }
+
+  try {
+    localStorage.setItem('wf_dashboard_theme', palette);
+    localStorage.setItem('wf_dashboard_mode', mode);
+    localStorage.setItem('workflow_capture_theme', palette);
+    localStorage.setItem('workflow_capture_mode', mode);
+    localStorage.setItem('flowmind_theme', palette);
+    localStorage.setItem('workflow_capture_palette', palette);
+  } catch {}
+
+  try {
+    window.dispatchEvent(
+      new CustomEvent('workflow-capture-theme-change', {
+        detail: { theme: palette, palette, mode: resolvedMode }
+      })
+    );
+  } catch {}
+}
+
 interface DashboardContextType {
   orgId: string | null;
   organizationName: string;
@@ -19,6 +81,11 @@ interface DashboardContextType {
   selectedRun: DrawerRunItem | null;
   isDrawerOpen: boolean;
   stopActiveRun: (runId: string) => Promise<boolean>;
+  theme: ThemePaletteId;
+  mode: InterfaceMode;
+  setTheme: (theme: ThemePaletteId) => void;
+  setMode: (mode: InterfaceMode) => void;
+  saveThemePreferences: (theme: ThemePaletteId, mode: InterfaceMode) => Promise<void>;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -33,9 +100,67 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Theme & Appearance State
+  const [theme, setThemeState] = useState<ThemePaletteId>('flowmind-cyber');
+  const [mode, setModeState] = useState<InterfaceMode>('dark');
+
   // Global Run Details Drawer state
   const [selectedRun, setSelectedRun] = useState<DrawerRunItem | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // Synchronize initial theme & mode from localStorage and system preferences
+  useEffect(() => {
+    let initialTheme: ThemePaletteId = 'flowmind-cyber';
+    let initialMode: InterfaceMode = 'dark';
+    try {
+      const storedTheme = (localStorage.getItem('wf_dashboard_theme') ||
+        localStorage.getItem('workflow_capture_theme')) as ThemePaletteId | null;
+      if (storedTheme && VALID_THEME_PALETTES.includes(storedTheme)) {
+        initialTheme = storedTheme;
+      }
+      const storedMode = (localStorage.getItem('wf_dashboard_mode') ||
+        localStorage.getItem('workflow_capture_mode')) as InterfaceMode | null;
+      if (storedMode && ['dark', 'light', 'system'].includes(storedMode)) {
+        initialMode = storedMode;
+      }
+    } catch {}
+
+    setThemeState(initialTheme);
+    setModeState(initialMode);
+    applyThemeToDOM(initialTheme, initialMode);
+
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleMql = () => {
+      setModeState((curMode) => {
+        if (curMode === 'system') {
+          setThemeState((curTheme) => {
+            applyThemeToDOM(curTheme, 'system');
+            return curTheme;
+          });
+        }
+        return curMode;
+      });
+    };
+    mql.addEventListener('change', handleMql);
+
+    const handleCustomChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ theme?: ThemePaletteId; mode?: InterfaceMode }>;
+      if (customEvent.detail) {
+        if (customEvent.detail.theme && VALID_THEME_PALETTES.includes(customEvent.detail.theme)) {
+          setThemeState(customEvent.detail.theme);
+        }
+        if (customEvent.detail.mode && ['dark', 'light', 'system'].includes(customEvent.detail.mode)) {
+          setModeState(customEvent.detail.mode);
+        }
+      }
+    };
+    window.addEventListener('workflow-capture-theme-change', handleCustomChange);
+
+    return () => {
+      mql.removeEventListener('change', handleMql);
+      window.removeEventListener('workflow-capture-theme-change', handleCustomChange);
+    };
+  }, []);
 
   const fetchDashboardContext = useCallback(async () => {
     try {
@@ -94,6 +219,20 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setOrganizationName(orgRecord?.name || 'My Organization');
       if (typeof window !== 'undefined') {
         localStorage.setItem('wf_active_org_id', activeOrgId);
+      }
+
+      if (orgRecord?.stripe_subscription_id) {
+        try {
+          const parsed = JSON.parse(orgRecord.stripe_subscription_id);
+          const orgPalette = (parsed.theme_settings?.palette || parsed.theme) as ThemePaletteId | undefined;
+          const orgMode = (parsed.theme_settings?.mode || parsed.mode) as InterfaceMode | undefined;
+          if (orgPalette && VALID_THEME_PALETTES.includes(orgPalette)) {
+            setThemeState(orgPalette);
+            const resolvedMode = (orgMode && ['dark', 'light', 'system'].includes(orgMode)) ? orgMode : 'dark';
+            setModeState(resolvedMode);
+            applyThemeToDOM(orgPalette, resolvedMode);
+          }
+        } catch {}
       }
 
       const defaultToken = `ps_live_${activeOrgId.replace(/-/g, '').slice(0, 16)}`;
@@ -262,6 +401,69 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const setTheme = useCallback((newTheme: ThemePaletteId) => {
+    if (!VALID_THEME_PALETTES.includes(newTheme)) return;
+    setThemeState(newTheme);
+    applyThemeToDOM(newTheme, mode);
+  }, [mode]);
+
+  const setMode = useCallback((newMode: InterfaceMode) => {
+    setModeState(newMode);
+    applyThemeToDOM(theme, newMode);
+  }, [theme]);
+
+  const saveThemePreferences = useCallback(
+    async (newTheme: ThemePaletteId, newMode: InterfaceMode) => {
+      if (!VALID_THEME_PALETTES.includes(newTheme)) return;
+      setThemeState(newTheme);
+      setModeState(newMode);
+      applyThemeToDOM(newTheme, newMode);
+
+      if (orgId) {
+        try {
+          const supabase = createClient();
+          const { data: directOrg } = await supabase
+            .from('wf_organizations')
+            .select('stripe_subscription_id')
+            .eq('id', orgId)
+            .maybeSingle();
+
+          let existingMeta: Record<string, unknown> = {};
+          if (directOrg?.stripe_subscription_id) {
+            try {
+              existingMeta = JSON.parse(directOrg.stripe_subscription_id);
+            } catch {}
+          }
+
+          const updatedMeta = {
+            ...existingMeta,
+            theme_settings: { palette: newTheme, mode: newMode },
+            theme: newTheme,
+            mode: newMode,
+          };
+
+          await supabase
+            .from('wf_organizations')
+            .update({
+              stripe_subscription_id: JSON.stringify(updatedMeta),
+            })
+            .eq('id', orgId);
+
+          try {
+            await supabase
+              .from('wf_organizations')
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              .update({ settings: { themes: { palette: newTheme, mode: newMode } } } as any)
+              .eq('id', orgId);
+          } catch {}
+        } catch (err) {
+          console.warn('Failed to sync theme preference to Supabase:', err);
+        }
+      }
+    },
+    [orgId]
+  );
+
   return (
     <DashboardContext.Provider
       value={{
@@ -277,7 +479,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         closeRunDetails,
         selectedRun,
         isDrawerOpen,
-        stopActiveRun
+        stopActiveRun,
+        theme,
+        mode,
+        setTheme,
+        setMode,
+        saveThemePreferences
       }}
     >
       {children}
