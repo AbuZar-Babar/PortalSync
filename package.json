@@ -15,6 +15,9 @@
     "runner:doctor": "node packages/engine/src/runner/cli.js doctor",
     "runner:listen": "node packages/engine/src/runner/cli.js listen",
     "desktop": "npm start --prefix apps/desktop",
+    "desktop:build": "npm run build:win --prefix apps/desktop",
+    "desktop:build:mac": "npm run build:mac --prefix apps/desktop",
+    "desktop:build:all": "npm run build:all --prefix apps/desktop",
     "test": "node tests/run-all-tests.js"
   },
   "dependencies": {

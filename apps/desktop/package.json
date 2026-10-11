@@ -9,7 +9,11 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "build:win": "electron-builder --win",
+    "build:win": "electron-builder --win --x64",
+    "build:mac": "electron-builder --mac --x64",
+    "build:mac:zip": "electron-builder --mac zip --x64",
+    "build:mac:dmg": "electron-builder --mac dmg --x64",
+    "build:all": "node scripts/build-all.js",
     "dist": "electron-builder"
   },
   "build": {
@@ -33,7 +37,17 @@
         ]
       }
     ],
+    "protocols": [
+      {
+        "name": "FlowMind Worker Protocol",
+        "schemes": [
+          "flowmind",
+          "portalsync"
+        ]
+      }
+    ],
     "win": {
+      "icon": "assets/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -60,6 +74,44 @@
     },
     "portable": {
       "artifactName": "FlowMind-Worker-Portable-${version}.${ext}"
+    },
+    "mac": {
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.business",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "darkModeSupport": true,
+      "artifactName": "FlowMind-Worker-${version}-mac-x64.${ext}"
+    },
+    "dmg": {
+      "title": "${productName} ${version} (Intel x64)",
+      "artifactName": "FlowMind-Worker-Setup-${version}-mac-x64.${ext}",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
     }
   },
   "dependencies": {

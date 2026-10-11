@@ -1,0 +1,65 @@
+name: Build Desktop Worker
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'apps/desktop/**'
+      - 'packages/engine/**'
+      - '.github/workflows/build-desktop.yml'
+
+jobs:
+  build-windows:
+    name: Build Windows x64 (.exe)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Windows Installer & Portable EXE
+        run: npm run build:win --prefix apps/desktop
+
+      - name: Upload Windows Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: flowmind-worker-windows-x64
+          path: |
+            apps/desktop/dist/FlowMind-Worker-Setup-*.exe
+            apps/desktop/dist/FlowMind-Worker-Portable-*.exe
+
+  build-macos:
+    name: Build macOS Intel x64 (.dmg & .zip)
+    runs-on: macos-13 # Official GitHub Actions Intel x86_64 Mac runner
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build macOS Intel DMG & ZIP
+        run: npm run build:mac --prefix apps/desktop
+
+      - name: Upload macOS Intel Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: flowmind-worker-macos-intel-x64
+          path: |
+            apps/desktop/dist/*.dmg
+            apps/desktop/dist/*.zip

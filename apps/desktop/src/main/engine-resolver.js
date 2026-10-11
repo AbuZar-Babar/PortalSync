@@ -1,10 +1,60 @@
 const path = require('path');
 const fs = require('fs');
-const { app } = require('electron');
+const Module = require('module');
+let app = null;
+try {
+  const electron = require('electron');
+  app = electron.app || (electron.remote && electron.remote.app) || null;
+} catch {}
+
+/**
+ * Configure Node module search paths so that engine modules loaded from
+ * extraResources (outside app.asar) can resolve bundled runtime dependencies
+ * such as puppeteer-core and dotenv.
+ */
+function setupModuleResolutionPaths() {
+  const candidatePaths = [];
+
+  if (app && app.isPackaged) {
+    candidatePaths.push(
+      path.join(process.resourcesPath, 'app.asar', 'node_modules'),
+      path.join(process.resourcesPath, 'app', 'node_modules'),
+      path.join(process.resourcesPath, 'node_modules')
+    );
+  }
+
+  // Also include desktop app and monorepo root node_modules for local development
+  candidatePaths.push(
+    path.resolve(__dirname, '../../node_modules'),
+    path.resolve(__dirname, '../../../../node_modules')
+  );
+
+  const validPaths = candidatePaths.filter((p) => {
+    try {
+      return fs.existsSync(p);
+    } catch {
+      return false;
+    }
+  });
+
+  if (validPaths.length > 0) {
+    process.env.NODE_PATH = [...validPaths, process.env.NODE_PATH || ''].filter(Boolean).join(path.delimiter);
+    if (typeof Module._initPaths === 'function') {
+      Module._initPaths();
+    }
+    for (const p of validPaths) {
+      if (Array.isArray(Module.globalPaths) && !Module.globalPaths.includes(p)) {
+        Module.globalPaths.push(p);
+      }
+    }
+  }
+}
+
+setupModuleResolutionPaths();
 
 /**
  * Resolves the path to packages/engine dynamically
- * Works in development (monorepo paths) and production packaged .exe (resourcesPath)
+ * Works in development (monorepo paths) and production packaged .exe / .dmg (resourcesPath)
  */
 function getEnginePath() {
   // 1. Packaged Electron application resource directory
@@ -32,4 +82,5 @@ function requireEngine(subpath) {
 module.exports = {
   getEnginePath,
   requireEngine,
+  setupModuleResolutionPaths,
 };

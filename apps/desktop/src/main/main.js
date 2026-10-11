@@ -51,10 +51,37 @@ const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (event, commandLine) => {
     restoreMainWindow();
+    // Parse protocol url on Windows if passed via command line
+    const urlArg = (commandLine || []).find((arg) => arg.startsWith('flowmind://') || arg.startsWith('portalsync://'));
+    if (urlArg) {
+      console.log('[Main] Received protocol URL from second-instance:', urlArg);
+    }
   });
 }
+
+// Register custom protocol clients for deep linking (e.g. flowmind:// or portalsync://)
+try {
+  if (process.defaultApp) {
+    if (process.argv.length >= 2) {
+      app.setAsDefaultProtocolClient('flowmind', process.execPath, [path.resolve(process.argv[1])]);
+      app.setAsDefaultProtocolClient('portalsync', process.execPath, [path.resolve(process.argv[1])]);
+    }
+  } else {
+    app.setAsDefaultProtocolClient('flowmind');
+    app.setAsDefaultProtocolClient('portalsync');
+  }
+} catch (err) {
+  console.warn('[Main] Protocol client registration warning:', err.message);
+}
+
+// macOS open-url event for protocol activation
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  restoreMainWindow();
+  console.log('[Main] Received protocol URL on macOS:', url);
+});
 
 function createWindow() {
   const appIconPath = path.join(__dirname, '../../assets/icon.png');
@@ -96,6 +123,50 @@ function createWindow() {
   });
 }
 
+function setupApplicationMenu() {
+  if (process.platform === 'darwin') {
+    const appName = app.name || 'FlowMind Worker';
+    const template = [
+      {
+        label: appName,
+        submenu: [
+          { role: 'about' },
+          { type: 'separator' },
+          { role: 'services' },
+          { type: 'separator' },
+          { role: 'hide' },
+          { role: 'hideOthers' },
+          { role: 'unhide' },
+          { type: 'separator' },
+          { role: 'quit' },
+        ],
+      },
+      {
+        label: 'Edit',
+        submenu: [
+          { role: 'undo' },
+          { role: 'redo' },
+          { type: 'separator' },
+          { role: 'cut' },
+          { role: 'copy' },
+          { role: 'paste' },
+          { role: 'selectAll' },
+        ],
+      },
+      {
+        label: 'Window',
+        submenu: [
+          { role: 'minimize' },
+          { role: 'close' },
+        ],
+      },
+    ];
+    Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+  } else {
+    Menu.setApplicationMenu(null);
+  }
+}
+
 function createTray() {
   const trayIconPath = path.join(__dirname, '../../assets/tray-icon.png');
   let icon;
@@ -105,8 +176,12 @@ function createTray() {
     icon = nativeImage.createEmpty();
   }
 
+  if (process.platform === 'darwin' && typeof icon.setTemplateImage === 'function') {
+    icon.setTemplateImage(true);
+  }
+
   tray = new Tray(icon);
-  tray.setToolTip('PortalSync Local Worker');
+  tray.setToolTip('FlowMind Local Worker');
 
   // Single click toggles or restores the window
   tray.on('click', () => {
@@ -140,11 +215,11 @@ function updateTrayMenu() {
   const isRunning = state.status === 'active';
   const statusLabel = isRunning ? 'Active (Processing)' : 'Idle (Ready)';
 
-  tray.setToolTip(`PortalSync Local Worker - ${statusLabel}`);
+  tray.setToolTip(`FlowMind Local Worker - ${statusLabel}`);
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: `PortalSync Local Worker (${statusLabel})`,
+      label: `FlowMind Local Worker (${statusLabel})`,
       enabled: false,
     },
     { type: 'separator' },
@@ -184,7 +259,7 @@ function updateTrayMenu() {
     },
     { type: 'separator' },
     {
-      label: 'Quit PortalSync',
+      label: 'Quit FlowMind Worker',
       click: () => {
         isQuitting = true;
         app.quit();
@@ -197,6 +272,7 @@ function updateTrayMenu() {
 
 // App lifecycle
 app.whenReady().then(async () => {
+  setupApplicationMenu();
   createWindow();
   createTray();
 

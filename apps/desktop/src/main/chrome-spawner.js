@@ -13,16 +13,38 @@ class ChromeSpawner {
   }
 
   /**
-   * Locate the Chrome executable on Windows
+   * Locate the Chrome executable across Windows, macOS, and Linux
    */
   findChromePath() {
-    const candidates = [
-      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-      path.join(process.env.LOCALAPPDATA || '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
-      path.join(process.env.PROGRAMFILES || '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
-      path.join(process.env['PROGRAMFILES(X86)'] || '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
-    ];
+    const platform = process.platform;
+    let candidates = [];
+
+    if (platform === 'win32') {
+      candidates = [
+        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+        path.join(process.env.LOCALAPPDATA || '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+        path.join(process.env.PROGRAMFILES || '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+        path.join(process.env['PROGRAMFILES(X86)'] || '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      ];
+    } else if (platform === 'darwin') {
+      candidates = [
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        path.join(os.homedir(), 'Applications/Google Chrome.app/Contents/MacOS/Google Chrome'),
+        '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
+        path.join(os.homedir(), 'Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary'),
+        '/Applications/Chromium.app/Contents/MacOS/Chromium',
+        '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
+        '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+      ];
+    } else {
+      candidates = [
+        '/usr/bin/google-chrome',
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium',
+      ];
+    }
 
     for (const p of candidates) {
       if (p && fs.existsSync(p)) {
@@ -104,7 +126,7 @@ class ChromeSpawner {
     // 2. Kill spawnedProcess reference if still active
     this.stopSpawned();
 
-    // 3. Fallback on Windows: terminate any lingering process listening on remote debugging port
+    // 3. Fallback: terminate any lingering process listening on remote debugging port
     if (process.platform === 'win32') {
       try {
         const output = execSync(`netstat -ano -p tcp | findstr :${this.port}`, {
@@ -119,6 +141,23 @@ class ChromeSpawner {
             if (pid && pid > 0 && pid !== process.pid) {
               try {
                 execSync(`taskkill /F /PID ${pid} /T`, { stdio: 'ignore' });
+              } catch {}
+            }
+          }
+        }
+      } catch {}
+    } else {
+      try {
+        const output = execSync(`lsof -ti tcp:${this.port}`, {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+        }).trim();
+        if (output) {
+          const pids = output.split(/\s+/).map((p) => parseInt(p, 10)).filter(Boolean);
+          for (const pid of pids) {
+            if (pid !== process.pid) {
+              try {
+                process.kill(pid, 'SIGKILL');
               } catch {}
             }
           }
