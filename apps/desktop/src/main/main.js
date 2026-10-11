@@ -269,14 +269,24 @@ app.whenReady().then(async () => {
   ipcMain.handle('get-recording-status', () => httpBridge.getStatus());
 
   ipcMain.handle('test-connection', async (event, customConfig) => {
-    const current = configManager.get();
-    const engineResolver = require('./engine-resolver');
-    const { CloudClient } = engineResolver.requireEngine('src/runner/cloud-client');
-    const client = new CloudClient({
-      baseUrl: config.cloudUrl || 'https://web-fawn-ten-55.vercel.app',
-      token: config.runnerToken,
-    });
-    return await client.testConnection();
+    try {
+      const current = configManager.get();
+      const cfg = { ...current, ...(customConfig || {}) };
+      const engineResolver = require('./engine-resolver');
+      const CloudClientModule = engineResolver.requireEngine('src/runner/cloud-client');
+      const CloudClient = CloudClientModule.CloudClient || CloudClientModule;
+      const client = new CloudClient({
+        baseUrl: cfg.cloudUrl || 'https://web-fawn-ten-55.vercel.app',
+        token: cfg.runnerToken,
+      });
+      return await client.testConnection();
+    } catch (err) {
+      console.error('[Main] test-connection error:', err);
+      return {
+        connected: false,
+        error: err.message || 'Unknown connection error',
+      };
+    }
   });
 
   ipcMain.handle('open-external', (event, url) => shell.openExternal(url));
