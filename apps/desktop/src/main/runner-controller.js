@@ -55,12 +55,11 @@ class RunnerController {
     }
 
     try {
-      // 1. Load engine modules from packages/engine
-      // (Chrome is launched lazily on-demand when a workflow run is claimed)
-      const enginePath = path.resolve(__dirname, '../../../../packages/engine/src/runner');
-      const RunnerDaemonModule = require(path.join(enginePath, 'runner-daemon'));
+      // 1. Load engine modules from packages/engine (works in dev and packaged .exe)
+      const engineResolver = require('./engine-resolver');
+      const RunnerDaemonModule = engineResolver.requireEngine('src/runner/runner-daemon');
       const RunnerDaemon = RunnerDaemonModule.RunnerDaemon || RunnerDaemonModule;
-      const CloudClientModule = require(path.join(enginePath, 'cloud-client'));
+      const CloudClientModule = engineResolver.requireEngine('src/runner/cloud-client');
       const CloudClient = CloudClientModule.CloudClient || CloudClientModule;
 
       const cloudClient = new CloudClient({

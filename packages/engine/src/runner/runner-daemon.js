@@ -226,114 +226,113 @@ class RunnerDaemon {
     }
 
     this.activeRun = run;
-    this.logger.info(`Executing run ${run.id} for workflow: ${run.workflow_id}`);
-
-    // Fetch workflow definition
-    let workflow = run.workflow;
-    if (!workflow && run.workflow_id) {
-      try {
-        workflow = await this.cloudClient.getWorkflow(run.workflow_id);
-      } catch (err) {
-        this.logger.warn(`Could not fetch workflow details for ${run.workflow_id}: ${err.message}`);
-      }
-    }
-
-    // Extract workflow definition and normalize actions/steps
-    const def = workflow?.workflow_definition || {};
-    const steps = Array.isArray(def.steps) && def.steps.length > 0
-      ? def.steps
-      : (Array.isArray(def.actions) && def.actions.length > 0
-        ? def.actions
-        : (Array.isArray(workflow?.steps) && workflow.steps.length > 0
-          ? workflow.steps
-          : (Array.isArray(workflow?.actions) ? workflow.actions : [])));
-
-    // Determine sanitized portal name
-    const rawPortalName = workflow?.name || def.name || def.metadata?.name || workflow?.metadata?.name || run.workflow_name || 'DefaultPortal';
-    const sanitizedPortalName = sanitizePortalName(rawPortalName);
-
-    const startUrl = workflow?.portal_url ||
-      def.portal_url ||
-      def.metadata?.startUrl ||
-      workflow?.metadata?.startUrl ||
-      workflow?.startUrl ||
-      workflow?.targetUrl ||
-      (steps[0] && steps[0].url) ||
-      'about:blank';
-
-    const metadata = def.metadata || workflow?.metadata || {
-      name: rawPortalName,
-      startUrl: startUrl,
-    };
-
-    const isLoop = def.metadata?.isLoop || metadata.isLoop || workflow?.isLoop || false;
-    const uploadToCloud = Boolean(def.upload_to_cloud ?? workflow?.upload_to_cloud ?? false);
-
-    // Determine target download directory organized by portal name
-    const workflowTargetFolder = def.target_folder || workflow?.target_folder;
-    let runTargetDir = resolvePortalStorageDir(this.targetFolder, sanitizedPortalName);
-
-    if (workflowTargetFolder) {
-      try {
-        const customBase = path.isAbsolute(workflowTargetFolder)
-          ? workflowTargetFolder
-          : path.resolve(process.cwd(), workflowTargetFolder);
-
-        runTargetDir = path.basename(customBase).toLowerCase() === sanitizedPortalName.toLowerCase()
-          ? customBase
-          : path.join(customBase, sanitizedPortalName);
-
-        if (!fs.existsSync(runTargetDir)) {
-          fs.mkdirSync(runTargetDir, { recursive: true });
-        }
-      } catch (mkdirErr) {
-        this.logger.warn(`Configured target folder '${workflowTargetFolder}' is inaccessible (${mkdirErr.message}). Falling back to '${runTargetDir}'.`);
-      }
-    }
-
-    if (!fs.existsSync(runTargetDir)) {
-      try {
-        fs.mkdirSync(runTargetDir, { recursive: true });
-      } catch (fallbackErr) {
-        runTargetDir = path.join(os.tmpdir(), 'PortalSync', sanitizedPortalName);
-        fs.mkdirSync(runTargetDir, { recursive: true });
-      }
-    }
-
-    // Pre-load existing file hashes in target directory to prevent re-downloading duplicates
-    this.artifactTracker.loadExistingHashesFromDir(runTargetDir);
-
-    // Initialize LoopReplayRunner lazily
-    let LoopReplayRunner;
-    try {
-      LoopReplayRunner = require('../replay/loop-replay-runner');
-    } catch (err) {
-      const errorMsg = `Failed to load LoopReplayRunner: ${err.message}`;
-      this.logger.error(errorMsg);
-      await this.cloudClient.updateRunStatus(run.id, 'failed', {
-        error_summary: errorMsg,
-        completed_at: new Date().toISOString(),
-      }).catch(() => {});
-      this.activeRun = null;
-      throw new Error(errorMsg);
-    }
-
-    const runner = new LoopReplayRunner({
-      cdpPort: this.cdpPort,
-      runId: run.id,
-      workflowId: run.workflow_id,
-      workflowName: sanitizedPortalName || rawPortalName || 'workflow',
-      targetUrl: startUrl,
-      structuredDownloadsDir: runTargetDir,
-    });
-    this.currentRunner = runner;
-
-    // Track execution telemetry
-    let itemsProcessed = 0;
-    let itemsDownloaded = 0;
     let hitlInterval = null;
 
     try {
+      this.logger.info(`Executing run ${run.id} for workflow: ${run.workflow_id}`);
+
+      // Fetch workflow definition
+      let workflow = run.workflow;
+      if (!workflow && run.workflow_id) {
+        try {
+          workflow = await this.cloudClient.getWorkflow(run.workflow_id);
+        } catch (err) {
+          this.logger.warn(`Could not fetch workflow details for ${run.workflow_id}: ${err.message}`);
+        }
+      }
+
+      // Extract workflow definition and normalize actions/steps
+      const def = workflow?.workflow_definition || {};
+      const steps = Array.isArray(def.steps) && def.steps.length > 0
+        ? def.steps
+        : (Array.isArray(def.actions) && def.actions.length > 0
+          ? def.actions
+          : (Array.isArray(workflow?.steps) && workflow.steps.length > 0
+            ? workflow.steps
+            : (Array.isArray(workflow?.actions) ? workflow.actions : [])));
+
+      // Determine sanitized portal name
+      const rawPortalName = workflow?.name || def.name || def.metadata?.name || workflow?.metadata?.name || run.workflow_name || 'DefaultPortal';
+      const sanitizedPortalName = sanitizePortalName(rawPortalName);
+
+      const startUrl = workflow?.portal_url ||
+        def.portal_url ||
+        def.metadata?.startUrl ||
+        workflow?.metadata?.startUrl ||
+        workflow?.startUrl ||
+        workflow?.targetUrl ||
+        (steps[0] && steps[0].url) ||
+        'about:blank';
+
+      const metadata = def.metadata || workflow?.metadata || {
+        name: rawPortalName,
+        startUrl: startUrl,
+      };
+
+      const isLoop = def.metadata?.isLoop || metadata.isLoop || workflow?.isLoop || false;
+      const uploadToCloud = Boolean(def.upload_to_cloud ?? workflow?.upload_to_cloud ?? false);
+
+      // Determine target download directory organized by portal name
+      const workflowTargetFolder = def.target_folder || workflow?.target_folder;
+      let runTargetDir = resolvePortalStorageDir(this.targetFolder, sanitizedPortalName);
+
+      if (workflowTargetFolder) {
+        try {
+          const customBase = path.isAbsolute(workflowTargetFolder)
+            ? workflowTargetFolder
+            : path.resolve(process.cwd(), workflowTargetFolder);
+
+          runTargetDir = path.basename(customBase).toLowerCase() === sanitizedPortalName.toLowerCase()
+            ? customBase
+            : path.join(customBase, sanitizedPortalName);
+
+          if (!fs.existsSync(runTargetDir)) {
+            fs.mkdirSync(runTargetDir, { recursive: true });
+          }
+        } catch (mkdirErr) {
+          this.logger.warn(`Configured target folder '${workflowTargetFolder}' is inaccessible (${mkdirErr.message}). Falling back to '${runTargetDir}'.`);
+        }
+      }
+
+      if (!fs.existsSync(runTargetDir)) {
+        try {
+          fs.mkdirSync(runTargetDir, { recursive: true });
+        } catch (fallbackErr) {
+          runTargetDir = path.join(os.tmpdir(), 'PortalSync', sanitizedPortalName);
+          fs.mkdirSync(runTargetDir, { recursive: true });
+        }
+      }
+
+      // Pre-load existing file hashes in target directory to prevent re-downloading duplicates
+      this.artifactTracker.loadExistingHashesFromDir(runTargetDir);
+
+      // Initialize LoopReplayRunner lazily
+      let LoopReplayRunner;
+      try {
+        LoopReplayRunner = require('../replay/loop-replay-runner');
+      } catch (err) {
+        const errorMsg = `Failed to load LoopReplayRunner: ${err.message}`;
+        this.logger.error(errorMsg);
+        await this.cloudClient.updateRunStatus(run.id, 'failed', {
+          error_summary: errorMsg,
+          completed_at: new Date().toISOString(),
+        }).catch(() => {});
+        throw new Error(errorMsg);
+      }
+
+      const runner = new LoopReplayRunner({
+        cdpPort: this.cdpPort,
+        runId: run.id,
+        workflowId: run.workflow_id,
+        workflowName: sanitizedPortalName || rawPortalName || 'workflow',
+        targetUrl: startUrl,
+        structuredDownloadsDir: runTargetDir,
+      });
+      this.currentRunner = runner;
+
+      // Track execution telemetry
+      let itemsProcessed = 0;
+      let itemsDownloaded = 0;
       // Progress handler
       const onProgress = async (progress) => {
         if (progress.manifest) {
@@ -461,6 +460,10 @@ class RunnerDaemon {
 
       throw err;
     } finally {
+      if (hitlInterval) {
+        clearInterval(hitlInterval);
+        hitlInterval = null;
+      }
       this.activeRun = null;
       this.currentRunner = null;
       this.isInHitl = false;
@@ -518,75 +521,77 @@ class RunnerDaemon {
    */
   async handleHitlIntervention(runId, page, challengeInfo = {}, options = {}) {
     this.isInHitl = true;
-    const reasonText = challengeInfo?.reason ? ` (${challengeInfo.reason})` : '';
-    this.logger.warn(`[HITL 2FA] 2FA/Authentication challenge detected on run ${runId}${reasonText}`);
+    try {
+      const reasonText = challengeInfo?.reason ? ` (${challengeInfo.reason})` : '';
+      this.logger.warn(`[HITL 2FA] 2FA/Authentication challenge detected on run ${runId}${reasonText}`);
 
-    // Step 1: Update cloud status to requires_action
-    const errorSummary = '2FA challenge detected: awaiting human verification';
-    await this.cloudClient.updateRunStatus(runId, 'requires_action', {
-      error_summary: errorSummary,
-    }).catch(err => this.logger.warn(`Could not update 2FA status: ${err.message}`));
+      // Step 1: Update cloud status to requires_action
+      const errorSummary = '2FA challenge detected: awaiting human verification';
+      await this.cloudClient.updateRunStatus(runId, 'requires_action', {
+        error_summary: errorSummary,
+      }).catch(err => this.logger.warn(`Could not update 2FA status: ${err.message}`));
 
-    // Step 2: Pause replay execution
-    if (this.currentRunner?.replayEngine && typeof this.currentRunner.replayEngine.pause === 'function') {
-      await this.currentRunner.replayEngine.pause('2FA Challenge');
-    }
+      // Step 2: Pause replay execution
+      if (this.currentRunner?.replayEngine && typeof this.currentRunner.replayEngine.pause === 'function') {
+        await this.currentRunner.replayEngine.pause('2FA Challenge');
+      }
 
-    const timeoutMs = options.timeoutMs || this.hitlTimeoutMs || 90000;
-    const pollIntervalMs = options.pollIntervalMs || (options.timeoutMs ? Math.min(1000, Math.max(20, Math.floor(timeoutMs / 10))) : (this.hitlTimeoutMs ? Math.min(1000, Math.max(20, Math.floor(this.hitlTimeoutMs / 10))) : 1000));
+      const timeoutMs = options.timeoutMs || this.hitlTimeoutMs || 90000;
+      const pollIntervalMs = options.pollIntervalMs || (options.timeoutMs ? Math.min(1000, Math.max(20, Math.floor(timeoutMs / 10))) : (this.hitlTimeoutMs ? Math.min(1000, Math.max(20, Math.floor(this.hitlTimeoutMs / 10))) : 1000));
 
-    // Step 3: Wait up to 90 seconds for human intervention
-    const result = await waitFor2FAResolution(page, {
-      timeoutMs,
-      pollIntervalMs,
-      onTick: typeof options.onTick === 'function' ? options.onTick : (remainingSec) => {
-        this.logger.info(`[HITL 2FA] Awaiting human verification... ${remainingSec}s remaining`);
-      },
-      checkAuth: typeof options.checkAuth === 'function' ? options.checkAuth : async (p) => {
-        try {
-          const { isSessionAuthenticated } = require('../shared/auth-detector');
-          return await isSessionAuthenticated(p);
-        } catch {
-          return false;
+      // Step 3: Wait up to 90 seconds for human intervention
+      const result = await waitFor2FAResolution(page, {
+        timeoutMs,
+        pollIntervalMs,
+        onTick: typeof options.onTick === 'function' ? options.onTick : (remainingSec) => {
+          this.logger.info(`[HITL 2FA] Awaiting human verification... ${remainingSec}s remaining`);
+        },
+        checkAuth: typeof options.checkAuth === 'function' ? options.checkAuth : async (p) => {
+          try {
+            const { isSessionAuthenticated } = require('../shared/auth-detector');
+            return await isSessionAuthenticated(p);
+          } catch {
+            return false;
+          }
+        },
+      });
+
+      if (result.resolved) {
+        this.logger.success(`[HITL 2FA] Human verification completed in ${Math.round(result.elapsedMs / 1000)}s! Resuming execution...`);
+        // Step 4: Resume execution and update cloud back to running
+        await this.cloudClient.updateRunStatus(runId, 'running', {
+          error_summary: null,
+        }).catch(() => {});
+
+        if (this.currentRunner?.replayEngine && typeof this.currentRunner.replayEngine.resume === 'function') {
+          await this.currentRunner.replayEngine.resume();
         }
-      },
-    });
+        return { resolved: true };
+      } else {
+        // Step 5: Timeout expired (90 seconds elapsed)
+        const timeoutMsg = '2FA timeout: Human verification was not completed within 90 seconds';
+        this.logger.error(`[HITL 2FA] ${timeoutMsg}`);
 
-    if (result.resolved) {
-      this.logger.success(`[HITL 2FA] Human verification completed in ${Math.round(result.elapsedMs / 1000)}s! Resuming execution...`);
-      // Step 4: Resume execution and update cloud back to running
-      await this.cloudClient.updateRunStatus(runId, 'running', {
-        error_summary: null,
-      }).catch(() => {});
+        await this.cloudClient.updateRunStatus(runId, 'failed', {
+          error_summary: timeoutMsg,
+          completed_at: new Date().toISOString(),
+        }).catch(() => {});
 
-      if (this.currentRunner?.replayEngine && typeof this.currentRunner.replayEngine.resume === 'function') {
-        await this.currentRunner.replayEngine.resume();
+        if (this.currentRunner && typeof this.currentRunner.stop === 'function') {
+          await this.currentRunner.stop().catch(() => {});
+        }
+
+        if (options.throwOnTimeout === false) {
+          return { resolved: false, timedOut: true };
+        }
+
+        const timeoutError = new Error(timeoutMsg);
+        timeoutError.resolved = false;
+        timeoutError.timedOut = true;
+        throw timeoutError;
       }
+    } finally {
       this.isInHitl = false;
-      return { resolved: true };
-    } else {
-      // Step 5: Timeout expired (90 seconds elapsed)
-      const timeoutMsg = '2FA timeout: Human verification was not completed within 90 seconds';
-      this.logger.error(`[HITL 2FA] ${timeoutMsg}`);
-
-      await this.cloudClient.updateRunStatus(runId, 'failed', {
-        error_summary: timeoutMsg,
-        completed_at: new Date().toISOString(),
-      }).catch(() => {});
-
-      if (this.currentRunner && typeof this.currentRunner.stop === 'function') {
-        await this.currentRunner.stop().catch(() => {});
-      }
-      this.isInHitl = false;
-
-      if (options.throwOnTimeout === false) {
-        return { resolved: false, timedOut: true };
-      }
-
-      const timeoutError = new Error(timeoutMsg);
-      timeoutError.resolved = false;
-      timeoutError.timedOut = true;
-      throw timeoutError;
     }
   }
 

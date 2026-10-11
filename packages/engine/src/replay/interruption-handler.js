@@ -187,6 +187,10 @@ class InterruptionHandler {
    * @param {object} [action] Optional current workflow action to ensure target protection
    * @returns {Promise<boolean>} True if an unexpected popup or overlay was detected and dismissed
    */
+  async clearBlockingOverlays(page, action = null) {
+    return this.dismissBlockingOverlays(page, action);
+  }
+
   async dismissBlockingOverlays(page, action = null) {
     if (!page || (typeof page.isClosed === 'function' && page.isClosed())) return false;
 

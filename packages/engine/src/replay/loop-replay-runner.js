@@ -1592,6 +1592,49 @@ class LoopReplayRunner {
   }
 
   /**
+   * Helper to check if any modal or blocking overlay is currently visible on the page
+   */
+  async _hasModalOrOverlay(page) {
+    if (!page || typeof page.evaluate !== 'function') return false;
+    try {
+      return await page.evaluate(() => {
+        const overlaySelectors = [
+          '[role="dialog"]',
+          '[role="alertdialog"]',
+          'dialog[open]',
+          '[aria-modal="true"]',
+          '.modal.show',
+          '.modal.in',
+          '.cdk-overlay-backdrop',
+          '.cdk-overlay-pane',
+          '.mat-mdc-dialog-container',
+          '.mat-dialog-container',
+          '.dx-dialog',
+          '.dx-overlay-content',
+          '.swal2-container',
+          '.swal2-shown',
+          '.ant-modal-mask',
+          '.ant-modal-wrap',
+          '.MuiBackdrop-root',
+          '.MuiDialog-root',
+          '.chakra-modal__content',
+          '.chakra-modal__overlay'
+        ];
+        return overlaySelectors.some(sel => {
+          const els = Array.from(document.querySelectorAll(sel));
+          return els.some(el => {
+            if (el.offsetParent === null && el.tagName.toLowerCase() !== 'body') return false;
+            const style = window.getComputedStyle(el);
+            return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+          });
+        });
+      });
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Navigate browser to the workflow's designated target/start URL
    */
   async navigateToWorkflowTarget(page, workflow) {
@@ -1605,29 +1648,62 @@ class LoopReplayRunner {
       await page.bringToFront().catch(() => { });
     } catch { }
 
-    const currentUrl = page.url();
+    // Proactively clear any open alert/confirmation dialogs on start
+    if (typeof this.replayEngine?.interruptionHandler?.clearLingeringDialogs === 'function') {
+      await this.replayEngine.interruptionHandler.clearLingeringDialogs(page).catch(() => {});
+    }
+
+    let currentUrl = '';
+    try {
+      currentUrl = typeof page.url === 'function' ? page.url() : '';
+    } catch {}
+
     let shouldNavigate = false;
 
-    if (currentUrl === 'about:blank' || currentUrl.startsWith('chrome://')) {
+    if (!currentUrl || currentUrl === 'about:blank' || currentUrl.startsWith('chrome://')) {
       shouldNavigate = true;
     } else {
       try {
-        const currentOrigin = new URL(currentUrl).origin;
-        const targetOrigin = new URL(resolved).origin;
-        if (currentOrigin !== targetOrigin) {
+        const currentParsed = new URL(currentUrl);
+        const targetParsed = new URL(resolved);
+
+        if (currentParsed.origin !== targetParsed.origin) {
           shouldNavigate = true;
         } else {
-          // Same origin: do NOT navigate back to /login or landing page if current page is already authenticated past login
+          // Same origin handling
           const isTargetLogin = /\/login\b|\/signin\b|\/auth\b/i.test(resolved) || /#(.*)\/(login|signin)/i.test(resolved);
           const isCurrentLogin = /\/login\b|\/signin\b|\/auth\b/i.test(currentUrl) || /#(.*)\/(login|signin)/i.test(currentUrl);
-          const isTargetLanding = isTargetLogin || /#(.*)\/(home|landing)/i.test(resolved) || !resolved.includes('#');
-          const isCurrentInApp = !isCurrentLogin && currentUrl.includes('#') && !/#(.*)\/(home|landing)/i.test(currentUrl);
 
-          if ((isTargetLogin && !isCurrentLogin) || (isTargetLanding && isCurrentInApp)) {
+          if (isTargetLogin && !isCurrentLogin) {
+            // Target is explicitly login, but current page is already logged in past the login screen
             shouldNavigate = false;
-            logger.info(`[Runner] Session already active at "${currentUrl}". Skipping navigation to landing/login URL: ${resolved}`);
-          } else if (currentUrl !== resolved && isCurrentLogin) {
-            shouldNavigate = true;
+            logger.info(`[Runner] Session already active at "${currentUrl}". Preserving active session instead of navigating back to login URL: ${resolved}`);
+          } else {
+            // Compare normalized paths, search queries, and hashes
+            const normCurrent = (currentParsed.pathname.replace(/\/+$/, '') || '/') + (currentParsed.search || '') + (currentParsed.hash.replace(/\/+$/, '') || '');
+            const normTarget = (targetParsed.pathname.replace(/\/+$/, '') || '/') + (targetParsed.search || '') + (targetParsed.hash.replace(/\/+$/, '') || '');
+
+            if (normCurrent !== normTarget) {
+              // Current page is on a different sub-path, query, or hash (e.g., deep export screen, inner report view from prior run)
+              shouldNavigate = true;
+              logger.info(`[Runner] Current page path "${normCurrent}" differs from workflow target startUrl "${normTarget}". Enforcing clean navigation.`);
+            } else {
+              // Exact URL match: check if a lingering modal overlay from a prior run is blocking access
+              const hasOverlay = await this._hasModalOrOverlay(page);
+              if (hasOverlay) {
+                logger.info('[Runner] Active modal/overlay detected from prior run. Clearing overlays and forcing fresh navigation...');
+                const handler = this.replayEngine?.interruptionHandler;
+                if (handler) {
+                  const dismissFn = typeof handler.clearBlockingOverlays === 'function'
+                    ? handler.clearBlockingOverlays
+                    : (typeof handler.dismissBlockingOverlays === 'function' ? handler.dismissBlockingOverlays : null);
+                  if (dismissFn) await dismissFn.call(handler, page).catch(() => {});
+                }
+                shouldNavigate = true;
+              } else {
+                shouldNavigate = false;
+              }
+            }
           }
         }
       } catch {
@@ -1648,6 +1724,20 @@ class LoopReplayRunner {
       }
     } else {
       logger.info(`[Runner] Tab already at target URL: ${currentUrl}`);
+    }
+
+    // Clean up any open alert/confirmation dialogs and modal overlays so Step 1 has clean access to DOM elements
+    const postHandler = this.replayEngine?.interruptionHandler;
+    if (postHandler) {
+      if (typeof postHandler.clearLingeringDialogs === 'function') {
+        await postHandler.clearLingeringDialogs(page).catch(() => {});
+      }
+      const postDismissFn = typeof postHandler.clearBlockingOverlays === 'function'
+        ? postHandler.clearBlockingOverlays
+        : (typeof postHandler.dismissBlockingOverlays === 'function' ? postHandler.dismissBlockingOverlays : null);
+      if (postDismissFn) {
+        await postDismissFn.call(postHandler, page).catch(() => {});
+      }
     }
   }
 
@@ -1981,6 +2071,9 @@ class LoopReplayRunner {
       };
 
       const browser = await this.replayEngine.connect();
+      if (this.replayEngine.tabManager) {
+        await this.replayEngine.tabManager.cleanupAuxiliaryTabs().catch(() => {});
+      }
       const page = this.replayEngine.tabManager?.getPrimaryPage() || this.replayEngine.page || (await browser.pages())[0];
       this.replayEngine.page = page;
 
@@ -2303,6 +2396,9 @@ class LoopReplayRunner {
       };
 
       const browser = await this.replayEngine.connect();
+      if (this.replayEngine.tabManager) {
+        await this.replayEngine.tabManager.cleanupAuxiliaryTabs().catch(() => {});
+      }
       const page = this.replayEngine.tabManager?.getPrimaryPage() || this.replayEngine.page || (await browser.pages())[0];
       this.replayEngine.page = page;
       const initialPages = await browser.pages().catch(() => []);

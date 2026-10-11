@@ -31,8 +31,9 @@ export async function GET(request: NextRequest) {
 
   const { orgId, supabase } = auth.context;
   const searchParams = request.nextUrl.searchParams;
-  const statusFilter = searchParams.get('status');
-  const workflowId = searchParams.get('workflow_id');
+  const statusFilterRaw = searchParams.get('status');
+  const statusFilter = statusFilterRaw === 'STOPPED' ? 'cancelled' : statusFilterRaw;
+  const workflowId = searchParams.get('workflow_id') || searchParams.get('workflowId');
 
   let query = supabase
     .from('wf_execution_runs')
@@ -76,8 +77,13 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const effectiveOrgId = body.org_id || orgId;
-    const { workflow_id, total_items_discovered, status } = body;
+    const effectiveOrgId = body.org_id || body.orgId || orgId;
+    const workflow_id = body.workflow_id || body.workflowId;
+    let status = body.status;
+    if (status === 'STOPPED') {
+      status = 'cancelled';
+    }
+    const total_items_discovered = body.total_items_discovered ?? body.totalItemsDiscovered ?? 0;
 
     if (!workflow_id) {
       return NextResponse.json(
@@ -86,7 +92,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const runStatus: RunStatus = status || 'pending';
+    const runStatus: RunStatus = (status as RunStatus) || 'pending';
     if (!VALID_STATUSES.has(runStatus)) {
       return NextResponse.json(
         { error: `Invalid status: '${runStatus}'. Valid statuses are: ${Array.from(VALID_STATUSES).join(', ')}` },
@@ -118,7 +124,7 @@ export async function POST(request: NextRequest) {
         org_id: effectiveOrgId,
         workflow_id,
         status: runStatus,
-        total_items_discovered: total_items_discovered || 0,
+        total_items_discovered: Number(total_items_discovered) || 0,
         items_processed: 0,
         items_downloaded: 0,
         started_at: new Date().toISOString(),
@@ -147,8 +153,15 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const runId = body.run_id || body.id;
-    const { status, items_processed, items_downloaded, error_summary, completed_at } = body;
+    const runId = body.run_id || body.runId || body.id;
+    let status = body.status;
+    if (status === 'STOPPED') {
+      status = 'cancelled';
+    }
+    const items_processed = body.items_processed !== undefined ? body.items_processed : body.itemsProcessed;
+    const items_downloaded = body.items_downloaded !== undefined ? body.items_downloaded : body.itemsDownloaded;
+    const error_summary = body.error_summary !== undefined ? body.error_summary : body.errorSummary;
+    const completed_at = body.completed_at !== undefined ? body.completed_at : body.completedAt;
 
     if (!runId) {
       return NextResponse.json({ error: 'Missing required field: run_id' }, { status: 400 });

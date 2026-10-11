@@ -1,505 +1,639 @@
 document.addEventListener('DOMContentLoaded', async () => {
-  // Navigation Tabs & Views
-  const tabBtnDashboard = document.getElementById('tabBtnDashboard');
-  const tabBtnPreferences = document.getElementById('tabBtnPreferences');
-  const btnBackToDashboard = document.getElementById('btnBackToDashboard');
-  const viewDashboard = document.getElementById('viewDashboard');
-  const viewPreferences = document.getElementById('viewPreferences');
+  // -------------------------------------------------------------
+  // SVG ICONS CONSTANTS
+  // -------------------------------------------------------------
+  const SVG_ICONS = {
+    eye: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`,
+    eyeOff: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>`,
+    zap: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+    pause: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`,
+    check: `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+    fail: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+    stop: `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>`,
+  };
 
-  // Window Controls
+  // -------------------------------------------------------------
+  // DOM ELEMENTS
+  // -------------------------------------------------------------
+  // Views
+  const viewSetup = document.getElementById('viewSetup');
+  const viewDashboard = document.getElementById('viewDashboard');
+
+  // Titlebar
+  const deviceBadge = document.getElementById('deviceBadge');
+  const btnOpenSettings = document.getElementById('btnOpenSettings');
   const btnMinimize = document.getElementById('btnMinimize');
   const btnClose = document.getElementById('btnClose');
 
-  // Dashboard Controls
+  // Setup Screen
+  const setupForm = document.getElementById('setupForm');
+  const inputSetupToken = document.getElementById('inputSetupToken');
+  const btnToggleTokenMask = document.getElementById('btnToggleTokenMask');
+  const btnConnectWorkspace = document.getElementById('btnConnectWorkspace');
+  const setupFeedback = document.getElementById('setupFeedback');
+  const btnGetTokenHelp = document.getElementById('btnGetTokenHelp');
+
+  // Dashboard Screen
+  const displayOrgName = document.getElementById('displayOrgName');
+  const connectionPill = document.getElementById('connectionPill');
+  const runnerPulseDot = document.getElementById('runnerPulseDot');
+  const runnerStatusHeading = document.getElementById('runnerStatusHeading');
+  const runnerStatusDetail = document.getElementById('runnerStatusDetail');
   const btnToggleRunner = document.getElementById('btnToggleRunner');
-  const toggleBtnText = document.getElementById('toggleBtnText');
-  const statusDot = document.getElementById('statusDot');
-  const statusLabel = document.getElementById('statusLabel');
-  const liveRunBadge = document.getElementById('liveRunBadge');
+  const btnToggleIcon = document.getElementById('btnToggleIcon');
+  const btnToggleRunnerText = document.getElementById('btnToggleRunnerText');
+  const cloudStatusLabel = document.getElementById('cloudStatusLabel');
+  const browserDot = document.getElementById('browserDot');
+  const browserStatusLabel = document.getElementById('browserStatusLabel');
+
+  // Active Task Banner
+  const activeRunBanner = document.getElementById('activeRunBanner');
+  const activeTaskTitle = document.getElementById('activeTaskTitle');
+  const activeTaskMeta = document.getElementById('activeTaskMeta');
+  const btnStopActiveTask = document.getElementById('btnStopActiveTask');
+
+  // Activity Feed & Footer
+  const btnOpenDownloads = document.getElementById('btnOpenDownloads');
+  const recentActivityList = document.getElementById('recentActivityList');
+  const btnOpenRecordModal = document.getElementById('btnOpenRecordModal');
+  const btnOpenWebDashboard = document.getElementById('btnOpenWebDashboard');
+
+  // Settings Drawer
+  const drawerOverlay = document.getElementById('drawerOverlay');
+  const drawerSettings = document.getElementById('drawerSettings');
+  const btnCloseSettings = document.getElementById('btnCloseSettings');
   const btnModeVisible = document.getElementById('btnModeVisible');
   const btnModeHeadless = document.getElementById('btnModeHeadless');
-  const btnSaveModePref = document.getElementById('btnSaveModePref');
-  const saveModeBtnText = document.getElementById('saveModeBtnText');
-  const modeSavedFeedback = document.getElementById('modeSavedFeedback');
-  const modeSavedFeedbackText = document.getElementById('modeSavedFeedbackText');
-
-  // Recorder Elements
-  const btnRecordWorkflow = document.getElementById('btnRecordWorkflow');
-  const recordWorkflowText = document.getElementById('recordWorkflowText');
-  const recorderLiveBadge = document.getElementById('recorderLiveBadge');
-  const recorderActionCount = document.getElementById('recorderActionCount');
-
-  // Telemetry & Feed Elements
-  const cdpStatus = document.getElementById('cdpStatus');
-  const cloudStatus = document.getElementById('cloudStatus');
-  const cloudUrlDisplay = document.getElementById('cloudUrlDisplay');
-  const btnOpenFolder = document.getElementById('btnOpenFolder');
-  const btnOpenWeb = document.getElementById('btnOpenWeb');
-  const btnSettings = document.getElementById('btnSettings');
-  const activeRunBanner = document.getElementById('activeRunBanner');
-  const activeWorkflowName = document.getElementById('activeWorkflowName');
-  const activeRunMetrics = document.getElementById('activeRunMetrics');
-  const btnStopActiveRun = document.getElementById('btnStopActiveRun');
-  const recentRunsList = document.getElementById('recentRunsList');
-
-  // Preferences Page Elements
-  const preferencesForm = document.getElementById('preferencesForm');
-  const prefCardVisible = document.getElementById('prefCardVisible');
-  const prefCardHeadless = document.getElementById('prefCardHeadless');
-  const prefAutoStartRunner = document.getElementById('prefAutoStartRunner');
-  const prefMinimizeToTray = document.getElementById('prefMinimizeToTray');
-  const inputCloudUrl = document.getElementById('inputCloudUrl');
-  const inputToken = document.getElementById('inputToken');
-  const btnToggleTokenVisibility = document.getElementById('btnToggleTokenVisibility');
-  const btnTestConnection = document.getElementById('btnTestConnection');
-  const testConnectionResult = document.getElementById('testConnectionResult');
-  const inputTargetFolder = document.getElementById('inputTargetFolder');
+  const prefTargetFolder = document.getElementById('prefTargetFolder');
   const btnBrowseFolder = document.getElementById('btnBrowseFolder');
-  const btnResetDefaults = document.getElementById('btnResetDefaults');
-  const preferencesSaveResult = document.getElementById('preferencesSaveResult');
+  const chkAutoStart = document.getElementById('chkAutoStart');
+  const chkMinimizeTray = document.getElementById('chkMinimizeTray');
+  const prefCloudUrl = document.getElementById('prefCloudUrl');
+  const btnSavePreferences = document.getElementById('btnSavePreferences');
+  const btnSavePreferencesText = document.getElementById('btnSavePreferencesText');
+  const savePreferencesFeedback = document.getElementById('savePreferencesFeedback');
+  const maskedTokenDisplay = document.getElementById('maskedTokenDisplay');
+  const btnDisconnectWorker = document.getElementById('btnDisconnectWorker');
 
-  // State
+  // Recorder Modal
+  const recorderModalOverlay = document.getElementById('recorderModalOverlay');
+  const btnCloseRecorderModal = document.getElementById('btnCloseRecorderModal');
+  const recorderIdleView = document.getElementById('recorderIdleView');
+  const recorderActiveView = document.getElementById('recorderActiveView');
+  const recStartUrl = document.getElementById('recStartUrl');
+  const btnStartCapture = document.getElementById('btnStartCapture');
+  const btnStopCapture = document.getElementById('btnStopCapture');
+  const recLiveStepCount = document.getElementById('recLiveStepCount');
+
+  // -------------------------------------------------------------
+  // STATE INITIALIZATION
+  // -------------------------------------------------------------
   let currentConfig = await window.portalsync.getConfig();
   let currentStatus = await window.portalsync.getStatus();
-  let selectedMode = currentConfig.browserMode || 'visible';
-
-  // Initialize UI
-  updateConfigUI(currentConfig);
-  updateStatusUI(currentStatus);
-  checkEngineStatus();
+  let systemInfo = { hostname: 'Local Machine' };
 
   try {
-    const initialRecStatus = await window.portalsync.getRecordingStatus();
-    updateRecorderUI(initialRecStatus);
-  } catch (e) {
-    console.warn('Initial recording status probe notice:', e);
+    if (typeof window.portalsync.getSystemInfo === 'function') {
+      systemInfo = await window.portalsync.getSystemInfo();
+    }
+  } catch (err) {
+    console.warn('System info probe:', err);
   }
 
+  // Set device name badge
+  if (deviceBadge) {
+    deviceBadge.innerText = systemInfo.hostname || 'Local Machine';
+    deviceBadge.title = `Host: ${systemInfo.hostname} (${systemInfo.platform || 'Desktop'})`;
+  }
+
+  // Ensure active banner starts strictly hidden
+  if (activeRunBanner) {
+    activeRunBanner.classList.add('hidden');
+    activeRunBanner.style.display = 'none';
+  }
+
+  // Determine active view (Setup vs Dashboard)
+  updateViewSwitch();
+  applyConfigToUI(currentConfig);
+  applyStatusToUI(currentStatus);
+  checkChromeStatus();
+
   // -------------------------------------------------------------
-  // TAB NAVIGATION
+  // VIEW SWITCHING (SETUP VS DASHBOARD)
   // -------------------------------------------------------------
-  function showTab(tabName) {
-    if (tabName === 'dashboard') {
-      tabBtnDashboard.classList.add('active');
-      tabBtnPreferences.classList.remove('active');
-      viewDashboard.classList.remove('hidden');
-      viewDashboard.classList.add('active');
-      viewPreferences.classList.add('hidden');
-      viewPreferences.classList.remove('active');
-    } else {
-      tabBtnPreferences.classList.add('active');
-      tabBtnDashboard.classList.remove('active');
-      viewPreferences.classList.remove('hidden');
-      viewPreferences.classList.add('active');
+  function updateViewSwitch() {
+    const hasToken = Boolean(currentConfig.runnerToken && currentConfig.runnerToken.trim().length > 0);
+    if (!hasToken) {
+      viewSetup.classList.remove('hidden');
+      viewSetup.classList.add('active');
       viewDashboard.classList.add('hidden');
       viewDashboard.classList.remove('active');
-      populatePreferencesForm();
+      btnOpenSettings.style.display = 'none';
+    } else {
+      viewSetup.classList.add('hidden');
+      viewSetup.classList.remove('active');
+      viewDashboard.classList.remove('hidden');
+      viewDashboard.classList.add('active');
+      btnOpenSettings.style.display = 'inline-flex';
     }
   }
 
-  tabBtnDashboard.addEventListener('click', () => showTab('dashboard'));
-  tabBtnPreferences.addEventListener('click', () => showTab('preferences'));
-  btnBackToDashboard.addEventListener('click', () => showTab('dashboard'));
-  btnSettings.addEventListener('click', () => showTab('preferences'));
-
-  // Window Controls
+  // -------------------------------------------------------------
+  // WINDOW CONTROLS
+  // -------------------------------------------------------------
   btnMinimize.addEventListener('click', () => window.portalsync.minimizeWindow());
   btnClose.addEventListener('click', () => window.portalsync.closeWindow());
 
   // -------------------------------------------------------------
-  // BROWSER MODE SELECTION & SAVE PREFERENCE
+  // SETUP SCREEN: LINK WORKSPACE
   // -------------------------------------------------------------
-  btnModeVisible.addEventListener('click', () => applyModeSelection('visible', true));
-  btnModeHeadless.addEventListener('click', () => applyModeSelection('headless', true));
-
-  if (btnSaveModePref) {
-    btnSaveModePref.addEventListener('click', async () => {
-      await saveBrowserModePreference(selectedMode);
-    });
-  }
-
-  function applyModeSelection(mode, autoPersist = false) {
-    selectedMode = mode;
-    if (mode === 'headless') {
-      btnModeHeadless.classList.add('active');
-      btnModeVisible.classList.remove('active');
-      if (prefCardHeadless && prefCardVisible) {
-        prefCardHeadless.classList.add('selected');
-        prefCardVisible.classList.remove('selected');
-      }
+  btnToggleTokenMask.addEventListener('click', () => {
+    if (inputSetupToken.type === 'password') {
+      inputSetupToken.type = 'text';
+      btnToggleTokenMask.innerHTML = SVG_ICONS.eyeOff;
     } else {
-      btnModeVisible.classList.add('active');
-      btnModeHeadless.classList.remove('active');
-      if (prefCardVisible && prefCardHeadless) {
-        prefCardVisible.classList.add('selected');
-        prefCardHeadless.classList.remove('selected');
-      }
+      inputSetupToken.type = 'password';
+      btnToggleTokenMask.innerHTML = SVG_ICONS.eye;
     }
+  });
 
-    if (autoPersist) {
-      saveBrowserModePreference(mode);
-    }
-  }
+  btnGetTokenHelp.addEventListener('click', () => {
+    const cloudUrl = currentConfig.cloudUrl || 'https://web-fawn-ten-55.vercel.app';
+    window.portalsync.openExternal(`${cloudUrl}/dashboard`);
+  });
 
-  async function saveBrowserModePreference(mode) {
-    try {
-      currentConfig.browserMode = mode;
-      currentConfig = await window.portalsync.saveConfig({ browserMode: mode });
-
-      // Visual feedback on the button
-      if (btnSaveModePref) {
-        btnSaveModePref.classList.add('saved');
-        saveModeBtnText.innerText = '✓ Saved!';
-        setTimeout(() => {
-          btnSaveModePref.classList.remove('saved');
-          saveModeBtnText.innerText = 'Save Preference';
-        }, 1800);
-      }
-
-      // Feedback toast
-      if (modeSavedFeedback && modeSavedFeedbackText) {
-        const readable = mode === 'headless' ? 'Headless (Background)' : 'Visible (2FA)';
-        modeSavedFeedbackText.innerText = `Saved preference: ${readable}`;
-        modeSavedFeedback.classList.remove('hidden');
-        setTimeout(() => {
-          modeSavedFeedback.classList.add('hidden');
-        }, 3000);
-      }
-    } catch (err) {
-      alert(`Could not save mode preference: ${err.message}`);
-    }
-  }
-
-  // -------------------------------------------------------------
-  // PREFERENCES FORM HANDLERS
-  // -------------------------------------------------------------
-  function populatePreferencesForm() {
-    inputCloudUrl.value = currentConfig.cloudUrl || 'https://web-fawn-ten-55.vercel.app';
-    inputToken.value = currentConfig.runnerToken || '';
-    inputTargetFolder.value = currentConfig.targetFolder || '';
-    prefAutoStartRunner.checked = currentConfig.autoStartRunner !== false;
-    prefMinimizeToTray.checked = currentConfig.minimizeToTray !== false;
-
-    applyModeSelection(currentConfig.browserMode || 'visible', false);
-
-    if (testConnectionResult) testConnectionResult.classList.add('hidden');
-    if (preferencesSaveResult) preferencesSaveResult.classList.add('hidden');
-  }
-
-  if (prefCardVisible && prefCardHeadless) {
-    prefCardVisible.addEventListener('click', () => applyModeSelection('visible', false));
-    prefCardHeadless.addEventListener('click', () => applyModeSelection('headless', false));
-  }
-
-  if (btnToggleTokenVisibility) {
-    btnToggleTokenVisibility.addEventListener('click', () => {
-      if (inputToken.type === 'password') {
-        inputToken.type = 'text';
-        btnToggleTokenVisibility.innerText = '🔒';
-      } else {
-        inputToken.type = 'password';
-        btnToggleTokenVisibility.innerText = '👁️';
-      }
-    });
-  }
-
-  if (btnBrowseFolder) {
-    btnBrowseFolder.addEventListener('click', async () => {
-      try {
-        const folder = await window.portalsync.selectFolder();
-        if (folder) {
-          inputTargetFolder.value = folder;
-        }
-      } catch (err) {
-        console.warn('Folder selection notice:', err);
-      }
-    });
-  }
-
-  preferencesForm.addEventListener('submit', async (e) => {
+  setupForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const updated = {
-      browserMode: selectedMode,
-      runnerToken: inputToken.value.trim(),
-      cloudUrl: inputCloudUrl.value.trim() || 'https://web-fawn-ten-55.vercel.app',
-      targetFolder: inputTargetFolder.value.trim(),
-      autoStartRunner: prefAutoStartRunner.checked,
-      minimizeToTray: prefMinimizeToTray.checked,
-    };
+    const token = inputSetupToken.value.trim().replace(/[\.\s]+$/, '');
+    if (!token) return;
+
+    btnConnectWorkspace.disabled = true;
+    btnConnectWorkspace.innerText = 'Verifying Token...';
+    hideFeedback();
 
     try {
-      currentConfig = await window.portalsync.saveConfig(updated);
-      updateConfigUI(currentConfig);
+      // 1. Test token connection
+      const testRes = await window.portalsync.testConnection({
+        runnerToken: token,
+        cloudUrl: currentConfig.cloudUrl || 'https://web-fawn-ten-55.vercel.app',
+      });
 
-      if (preferencesSaveResult) {
-        preferencesSaveResult.innerText = '✓ All preferences saved successfully!';
-        preferencesSaveResult.classList.remove('hidden');
-        setTimeout(() => {
-          preferencesSaveResult.classList.add('hidden');
-        }, 3000);
+      if (!testRes || !testRes.connected) {
+        showFeedback(testRes?.error || 'Could not verify token. Please check endpoint and token.', 'error');
+        return;
+      }
+
+      // 2. Save config & auto-start runner
+      currentConfig = await window.portalsync.saveConfig({
+        runnerToken: token,
+      });
+
+      applyConfigToUI(currentConfig);
+      updateViewSwitch();
+
+      // Start runner daemon
+      try {
+        const nextStatus = await window.portalsync.startRunner();
+        applyStatusToUI(nextStatus);
+      } catch (err) {
+        console.warn('Runner start notice:', err.message);
       }
     } catch (err) {
-      alert(`Error saving preferences: ${err.message}`);
+      showFeedback(`Connection failed: ${err.message}`, 'error');
+    } finally {
+      btnConnectWorkspace.disabled = false;
+      btnConnectWorkspace.innerText = 'Connect Worker';
     }
   });
 
-  if (btnResetDefaults) {
-    btnResetDefaults.addEventListener('click', () => {
-      if (confirm('Reset preferences to default settings?')) {
-        inputCloudUrl.value = 'https://web-fawn-ten-55.vercel.app';
-        inputTargetFolder.value = '';
-        prefAutoStartRunner.checked = true;
-        prefMinimizeToTray.checked = true;
-        applyModeSelection('visible', false);
-      }
-    });
+  function showFeedback(msg, type = 'error') {
+    setupFeedback.innerText = msg;
+    setupFeedback.className = `feedback-box ${type}`;
+    setupFeedback.classList.remove('hidden');
   }
 
-  // Test Cloud Connection
-  btnTestConnection.addEventListener('click', async () => {
-    btnTestConnection.disabled = true;
-    btnTestConnection.innerText = 'Testing...';
-    testConnectionResult.classList.add('hidden');
-
-    try {
-      const token = inputToken.value.trim().replace(/[\.\s]+$/, '');
-      const cloudUrl = inputCloudUrl.value.trim() || 'https://web-fawn-ten-55.vercel.app';
-
-      // Persist prior to test
-      await window.portalsync.saveConfig({
-        runnerToken: token,
-        cloudUrl: cloudUrl,
-      });
-
-      const res = await window.portalsync.testConnection({
-        runnerToken: token,
-        cloudUrl: cloudUrl,
-      });
-
-      if (res && res.connected) {
-        showTestResult(`✓ Connected (${res.pendingRunsCount ?? 0} pending run(s))`, true);
-      } else {
-        showTestResult(`✕ Connection Failed: ${res?.error || 'Unreachable endpoint'}`, false);
-      }
-    } catch (err) {
-      showTestResult(`✕ Error: ${err.message}`, false);
-    } finally {
-      btnTestConnection.disabled = false;
-      btnTestConnection.innerText = 'Test Connection';
-    }
-  });
-
-  function showTestResult(msg, isSuccess) {
-    testConnectionResult.innerText = msg;
-    testConnectionResult.className = `test-result ${isSuccess ? 'test-success' : 'test-fail'}`;
-    testConnectionResult.classList.remove('hidden');
+  function hideFeedback() {
+    setupFeedback.classList.add('hidden');
   }
 
   // -------------------------------------------------------------
-  // RUNNER ACTIONS & FEEDBACK
+  // DASHBOARD ACTIONS
   // -------------------------------------------------------------
   btnToggleRunner.addEventListener('click', async () => {
     btnToggleRunner.disabled = true;
     try {
-      if (currentStatus.status === 'active') {
+      if (currentStatus.status === 'active' || currentStatus.status === 'starting') {
         const next = await window.portalsync.stopRunner();
-        updateStatusUI(next);
+        applyStatusToUI(next);
       } else {
         if (!currentConfig.runnerToken) {
-          showTab('preferences');
-          showTestResult('Please enter and save your Runner Token first.', false);
-          btnToggleRunner.disabled = false;
+          updateViewSwitch();
           return;
         }
         const next = await window.portalsync.startRunner();
-        updateStatusUI(next);
+        applyStatusToUI(next);
       }
     } catch (err) {
-      alert(`Error toggling runner: ${err.message}`);
+      alert(`Could not toggle worker: ${err.message}`);
     } finally {
       btnToggleRunner.disabled = false;
     }
   });
 
-  if (btnStopActiveRun) {
-    btnStopActiveRun.addEventListener('click', async () => {
-      btnStopActiveRun.disabled = true;
-      btnStopActiveRun.innerText = 'Stopping...';
+  if (btnStopActiveTask) {
+    btnStopActiveTask.addEventListener('click', async () => {
+      btnStopActiveTask.disabled = true;
+      btnStopActiveTask.innerHTML = `<span>Stopping...</span>`;
       try {
         await window.portalsync.stopActiveRun();
       } catch (err) {
-        alert(`Error stopping run: ${err.message}`);
+        console.warn('Could not stop run:', err.message);
       } finally {
-        btnStopActiveRun.disabled = false;
-        btnStopActiveRun.innerText = '■ Stop';
+        activeRunBanner.classList.add('hidden');
+        activeRunBanner.style.display = 'none';
+        btnStopActiveTask.disabled = false;
+        btnStopActiveTask.innerHTML = `${SVG_ICONS.stop} <span>Stop</span>`;
       }
     });
   }
 
-  // Workflow Recorder Toggle
-  if (btnRecordWorkflow) {
-    btnRecordWorkflow.addEventListener('click', async () => {
-      btnRecordWorkflow.disabled = true;
-      try {
-        const status = await window.portalsync.getRecordingStatus();
-        if (status.isRecording) {
-          const res = await window.portalsync.stopRecording();
-          updateRecorderUI(res);
-        } else {
-          const defaultUrl = 'https://google.com';
-          const inputUrl = prompt('Enter starting URL for workflow capture:', defaultUrl);
-          if (inputUrl === null) {
-            btnRecordWorkflow.disabled = false;
-            return;
-          }
-          const targetUrl = inputUrl.trim() || defaultUrl;
-          const res = await window.portalsync.startRecording({
-            url: targetUrl,
-            name: `portal-workflow-${Date.now()}`
-          });
-          updateRecorderUI(res);
-        }
-      } catch (err) {
-        alert(`Recording error: ${err.message}`);
-      } finally {
-        btnRecordWorkflow.disabled = false;
-      }
-    });
-  }
-
-  // Quick Action Buttons
-  btnOpenFolder.addEventListener('click', () => {
+  btnOpenDownloads.addEventListener('click', () => {
     window.portalsync.openFolder(currentConfig.targetFolder);
   });
 
-  btnOpenWeb.addEventListener('click', () => {
-    window.portalsync.openExternal(`${currentConfig.cloudUrl || 'https://web-fawn-ten-55.vercel.app'}/dashboard`);
+  btnOpenWebDashboard.addEventListener('click', () => {
+    const cloudUrl = currentConfig.cloudUrl || 'https://web-fawn-ten-55.vercel.app';
+    window.portalsync.openExternal(`${cloudUrl}/dashboard`);
   });
 
   // -------------------------------------------------------------
-  // REAL-TIME EVENT LISTENERS
+  // DRAWER: SETTINGS & PREFERENCES
   // -------------------------------------------------------------
-  window.portalsync.onStatusUpdate((state) => {
-    currentStatus = state;
-    updateStatusUI(state);
-    checkEngineStatus();
+  function openSettings() {
+    drawerOverlay.classList.remove('hidden');
+    drawerSettings.classList.remove('hidden');
+    populateSettingsDrawer();
+  }
+
+  function closeSettings() {
+    drawerOverlay.classList.add('hidden');
+    drawerSettings.classList.add('hidden');
+  }
+
+  btnOpenSettings.addEventListener('click', openSettings);
+  btnCloseSettings.addEventListener('click', closeSettings);
+  drawerOverlay.addEventListener('click', closeSettings);
+
+  function populateSettingsDrawer() {
+    prefTargetFolder.value = currentConfig.targetFolder || '';
+    chkAutoStart.checked = currentConfig.autoStartRunner !== false;
+    chkMinimizeTray.checked = currentConfig.minimizeToTray !== false;
+    prefCloudUrl.value = currentConfig.cloudUrl || 'https://web-fawn-ten-55.vercel.app';
+
+    // Masked token
+    if (currentConfig.runnerToken) {
+      const len = currentConfig.runnerToken.length;
+      const preview = len > 10
+        ? `${currentConfig.runnerToken.slice(0, 8)}••••${currentConfig.runnerToken.slice(-4)}`
+        : '••••••••••••';
+      maskedTokenDisplay.innerText = preview;
+    } else {
+      maskedTokenDisplay.innerText = 'None';
+    }
+
+    // Browser Mode Selection
+    selectedBrowserMode = currentConfig.browserMode || 'visible';
+    applyModeControl(selectedBrowserMode);
+
+    if (savePreferencesFeedback) {
+      savePreferencesFeedback.classList.add('hidden');
+      savePreferencesFeedback.style.display = 'none';
+    }
+  }
+
+  let selectedBrowserMode = 'visible';
+
+  function applyModeControl(mode) {
+    selectedBrowserMode = mode;
+    if (mode === 'headless') {
+      btnModeHeadless.classList.add('active');
+      btnModeVisible.classList.remove('active');
+    } else {
+      btnModeVisible.classList.add('active');
+      btnModeHeadless.classList.remove('active');
+    }
+  }
+
+  btnModeVisible.addEventListener('click', () => {
+    applyModeControl('visible');
   });
 
-  if (typeof window.portalsync.onRecordingUpdate === 'function') {
-    window.portalsync.onRecordingUpdate((recState) => {
-      updateRecorderUI(recState);
+  btnModeHeadless.addEventListener('click', () => {
+    applyModeControl('headless');
+  });
+
+  // Folder Picker
+  btnBrowseFolder.addEventListener('click', async () => {
+    try {
+      const chosen = await window.portalsync.selectFolder();
+      if (chosen) {
+        prefTargetFolder.value = chosen;
+      }
+    } catch (err) {
+      console.warn('Folder selection notice:', err);
+    }
+  });
+
+  // Save Preferences Handler
+  let feedbackTimer = null;
+  function showSaveFeedback(message, isError = false) {
+    if (!savePreferencesFeedback) return;
+    if (feedbackTimer) clearTimeout(feedbackTimer);
+    savePreferencesFeedback.innerText = message;
+    savePreferencesFeedback.className = `pref-feedback-msg ${isError ? 'error' : 'success'}`;
+    savePreferencesFeedback.classList.remove('hidden');
+    savePreferencesFeedback.style.display = 'flex';
+
+    feedbackTimer = setTimeout(() => {
+      savePreferencesFeedback.classList.add('hidden');
+      savePreferencesFeedback.style.display = 'none';
+    }, 4000);
+  }
+
+  if (btnSavePreferences) {
+    btnSavePreferences.addEventListener('click', async () => {
+      btnSavePreferences.disabled = true;
+      if (btnSavePreferencesText) btnSavePreferencesText.innerText = 'Saving...';
+
+      try {
+        const payload = {
+          browserMode: selectedBrowserMode,
+          targetFolder: prefTargetFolder.value.trim() || currentConfig.targetFolder,
+          autoStartRunner: chkAutoStart.checked,
+          minimizeToTray: chkMinimizeTray.checked,
+          cloudUrl: prefCloudUrl.value.trim() || currentConfig.cloudUrl,
+        };
+
+        currentConfig = await window.portalsync.saveConfig(payload);
+        applyConfigToUI(currentConfig);
+        await checkChromeStatus();
+
+        const modeLabel = selectedBrowserMode === 'visible' ? 'Visible (2FA)' : 'Headless';
+        showSaveFeedback(`✓ Preferences saved! (${modeLabel} mode)`);
+      } catch (err) {
+        showSaveFeedback(`Failed to save: ${err.message}`, true);
+      } finally {
+        btnSavePreferences.disabled = false;
+        if (btnSavePreferencesText) btnSavePreferencesText.innerText = 'Save Preferences';
+      }
     });
   }
 
-  // Periodic engine CDP status probe
-  async function checkEngineStatus() {
+  // Disconnect & Unlink Worker
+  btnDisconnectWorker.addEventListener('click', async () => {
+    if (confirm('Disconnect this local worker from your FlowMind workspace?')) {
+      try {
+        await window.portalsync.stopRunner();
+      } catch {}
+
+      currentConfig = await window.portalsync.saveConfig({
+        runnerToken: '',
+      });
+
+      closeSettings();
+      updateViewSwitch();
+      applyStatusToUI({ status: 'idle', activeRun: null, recentRuns: [] });
+    }
+  });
+
+  // -------------------------------------------------------------
+  // MODAL: WORKFLOW RECORDER
+  // -------------------------------------------------------------
+  btnOpenRecordModal.addEventListener('click', () => {
+    recorderModalOverlay.classList.remove('hidden');
+    checkRecordingState();
+  });
+
+  btnCloseRecorderModal.addEventListener('click', () => {
+    recorderModalOverlay.classList.add('hidden');
+  });
+
+  recorderModalOverlay.addEventListener('click', (e) => {
+    if (e.target === recorderModalOverlay) {
+      recorderModalOverlay.classList.add('hidden');
+    }
+  });
+
+  btnStartCapture.addEventListener('click', async () => {
+    const url = recStartUrl.value.trim() || 'https://google.com';
+    btnStartCapture.disabled = true;
+    btnStartCapture.innerText = 'Booting Chrome...';
+
+    try {
+      const res = await window.portalsync.startRecording({
+        url,
+        name: `portal-workflow-${Date.now()}`,
+      });
+      updateRecorderModalUI(res);
+    } catch (err) {
+      alert(`Recording error: ${err.message}`);
+    } finally {
+      btnStartCapture.disabled = false;
+      btnStartCapture.innerText = 'Launch Chrome & Record';
+    }
+  });
+
+  btnStopCapture.addEventListener('click', async () => {
+    btnStopCapture.disabled = true;
+    btnStopCapture.innerText = 'Saving...';
+
+    try {
+      const res = await window.portalsync.stopRecording();
+      updateRecorderModalUI(res);
+      recorderModalOverlay.classList.add('hidden');
+    } catch (err) {
+      alert(`Could not stop recording: ${err.message}`);
+    } finally {
+      btnStopCapture.disabled = false;
+      btnStopCapture.innerHTML = `${SVG_ICONS.stop} <span>Finish & Save Recording</span>`;
+    }
+  });
+
+  async function checkRecordingState() {
+    try {
+      const state = await window.portalsync.getRecordingStatus();
+      updateRecorderModalUI(state);
+    } catch {}
+  }
+
+  function updateRecorderModalUI(state) {
+    if (!state) return;
+    if (state.isRecording) {
+      recorderIdleView.classList.add('hidden');
+      recorderActiveView.classList.remove('hidden');
+      const count = typeof state.actionCount === 'number'
+        ? state.actionCount
+        : (Array.isArray(state.actions) ? state.actions.length : 0);
+      recLiveStepCount.innerText = count;
+    } else {
+      recorderActiveView.classList.add('hidden');
+      recorderIdleView.classList.remove('hidden');
+    }
+  }
+
+  if (typeof window.portalsync.onRecordingUpdate === 'function') {
+    window.portalsync.onRecordingUpdate((state) => {
+      updateRecorderModalUI(state);
+    });
+  }
+
+  // -------------------------------------------------------------
+  // REAL-TIME STATUS UPDATES
+  // -------------------------------------------------------------
+  window.portalsync.onStatusUpdate((state) => {
+    currentStatus = state;
+    applyStatusToUI(state);
+    checkChromeStatus();
+  });
+
+  async function checkChromeStatus() {
     try {
       if (typeof window.portalsync.checkCdpStatus === 'function') {
         const cdp = await window.portalsync.checkCdpStatus();
         if (cdp && cdp.open) {
-          cdpStatus.innerText = 'Active (Port 9222)';
-          cdpStatus.className = 'status-pill status-ready';
+          const modeStr = cdp.isHeadless ? 'Headless' : 'Visible (2FA)';
+          browserStatusLabel.innerText = `Chrome: ${modeStr}`;
+          if (browserDot) browserDot.className = 'chip-dot dot-blue';
         } else {
-          cdpStatus.innerText = 'Standby (On Demand)';
-          cdpStatus.className = 'status-pill status-ready';
+          browserStatusLabel.innerText = 'Chrome: Standby';
+          if (browserDot) browserDot.className = 'chip-dot dot-slate';
         }
       }
     } catch {}
   }
 
-  function updateRecorderUI(recState) {
-    if (!btnRecordWorkflow || !recState) return;
-    const count = typeof recState.actionCount === 'number'
-      ? recState.actionCount
-      : (Array.isArray(recState.actions) ? recState.actions.length : 0);
-    if (recState.isRecording) {
-      btnRecordWorkflow.className = 'record-workflow-btn recording';
-      recordWorkflowText.innerText = `Stop Recording (${count} steps)`;
-      recorderLiveBadge.classList.remove('hidden');
-      recorderActionCount.innerText = `${count} steps`;
-    } else {
-      btnRecordWorkflow.className = 'record-workflow-btn';
-      recordWorkflowText.innerText = 'Record Workflow';
-      recorderLiveBadge.classList.add('hidden');
+  function applyConfigToUI(cfg) {
+    if (cfg.runnerToken) {
+      const tokenPreview = cfg.runnerToken.slice(0, 12);
+      displayOrgName.innerText = `Workspace (${tokenPreview}...)`;
     }
   }
 
-  // UI Updaters
-  function updateConfigUI(cfg) {
-    cloudUrlDisplay.innerText = cfg.cloudUrl || 'https://web-fawn-ten-55.vercel.app';
-    applyModeSelection(cfg.browserMode || 'visible', false);
-  }
+  function applyStatusToUI(state) {
+    currentStatus = state;
 
-  function updateStatusUI(state) {
-    statusDot.className = `dot dot-${state.status}`;
+    // Reset Pulse Classes
+    runnerPulseDot.className = 'status-pulse';
+
     switch (state.status) {
       case 'active':
-        statusLabel.innerText = 'Runner Active (Listening)';
-        btnToggleRunner.className = 'big-toggle-btn btn-stop';
-        toggleBtnText.innerText = 'Stop Runner';
-        liveRunBadge.classList.toggle('hidden', !state.activeRun);
+        runnerPulseDot.classList.add('pulse-active');
+        runnerStatusHeading.innerText = 'Worker Active';
+        runnerStatusDetail.innerText = 'Listening for portal jobs...';
+        btnToggleRunner.className = 'hero-toggle-btn btn-stop';
+        btnToggleRunnerText.innerText = 'Pause Worker';
+        btnToggleIcon.innerHTML = SVG_ICONS.pause;
+        connectionPill.className = 'badge-status badge-online';
+        connectionPill.innerText = '● Active';
+        cloudStatusLabel.innerText = 'Cloud: Online';
         break;
+
       case 'starting':
-        statusLabel.innerText = 'Starting Engine...';
-        btnToggleRunner.className = 'big-toggle-btn btn-start';
-        toggleBtnText.innerText = 'Starting...';
-        liveRunBadge.classList.add('hidden');
+        runnerPulseDot.classList.add('pulse-starting');
+        runnerStatusHeading.innerText = 'Starting...';
+        runnerStatusDetail.innerText = 'Connecting to cloud control plane...';
+        btnToggleRunner.className = 'hero-toggle-btn btn-start';
+        btnToggleRunnerText.innerText = 'Starting...';
+        btnToggleIcon.innerHTML = SVG_ICONS.zap;
         break;
+
       case 'stopping':
-        statusLabel.innerText = 'Stopping Runner...';
-        toggleBtnText.innerText = 'Stopping...';
-        liveRunBadge.classList.add('hidden');
+        runnerPulseDot.classList.add('pulse-starting');
+        runnerStatusHeading.innerText = 'Pausing...';
+        runnerStatusDetail.innerText = 'Completing active operations...';
+        btnToggleRunner.className = 'hero-toggle-btn btn-stop';
+        btnToggleRunnerText.innerText = 'Pausing...';
+        btnToggleIcon.innerHTML = SVG_ICONS.pause;
         break;
+
       case 'error':
-        statusLabel.innerText = state.lastError ? `Error: ${state.lastError.slice(0, 30)}...` : 'Runner Error';
-        btnToggleRunner.className = 'big-toggle-btn btn-start';
-        toggleBtnText.innerText = 'Start Runner';
-        liveRunBadge.classList.add('hidden');
+        runnerPulseDot.classList.add('pulse-idle');
+        runnerStatusHeading.innerText = 'Worker Error';
+        runnerStatusDetail.innerText = state.lastError ? state.lastError.slice(0, 38) : 'Error occurred';
+        btnToggleRunner.className = 'hero-toggle-btn btn-start';
+        btnToggleRunnerText.innerText = 'Start Worker';
+        btnToggleIcon.innerHTML = SVG_ICONS.zap;
+        connectionPill.className = 'badge-status';
+        connectionPill.innerText = '● Error';
         break;
-      default:
-        statusLabel.innerText = 'Runner Paused';
-        btnToggleRunner.className = 'big-toggle-btn btn-start';
-        toggleBtnText.innerText = 'Start Runner';
-        liveRunBadge.classList.add('hidden');
+
+      default: // 'idle'
+        runnerPulseDot.classList.add('pulse-idle');
+        runnerStatusHeading.innerText = 'Worker Paused';
+        runnerStatusDetail.innerText = 'Paused. Click Start to listen for jobs.';
+        btnToggleRunner.className = 'hero-toggle-btn btn-start';
+        btnToggleRunnerText.innerText = 'Start Worker';
+        btnToggleIcon.innerHTML = SVG_ICONS.zap;
+        connectionPill.className = 'badge-status';
+        connectionPill.innerText = '● Standby';
+        cloudStatusLabel.innerText = 'Cloud: Standby';
         break;
     }
 
-    // Active Run Banner
-    if (state.activeRun) {
+    // Active Task Banner (Only displayed when there is a real running task!)
+    if (state && state.activeRun) {
       activeRunBanner.classList.remove('hidden');
-      activeWorkflowName.innerText = state.activeRun.workflowId || 'Portal Automation';
-      activeRunMetrics.innerText = `Downloaded: ${state.activeRun.itemsDownloaded || 0} PDFs`;
+      activeRunBanner.style.display = 'flex';
+      activeTaskTitle.innerText = state.activeRun.workflowName || state.activeRun.workflowId || 'Portal Automation';
+      const items = state.activeRun.itemsDownloaded || 0;
+      activeTaskMeta.innerText = items > 0 ? `Downloaded: ${items} files` : 'Processing portal steps...';
     } else {
       activeRunBanner.classList.add('hidden');
+      activeRunBanner.style.display = 'none';
     }
 
-    // Recent Runs List
-    renderRunsList(state.recentRuns || []);
+    // Activity Feed
+    renderActivityFeed(state.recentRuns || []);
   }
 
-  function renderRunsList(runs) {
+  function renderActivityFeed(runs) {
     if (!runs || runs.length === 0) {
-      recentRunsList.innerHTML = '<div class="empty-feed">No runs executed yet. Start runner to listen for portal downloads.</div>';
+      recentActivityList.innerHTML = '<div class="empty-activity">No workflow runs yet. Started worker will process incoming jobs.</div>';
       return;
     }
 
-    recentRunsList.innerHTML = runs
+    recentActivityList.innerHTML = runs
+      .slice(0, 5)
       .map((r) => {
         const isSuccess = r.status === 'completed';
-        const color = isSuccess ? 'var(--accent-green)' : 'var(--accent-rose)';
-        const icon = isSuccess ? '✓' : '✕';
+        const tagClass = isSuccess ? 'tag-success' : 'tag-failed';
+        const timeStr = r.completedAt ? new Date(r.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now';
+        
+        let labelContent = '';
+        if (isSuccess) {
+          const countText = typeof r.itemsDownloaded === 'number' && r.itemsDownloaded > 0
+            ? `${r.itemsDownloaded} items`
+            : 'Completed';
+          labelContent = `${SVG_ICONS.check} <span>${countText}</span>`;
+        } else {
+          labelContent = `${SVG_ICONS.fail} <span>Failed</span>`;
+        }
+
         return `
-          <div class="run-row">
-            <div>
-              <div class="run-wf-name">${r.workflowName || 'Portal Automation'}</div>
-              <div class="run-time">${r.completedAt ? new Date(r.completedAt).toLocaleTimeString() : 'Just now'}</div>
+          <div class="activity-row">
+            <div class="activity-info">
+              <span class="activity-name">${escapeHtml(r.workflowName || 'Portal Automation')}</span>
+              <span class="activity-time">${timeStr}</span>
             </div>
-            <div style="color: ${color}; font-size: 11px; font-weight: 600;">
-              ${icon} ${isSuccess ? `${r.itemsDownloaded} PDFs` : 'Failed'}
-            </div>
+            <span class="activity-tag ${tagClass}">${labelContent}</span>
           </div>
         `;
       })
       .join('');
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 });

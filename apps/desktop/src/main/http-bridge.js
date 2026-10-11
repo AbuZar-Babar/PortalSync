@@ -37,7 +37,8 @@ try {
   console.warn('[HTTPBridge] Module init fallback notice:', e.message);
 }
 
-const RecorderBridge = require(path.resolve(__dirname, '../../../../packages/engine/src/recorder/recorder-bridge'));
+const engineResolver = require('./engine-resolver');
+const RecorderBridge = engineResolver.requireEngine('src/recorder/recorder-bridge');
 
 class HttpBridge {
   constructor() {
@@ -52,6 +53,7 @@ class HttpBridge {
     this.lastRecipe = null;
     this.sessionMeta = null;
     this.statusListeners = [];
+    this._stoppingPromise = null;
   }
 
   onStatusChange(cb) {
@@ -303,64 +305,79 @@ class HttpBridge {
   }
 
   async _handleChromeSave() {
+    if (this._stoppingPromise) {
+      return this._stoppingPromise;
+    }
     if (this.isStopping) return;
     this.isStopping = true;
-    try {
-      if (this.activeRecorder) {
-        const recorder = this.activeRecorder;
-        let filePath = null;
-        try {
-          filePath = await recorder.stop();
-        } catch (stopErr) {
-          console.warn('[HTTPBridge] Recorder stop warning:', stopErr.message);
-        }
-        this.actions = recorder.actions || [];
 
-        let recipeData = null;
-        if (filePath && fs.existsSync(filePath)) {
+    this._stoppingPromise = (async () => {
+      try {
+        if (this.activeRecorder) {
+          const recorder = this.activeRecorder;
+          let filePath = null;
           try {
-            recipeData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-          } catch (readErr) {
-            console.warn('[HTTPBridge] Could not parse recipe file:', readErr.message);
+            filePath = await recorder.stop();
+          } catch (stopErr) {
+            console.warn('[HTTPBridge] Recorder stop warning:', stopErr.message);
           }
+          this.actions = recorder.actions || [];
+
+          let recipeData = null;
+          if (filePath && fs.existsSync(filePath)) {
+            try {
+              recipeData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            } catch (readErr) {
+              console.warn('[HTTPBridge] Could not parse recipe file:', readErr.message);
+            }
+          }
+
+          this.lastRecipe = recipeData || {
+            metadata: {
+              name: this.sessionMeta?.name || recorder.name,
+              startUrl: recorder.startUrl || this.sessionMeta?.url,
+              startedAt: this.sessionMeta?.startedAt,
+              completedAt: new Date().toISOString(),
+              isLoop: false,
+              mode: 'STANDARD',
+              version: '1.0.0'
+            },
+            actions: this.actions
+          };
+
+          this.activeRecorder = null;
+          this.isRecording = false;
+          this.completedRecording = true;
+          if (this.sessionMeta) {
+            this.sessionMeta.completedAt = new Date().toISOString();
+          }
+
+          try {
+            notifier.notifyRecordingSaved(this.sessionMeta?.name || 'Recorded Workflow', this.actions.length);
+          } catch {}
+          this.notifyStatus();
         }
-
-        this.lastRecipe = recipeData || {
-          metadata: {
-            name: this.sessionMeta?.name || recorder.name,
-            startUrl: recorder.startUrl || this.sessionMeta?.url,
-            startedAt: this.sessionMeta?.startedAt,
-            completedAt: new Date().toISOString(),
-            isLoop: false,
-            mode: 'STANDARD',
-            version: '1.0.0'
-          },
-          actions: this.actions
-        };
-
-        this.activeRecorder = null;
-        this.isRecording = false;
-        this.completedRecording = true;
-        if (this.sessionMeta) {
-          this.sessionMeta.completedAt = new Date().toISOString();
-        }
-
-        notifier.notifyRecordingSaved(this.sessionMeta?.name || 'Recorded Workflow', this.actions.length);
-        this.notifyStatus();
+      } catch (err) {
+        console.error('[HTTPBridge] Chrome finish error:', err);
+      } finally {
+        this.isStopping = false;
+        this._stoppingPromise = null;
       }
-    } catch (err) {
-      console.error('[HTTPBridge] Chrome finish error:', err);
-    } finally {
-      this.isStopping = false;
-    }
+    })();
+
+    return this._stoppingPromise;
   }
 
   async stopRecording() {
-    if (this.activeRecorder && this.activeRecorder.isRecording) {
+    if (this._stoppingPromise) {
+      await this._stoppingPromise;
+    } else if (this.activeRecorder && (this.activeRecorder.isRecording || this.isRecording)) {
       await this._handleChromeSave();
     }
 
     this.isRecording = false;
+    this.isStopping = false;
+    this._stoppingPromise = null;
     this.completedRecording = true;
     this.notifyStatus();
 
@@ -375,6 +392,10 @@ class HttpBridge {
   }
 
   async resetRecording() {
+    if (this._stoppingPromise) {
+      try { await this._stoppingPromise; } catch {}
+      this._stoppingPromise = null;
+    }
     if (this.activeRecorder && this.activeRecorder.isRecording) {
       try {
         await this.activeRecorder.stop();
@@ -384,6 +405,7 @@ class HttpBridge {
 
     this.isRecording = false;
     this.isStopping = false;
+    this._stoppingPromise = null;
     this.completedRecording = false;
     this.actions = [];
     this.lastRecipe = null;

@@ -1,18 +1,73 @@
 {
-  "name": "@portalsync/desktop",
+  "name": "flowmind-worker",
+  "productName": "FlowMind Worker",
   "version": "1.0.0",
-  "description": "PortalSync Standalone Desktop Control App & Chrome CDP Runner",
+  "description": "FlowMind Desktop Local Worker & Chrome Automation Engine",
   "main": "src/main/main.js",
+  "author": "FlowMind",
   "private": true,
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "build:win": "electron-builder --win"
+    "build:win": "electron-builder --win",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.flowmind.worker",
+    "productName": "FlowMind Worker",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../../packages/engine",
+        "to": "engine",
+        "filter": [
+          "src/**/*",
+          "package.json"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "FlowMind Worker",
+      "artifactName": "FlowMind-Worker-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "FlowMind-Worker-Portable-${version}.${ext}"
+    }
   },
   "dependencies": {
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "puppeteer-core": "22.15.0"
   },
   "devDependencies": {
-    "electron": "^33.2.0"
+    "electron": "^33.2.0",
+    "electron-builder": "^26.15.3"
   }
 }

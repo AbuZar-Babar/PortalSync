@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('portalsync', {
   getConfig: () => ipcRenderer.invoke('get-config'),
   saveConfig: (config) => ipcRenderer.invoke('save-config', config),
   getStatus: () => ipcRenderer.invoke('get-status'),
+  getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
   startRunner: () => ipcRenderer.invoke('start-runner'),
   stopRunner: () => ipcRenderer.invoke('stop-runner'),
   stopActiveRun: () => ipcRenderer.invoke('stop-active-run'),

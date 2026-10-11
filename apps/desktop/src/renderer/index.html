@@ -3,271 +3,297 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PortalSync Desktop Local Worker</title>
+  <title>FlowMind Local Worker</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Custom Titlebar with Clean Tab Switching -->
+  <!-- Clean Custom Titlebar -->
   <header class="titlebar">
     <div class="titlebar-drag">
-      <div class="logo-badge">P</div>
-      <span class="app-title">PortalSync Worker</span>
+      <div class="brand-icon">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      </div>
+      <span class="brand-name">FlowMind Worker</span>
     </div>
 
-    <!-- Center Navigation Tabs -->
-    <nav class="nav-tabs" aria-label="Navigation">
-      <button id="tabBtnDashboard" class="title-tab active" type="button">
-        <span class="tab-icon">⚡</span> Dashboard
+    <div class="titlebar-actions">
+      <span id="deviceBadge" class="device-pill" title="Host Machine">Detecting...</span>
+      <button id="btnOpenSettings" class="titlebar-btn" title="Settings" aria-label="Settings">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
-      <button id="tabBtnPreferences" class="title-tab" type="button">
-        <span class="tab-icon">⚙️</span> Preferences
+      <button id="btnMinimize" class="titlebar-btn" title="Minimize">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
       </button>
-    </nav>
-
-    <!-- Window Controls -->
-    <div class="titlebar-controls">
-      <button id="btnMinimize" class="control-btn" title="Minimize to Taskbar">—</button>
-      <button id="btnClose" class="control-btn close-btn" title="Close to System Tray">✕</button>
+      <button id="btnClose" class="titlebar-btn btn-close" title="Close to Tray">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
   </header>
 
   <!-- Main Container -->
-  <main class="app-container">
-
-    <!-- VIEW 1: DASHBOARD -->
-    <section id="viewDashboard" class="view-panel active">
-      <!-- Big Runner Toggle Card -->
-      <section class="card runner-toggle-card">
-        <div class="toggle-header">
-          <div class="status-indicator">
-            <span id="statusDot" class="dot dot-idle"></span>
-            <span id="statusLabel" class="status-text">Runner Idle</span>
-          </div>
-          <div id="liveRunBadge" class="live-badge hidden">
-            <span class="pulse-ring"></span>
-            <span>Claimed Job</span>
-          </div>
+  <main class="app-body">
+    <!-- SCREEN 1: UNLINKED SETUP (First-time user or disconnected) -->
+    <section id="viewSetup" class="view-screen hidden">
+      <div class="setup-card">
+        <div class="setup-icon-wrap">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
         </div>
+        <h1 class="setup-title">Connect Local Worker</h1>
+        <p class="setup-desc">Link this computer to your FlowMind workspace to execute browser automation workflows.</p>
 
-        <div class="big-switch-container">
-          <button id="btnToggleRunner" class="big-toggle-btn btn-start">
-            <span class="btn-icon">⚡</span>
-            <span id="toggleBtnText" class="btn-text">Start Runner</span>
-          </button>
-        </div>
-
-        <!-- Mode Selector with Explicit Save Button -->
-        <div class="mode-control-row">
-          <div class="mode-selector-block">
-            <span class="mode-label">Browser Automation Mode:</span>
-            <div class="mode-pills">
-              <button id="btnModeVisible" class="pill active" data-mode="visible" title="Opens browser window during runs (Required for 2FA)">Visible (2FA)</button>
-              <button id="btnModeHeadless" class="pill" data-mode="headless" title="Runs browser silently in background">Headless</button>
+        <form id="setupForm" class="setup-form">
+          <div class="input-wrap">
+            <label for="inputSetupToken" class="field-label">Worker Token</label>
+            <div class="input-icon-row">
+              <input 
+                type="password" 
+                id="inputSetupToken" 
+                placeholder="ps_live_••••••••••••••••" 
+                required 
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <button type="button" id="btnToggleTokenMask" class="input-action-btn" title="Show/Hide Token">
+                <svg id="iconEye" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
             </div>
           </div>
-          <button id="btnSaveModePref" class="save-mode-btn" title="Save current mode as default preference">
-            <span class="save-icon">💾</span>
-            <span id="saveModeBtnText">Save Preference</span>
+
+          <div id="setupFeedback" class="feedback-box hidden"></div>
+
+          <button type="submit" id="btnConnectWorkspace" class="btn-primary-large">
+            <span>Connect Worker</span>
+          </button>
+        </form>
+
+        <div class="setup-footer-links">
+          <button type="button" id="btnGetTokenHelp" class="link-btn">
+            <span>Get token from Web Console</span>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           </button>
         </div>
+      </div>
+    </section>
 
-        <!-- Feedback badge for Mode Saved -->
-        <div id="modeSavedFeedback" class="mode-feedback hidden">
-          <span class="feedback-icon">✓</span>
-          <span id="modeSavedFeedbackText">Saved preference: Visible (2FA)</span>
+    <!-- SCREEN 2: CONNECTED DASHBOARD -->
+    <section id="viewDashboard" class="view-screen active">
+      <!-- Workspace Status Strip -->
+      <div class="workspace-bar">
+        <div class="workspace-meta">
+          <svg class="org-icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>
+          <span id="displayOrgName" class="org-title">Connected Workspace</span>
         </div>
-      </section>
+        <div id="connectionPill" class="badge-status badge-online">● Online</div>
+      </div>
 
-      <!-- Workflow Recording Card -->
-      <section class="card recorder-card">
-        <div class="recorder-header">
-          <div class="recorder-meta">
-            <span class="recorder-title">Local Workflow Capture</span>
-            <span class="recorder-sub">Bridge: 127.0.0.1:49152</span>
+      <!-- Hero Runner Status Card -->
+      <section class="card hero-status-card">
+        <div class="hero-status-top">
+          <div id="runnerPulseDot" class="status-pulse pulse-idle"></div>
+          <div class="status-copy">
+            <h2 id="runnerStatusHeading">Worker Idle</h2>
+            <p id="runnerStatusDetail">Paused. Click Start to listen for jobs.</p>
           </div>
-          <div id="recorderLiveBadge" class="rec-badge hidden">
-            <span class="pulse-rec-dot"></span>
-            <span id="recorderActionCount">0 steps</span>
-          </div>
         </div>
 
-        <div class="recorder-btn-container">
-          <button id="btnRecordWorkflow" class="record-workflow-btn">
-            <span class="rec-icon">●</span>
-            <span id="recordWorkflowText">Record Workflow</span>
-          </button>
-        </div>
-      </section>
-
-      <!-- Environment Indicators -->
-      <section class="card status-grid">
-        <div class="status-item">
-          <div class="status-meta">
-            <span class="meta-title">Chrome CDP</span>
-            <span class="meta-sub">Port 9222</span>
-          </div>
-          <div id="cdpStatus" class="status-pill status-ready">Standby (On Demand)</div>
-        </div>
-
-        <div class="status-item">
-          <div class="status-meta">
-            <span class="meta-title">Cloud Control</span>
-            <span id="cloudUrlDisplay" class="meta-sub">https://web-fawn-ten-55.vercel.app</span>
-          </div>
-          <div id="cloudStatus" class="status-pill status-ready">Connected</div>
-        </div>
-      </section>
-
-      <!-- Active Run / Activity Feed -->
-      <section class="card feed-card">
-        <div class="feed-header">
-          <span class="feed-title">Recent Invoices & Activity</span>
-          <button id="btnOpenFolder" class="icon-text-btn" title="Open Download Folder">
-            📁 Open Invoices
-          </button>
-        </div>
-
-        <div id="activeRunBanner" class="active-run-banner hidden">
-          <div class="run-spinner"></div>
-          <div class="active-run-info">
-            <div id="activeWorkflowName" class="active-wf-name">Executing Portal...</div>
-            <div id="activeRunMetrics" class="active-wf-meta">Processing items & downloading PDFs</div>
-          </div>
-          <button id="btnStopActiveRun" class="btn-stop-active-run" title="Stop current workflow run">
-            ■ Stop
-          </button>
-        </div>
-
-        <div id="recentRunsList" class="runs-list">
-          <div class="empty-feed">No runs executed yet. Start runner to listen for portal downloads.</div>
-        </div>
-      </section>
-
-      <!-- Footer Quick Controls -->
-      <footer class="app-footer">
-        <button id="btnSettings" class="footer-btn">
-          ⚙️ Preferences & Token
+        <button id="btnToggleRunner" class="hero-toggle-btn btn-start" type="button">
+          <span id="btnToggleIcon" class="btn-glow-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </span>
+          <span id="btnToggleRunnerText">Start Worker</span>
         </button>
-        <button id="btnOpenWeb" class="footer-btn primary-footer-btn">
-          🌐 Open Cloud Console
+
+        <div class="hero-chips-row">
+          <div class="health-chip">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+            <span id="cloudStatusLabel">Cloud: Online</span>
+          </div>
+          <div class="health-chip">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span id="browserStatusLabel">Chrome: Standby</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Active Task Banner (Shown ONLY when actively executing a workflow) -->
+      <section id="activeRunBanner" class="card active-task-card hidden" style="display: none;">
+        <div class="active-task-left">
+          <div class="task-spinner"></div>
+          <div class="task-info">
+            <div id="activeTaskTitle" class="task-title">Running Automation...</div>
+            <div id="activeTaskMeta" class="task-meta">Processing items & downloads</div>
+          </div>
+        </div>
+        <button id="btnStopActiveTask" class="btn-stop-task" title="Stop current task">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>
+          <span>Stop</span>
+        </button>
+      </section>
+
+      <!-- Recent Executions Feed -->
+      <section class="activity-section">
+        <div class="activity-header">
+          <span class="section-title">Recent Activity</span>
+          <button id="btnOpenDownloads" class="subtle-link-btn" title="Open downloaded files folder">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 8 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+            <span>Downloads</span>
+          </button>
+        </div>
+
+        <div id="recentActivityList" class="activity-list">
+          <div class="empty-activity">No workflow runs yet. Started worker will process incoming jobs.</div>
+        </div>
+      </section>
+
+      <!-- Bottom Quick Actions -->
+      <footer class="dashboard-footer">
+        <button id="btnOpenRecordModal" class="footer-action-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4" fill="#f43f5e"/></svg>
+          <span>Record Workflow</span>
+        </button>
+        <button id="btnOpenWebDashboard" class="footer-action-btn">
+          <span>Web Console</span>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         </button>
       </footer>
     </section>
+  </main>
 
-    <!-- VIEW 2: PREFERENCES & SETTINGS PAGE -->
-    <section id="viewPreferences" class="view-panel hidden">
-      <div class="pref-header">
-        <div class="pref-title-wrap">
-          <h2 class="pref-title">Worker Preferences</h2>
-          <p class="pref-subtitle">Configure automation modes, credentials, and local invoice storage</p>
+  <!-- DRAWER: PREFERENCES & SETTINGS -->
+  <div id="drawerOverlay" class="drawer-overlay hidden"></div>
+  <aside id="drawerSettings" class="drawer-panel hidden">
+    <div class="drawer-header">
+      <div class="drawer-title-group">
+        <h3 class="drawer-title">Worker Settings</h3>
+        <p class="drawer-subtitle">Configure automation environment</p>
+      </div>
+      <button id="btnCloseSettings" class="drawer-close-btn" aria-label="Close settings">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="drawer-body">
+      <!-- Browser Mode -->
+      <div class="pref-group">
+        <label class="pref-label">Browser Execution Mode</label>
+        <div class="segmented-control">
+          <button id="btnModeVisible" class="seg-btn active" data-mode="visible" type="button">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+            <span>Visible (2FA)</span>
+          </button>
+          <button id="btnModeHeadless" class="seg-btn" data-mode="headless" type="button">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+            <span>Headless</span>
+          </button>
         </div>
-        <button id="btnBackToDashboard" class="back-btn" type="button">
-          ← Dashboard
+        <p class="pref-hint">Visible mode displays Chrome during runs—required for 2FA or SMS verification.</p>
+      </div>
+
+      <!-- Target Downloads Folder -->
+      <div class="pref-group">
+        <label class="pref-label">Downloads Destination</label>
+        <div class="folder-picker-row">
+          <input type="text" id="prefTargetFolder" class="folder-input" readonly />
+          <button id="btnBrowseFolder" class="btn-secondary" type="button">Browse</button>
+        </div>
+        <p class="pref-hint">Where downloaded invoices and exported reports are stored locally.</p>
+      </div>
+
+      <!-- Background Options -->
+      <div class="pref-group">
+        <label class="pref-label">Startup & Background</label>
+        <div class="checkbox-row">
+          <label class="custom-checkbox">
+            <input type="checkbox" id="chkAutoStart" />
+            <span class="checkbox-text">Auto-start worker when application opens</span>
+          </label>
+        </div>
+        <div class="checkbox-row">
+          <label class="custom-checkbox">
+            <input type="checkbox" id="chkMinimizeTray" checked />
+            <span class="checkbox-text">Keep running in system tray when closed</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Cloud API URL (Advanced) -->
+      <details class="advanced-section">
+        <summary class="advanced-summary">Advanced: Cloud Endpoint</summary>
+        <div class="pref-group mt-2">
+          <input type="text" id="prefCloudUrl" class="folder-input" placeholder="https://web-fawn-ten-55.vercel.app" />
+          <p class="pref-hint">PortalSync cloud server control plane endpoint.</p>
+        </div>
+      </details>
+
+      <!-- Save Preferences Button & Feedback -->
+      <div class="pref-group pref-save-group">
+        <button id="btnSavePreferences" class="btn-primary-large" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <span id="btnSavePreferencesText">Save Preferences</span>
+        </button>
+        <div id="savePreferencesFeedback" class="pref-feedback-msg hidden" style="display: none;"></div>
+      </div>
+
+      <!-- Account & Disconnect -->
+      <div class="pref-group disconnect-group">
+        <label class="pref-label">Account & Device</label>
+        <div class="token-info-box">
+          <span class="token-label">Runner Token</span>
+          <span id="maskedTokenDisplay" class="token-value">••••••••••••••••••••••••</span>
+        </div>
+        <button id="btnDisconnectWorker" class="btn-danger-outline" type="button">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+          <span>Disconnect Worker</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MODAL: WORKFLOW RECORDER -->
+  <div id="recorderModalOverlay" class="modal-overlay hidden">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4" fill="#f43f5e"/></svg>
+          <h3 class="modal-title">Record New Workflow</h3>
+        </div>
+        <button id="btnCloseRecorderModal" class="modal-close-btn">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
 
-      <form id="preferencesForm" class="preferences-form">
-        <!-- Section 1: Browser & Execution Preferences -->
-        <section class="card pref-card">
-          <div class="card-section-title">
-            <span>🌐</span> Automation Browser Preferences
+      <div class="modal-body">
+        <!-- Idle State Form -->
+        <div id="recorderIdleView">
+          <p class="modal-desc">Launches Chrome and records your clicks, form entries, and downloads.</p>
+          <div class="input-wrap mb-3">
+            <label for="recStartUrl" class="field-label">Portal Starting URL</label>
+            <input type="url" id="recStartUrl" value="https://google.com" placeholder="https://portal.example.com" />
           </div>
-
-          <div class="form-group">
-            <label class="group-label">Browser Execution Mode</label>
-            <div class="mode-cards-grid">
-              <div id="prefCardVisible" class="mode-card-option selected" data-mode="visible">
-                <div class="mode-card-title">
-                  <span>🖥️</span> Visible Window
-                </div>
-                <div class="mode-card-desc">
-                  Opens Chrome window during runs. Required if portals ask for 2FA, SMS, or OTP verification.
-                </div>
-              </div>
-
-              <div id="prefCardHeadless" class="mode-card-option" data-mode="headless">
-                <div class="mode-card-title">
-                  <span>👻</span> Headless
-                </div>
-                <div class="mode-card-desc">
-                  Runs silently in the background without any browser UI. Best for unattended server setups.
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="form-group checkbox-group">
-            <label class="checkbox-label" for="prefAutoStartRunner">
-              <input type="checkbox" id="prefAutoStartRunner" checked />
-              <span>Auto-start runner daemon on worker launch</span>
-            </label>
-            <p class="form-hint">Automatically begins polling for cloud portal jobs when app opens</p>
-          </div>
-
-          <div class="form-group checkbox-group">
-            <label class="checkbox-label" for="prefMinimizeToTray">
-              <input type="checkbox" id="prefMinimizeToTray" checked />
-              <span>Minimize to Windows System Tray on close</span>
-            </label>
-            <p class="form-hint">Worker remains active in the background when the window is closed</p>
-          </div>
-        </section>
-
-        <!-- Section 2: Cloud Control Plane & Authentication -->
-        <section class="card pref-card">
-          <div class="card-section-title">
-            <span>☁️</span> Cloud Control Plane & Authentication
-          </div>
-
-          <div class="form-group">
-            <label for="inputCloudUrl">Cloud Control Plane URL</label>
-            <input type="text" id="inputCloudUrl" placeholder="https://web-fawn-ten-55.vercel.app" />
-            <p class="form-hint">Production cloud endpoint or local control plane</p>
-          </div>
-
-          <div class="form-group">
-            <label for="inputToken">Runner Authentication Token</label>
-            <div class="input-with-button">
-              <input type="password" id="inputToken" placeholder="ps_live_..." required autocomplete="off" />
-              <button type="button" id="btnToggleTokenVisibility" class="addon-btn" title="Show / Hide token">👁️</button>
-            </div>
-            <p class="form-hint">Found in the PortalSync Web Console dashboard header</p>
-          </div>
-
-          <div class="test-conn-row">
-            <button type="button" id="btnTestConnection" class="secondary-btn">Test Connection</button>
-            <div id="testConnectionResult" class="test-result hidden"></div>
-          </div>
-        </section>
-
-        <!-- Section 3: Invoices & Local Storage -->
-        <section class="card pref-card">
-          <div class="card-section-title">
-            <span>📁</span> Local Storage & Invoices
-          </div>
-
-          <div class="form-group">
-            <label for="inputTargetFolder">Invoices Destination Directory</label>
-            <div class="input-with-button">
-              <input type="text" id="inputTargetFolder" placeholder="C:\Users\...\Downloads\PortalSync" />
-              <button type="button" id="btnBrowseFolder" class="addon-btn" title="Browse directory">Browse</button>
-            </div>
-            <p class="form-hint">Downloaded invoice PDFs are verified for zero duplicates and saved here</p>
-          </div>
-        </section>
-
-        <!-- Preferences Save Result Alert -->
-        <div id="preferencesSaveResult" class="save-result-alert hidden"></div>
-
-        <!-- Form Actions Bar -->
-        <div class="preferences-actions-bar">
-          <button type="button" id="btnResetDefaults" class="secondary-btn">Reset Defaults</button>
-          <button type="submit" id="btnSavePreferences" class="save-btn primary-save-btn">💾 Save All Preferences</button>
+          <button id="btnStartCapture" class="btn-primary-large" type="button">
+            <span>Launch Chrome & Record</span>
+          </button>
         </div>
-      </form>
-    </section>
 
-  </main>
+        <!-- Live Recording State -->
+        <div id="recorderActiveView" class="recording-active-view hidden">
+          <div class="recording-pulse-indicator">
+            <span class="rec-ping"></span>
+            <span class="rec-core"></span>
+          </div>
+          <h4 class="rec-status-text">Recording in progress...</h4>
+          <p class="rec-subtext">Interact with the Chrome browser. Your actions are being recorded.</p>
+          <div class="rec-count-badge">
+            <span id="recLiveStepCount">0</span> steps captured
+          </div>
+          <button id="btnStopCapture" class="btn-danger-large" type="button">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>
+            <span>Finish & Save Recording</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

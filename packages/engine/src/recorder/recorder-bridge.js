@@ -9,7 +9,6 @@ const fs = require('fs');
 const path = require('path');
 const { connectToBrowser } = require('../utils/cdp-connector');
 const SelectorResolver = require('../shared/selector-resolver');
-const LoopDetector = require('../shared/loop-detector');
 const logger = require('../utils/logger');
 const { isInternalBrowserUrl, isDashboardUrl, extractWorkflowStartUrl } = require('../utils/url-helper');
 
@@ -662,30 +661,60 @@ class RecorderBridge {
       this._pageCleanups = [];
     }
 
-    // 1. Attempt to flush any active typing buffers across all frames in all attached pages WHILE isRecording is still true
+    // Helper to race a promise against a timeout
+    const withTimeout = (promise, ms = 400) => {
+      let timer;
+      const timeoutPromise = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms);
+      });
+      if (promise && typeof promise.catch === 'function') {
+        promise.catch(() => {});
+      }
+      return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
+    };
+
+    // 1. Attempt to flush any active typing buffers across all frames concurrently with 400ms timeout race, prioritizing main page
     if (this._attachedPages) {
+      const allFrames = [];
       for (const p of this._attachedPages) {
-        if (!p || p.isClosed()) continue;
-        const allFrames = getAllFramesRecursive(p);
-        for (const frame of allFrames) {
-          const fName = frame.name() || frame.url() || 'unnamed';
-          try {
-            await frame.evaluate(() => {
+        if (!p || (typeof p.isClosed === 'function' && p.isClosed())) continue;
+        allFrames.push(...getAllFramesRecursive(p));
+      }
+
+      const flushPromises = allFrames.map((frame) => {
+        const fName = (typeof frame.name === 'function' ? frame.name() : null) || (typeof frame.url === 'function' ? frame.url() : 'unnamed');
+        return withTimeout(
+          frame.evaluate(() => {
+            if (typeof window.__workflowCaptureFlushBuffer === 'function') {
+              window.__workflowCaptureFlushBuffer();
+            }
+          }),
+          400
+        ).catch((err) => {
+          logger.warn(`[Recorder] Flush buffer notice on frame "${fName}": ${err?.message || err}`);
+        });
+      });
+
+      if (this.page && (typeof this.page.isClosed !== 'function' || !this.page.isClosed())) {
+        flushPromises.unshift(
+          withTimeout(
+            this.page.evaluate(() => {
               if (typeof window.__workflowCaptureFlushBuffer === 'function') {
                 window.__workflowCaptureFlushBuffer();
               }
-            }).catch((err) => {
-              logger.warn(`[Recorder] Flush buffer evaluate failed on frame "${fName}" (${frame.url()}): ${err?.message || err}`);
-            });
-          } catch (err) {
-            logger.warn(`[Recorder] Flush buffer threw on frame "${fName}" (${frame.url()}): ${err?.message || err}`);
-          }
-        }
+            }),
+            400
+          ).catch((err) => {
+            logger.warn(`[Recorder] Primary page flush buffer notice: ${err?.message || err}`);
+          })
+        );
       }
+
+      await Promise.allSettled(flushPromises);
     }
 
     // 2. Allow short breather for in-flight postMessage events to reach Node.js bridge
-    await new Promise(r => setTimeout(r, 150));
+    await new Promise(r => setTimeout(r, 100));
 
     // 3. Mark recording as finished
     this.isRecording = false;
@@ -697,7 +726,7 @@ class RecorderBridge {
     let viewport = { width: 1280, height: 800 };
     let userAgent = 'unknown';
 
-    if (this.page && !this.page.isClosed()) {
+    if (this.page && (typeof this.page.isClosed !== 'function' || !this.page.isClosed())) {
       try {
         viewport = await this.page.viewport() || viewport;
         userAgent = await this.page.evaluate(() => navigator.userAgent).catch((err) => {
@@ -717,17 +746,8 @@ class RecorderBridge {
       }
     }
 
-    // Automatically analyze workflow for repeating loop structures
-    let loopAnalysis = { isLoop: false, loopStepIndex: null, confidence: 0, patternType: 'none' };
-    try {
-      loopAnalysis = LoopDetector.analyzeWorkflow(this.actions);
-      if (loopAnalysis.isLoop) {
-        logger.info(`[Recorder] Auto-detected repeated loop structure (${loopAnalysis.patternType}) starting at step #${loopAnalysis.loopStepIndex + 1} with ${loopAnalysis.confidence}% confidence.`);
-      }
-    } catch (err) {
-      logger.warn(`[Recorder] Loop analysis skipped: ${err?.message || err}`);
-    }
-
+    // Decouple heavy synchronous loop detection from the critical Save path:
+    // Persist raw actions immediately with default mode ('STANDARD') keeping recording pure and instant (<200ms)
     const recording = {
       metadata: {
         recordingId: `rec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -738,15 +758,15 @@ class RecorderBridge {
         startUrl: finalStartUrl,
         userAgent,
         viewport,
-        isLoop: loopAnalysis.isLoop,
-        loopStepIndex: loopAnalysis.loopStepIndex >= 0 ? loopAnalysis.loopStepIndex : null,
-        loopConfidence: loopAnalysis.confidence,
-        confidenceCategory: loopAnalysis.confidenceCategory,
-        patternType: loopAnalysis.patternType,
-        mode: loopAnalysis.isLoop ? 'LOOP' : 'STANDARD',
+        isLoop: false,
+        loopStepIndex: null,
+        loopConfidence: 0,
+        confidenceCategory: 'NONE',
+        patternType: 'none',
+        mode: 'STANDARD',
         loopMetadata: {
-          reasons: loopAnalysis.reasons,
-          signals: loopAnalysis.signals
+          reasons: [],
+          signals: []
         }
       },
       actions: this.actions
@@ -760,24 +780,33 @@ class RecorderBridge {
     const sanitizedName = this.name.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
     const filePath = path.join(this.outputDir, `${sanitizedName}.json`);
 
+    // In-page Stop UI cleanup helper
+    const cleanupStopUI = async () => {
+      if (!this._attachedPages) return;
+      const frames = [];
+      for (const page of this._attachedPages) {
+        if (!page || (typeof page.isClosed === 'function' && page.isClosed())) continue;
+        frames.push(...getAllFramesRecursive(page));
+      }
+      await Promise.allSettled(
+        frames.map((frame) => withTimeout(
+          frame.evaluate(() => {
+            if (typeof window.__workflowCaptureStopUI === 'function') {
+              window.__workflowCaptureStopUI();
+            }
+          }),
+          200
+        ).catch(() => {}))
+      ).catch(() => {});
+    };
+
     // Guard: If 0 actions were captured and a previous valid recording exists, do NOT overwrite it
     if (this.actions.length === 0 && fs.existsSync(filePath)) {
       try {
         const existingData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
         if (Array.isArray(existingData.actions) && existingData.actions.length > 0) {
           logger.warn(`[Recorder] No new actions captured. Preserving existing recording with ${existingData.actions.length} action(s) for "${sanitizedName}".`);
-          if (this._attachedPages) {
-            const frames = [];
-            for (const page of this._attachedPages) {
-              if (!page || page.isClosed()) continue;
-              frames.push(...getAllFramesRecursive(page));
-            }
-            await Promise.allSettled(frames.map((frame) => frame.evaluate(() => {
-              if (typeof window.__workflowCaptureStopUI === 'function') {
-                window.__workflowCaptureStopUI();
-              }
-            })));
-          }
+          await cleanupStopUI();
           logger.divider();
           logger.success(`Workflow recording preserved: ${filePath}`);
           logger.info(`Total actions in workflow: ${existingData.actions.length}`);
@@ -789,18 +818,8 @@ class RecorderBridge {
 
     fs.writeFileSync(filePath, JSON.stringify(recording, null, 2), 'utf8');
 
-    if (this._attachedPages) {
-      const frames = [];
-      for (const page of this._attachedPages) {
-        if (!page || page.isClosed()) continue;
-        frames.push(...getAllFramesRecursive(page));
-      }
-      await Promise.allSettled(frames.map((frame) => frame.evaluate(() => {
-        if (typeof window.__workflowCaptureStopUI === 'function') {
-          window.__workflowCaptureStopUI();
-        }
-      })));
-    }
+    // Trigger in-page Stop UI cleanup across all attached pages before disconnecting
+    await cleanupStopUI();
 
     logger.divider();
     logger.success(`Workflow recording saved: ${filePath}`);
@@ -808,7 +827,7 @@ class RecorderBridge {
 
     // Disconnect (do not close the user's Chrome session!)
     if (this.browser) {
-      await this.browser.disconnect();
+      await this.browser.disconnect().catch(() => {});
       logger.info('Disconnected from Chrome (Chrome instance remains running).');
     }
 

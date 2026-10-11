@@ -1,6 +1,7 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, shell, nativeImage, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const configManager = require('./config-manager');
 const runnerController = require('./runner-controller');
 const chromeSpawner = require('./chrome-spawner');
@@ -31,8 +32,8 @@ function minimizeToTray() {
       try {
         const balloonIcon = path.join(__dirname, '../../assets/icon.png');
         tray.displayBalloon({
-          title: 'PortalSync Local Worker',
-          content: 'PortalSync is running in the background. Click this tray icon anytime to restore the control window.',
+          title: 'FlowMind Local Worker',
+          content: 'FlowMind is running in the background. Click this tray icon anytime to restore the control window.',
           icon: fs.existsSync(balloonIcon) ? balloonIcon : undefined,
           iconType: 'info',
         });
@@ -59,8 +60,8 @@ function createWindow() {
   const appIconPath = path.join(__dirname, '../../assets/icon.png');
 
   mainWindow = new BrowserWindow({
-    width: 500,
-    height: 700,
+    width: 440,
+    height: 640,
     resizable: false,
     maximizable: false,
     frame: false,
@@ -221,8 +222,34 @@ app.whenReady().then(async () => {
 
   // Handle IPC calls
   ipcMain.handle('get-config', () => configManager.get());
+  ipcMain.handle('get-system-info', () => ({
+    hostname: os.hostname(),
+    platform: process.platform,
+    arch: process.arch,
+  }));
   ipcMain.handle('save-config', async (event, config) => {
+    const previous = configManager.get();
     const updated = configManager.save(config);
+
+    // If browser mode changed and Chrome is running (and no run is active), update Chrome immediately
+    if (config.browserMode && config.browserMode !== previous.browserMode) {
+      const activeState = runnerController.getState();
+      if (!activeState.activeRun) {
+        try {
+          const portStatus = await chromeSpawner.isPortOpen();
+          if (portStatus.open) {
+            console.log(`[Main] Browser mode switched from ${previous.browserMode} to ${config.browserMode}. Updating Chrome...`);
+            await chromeSpawner.closeChrome();
+            if (config.browserMode === 'visible') {
+              await chromeSpawner.ensureChrome('visible');
+            }
+          }
+        } catch (err) {
+          console.warn('[Main] Browser mode switch on save error:', err.message);
+        }
+      }
+    }
+
     if (updated.runnerToken && updated.autoStartRunner !== false && runnerController.getState().status === 'idle') {
       runnerController.start().catch((err) => {
         console.warn('[Main] Runner auto-start on save error:', err.message);
@@ -243,8 +270,8 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('test-connection', async (event, customConfig) => {
     const current = configManager.get();
-    const config = { ...current, ...(customConfig || {}) };
-    const { CloudClient } = require(path.resolve(__dirname, '../../../../packages/engine/src/runner/cloud-client'));
+    const engineResolver = require('./engine-resolver');
+    const { CloudClient } = engineResolver.requireEngine('src/runner/cloud-client');
     const client = new CloudClient({
       baseUrl: config.cloudUrl || 'https://web-fawn-ten-55.vercel.app',
       token: config.runnerToken,
