@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Play,
@@ -15,17 +15,58 @@ import {
   Crosshair,
   Workflow,
   Radio,
+  LogOut,
+  LayoutDashboard,
 } from 'lucide-react';
 import RobotMascot from '@/components/landing/RobotMascot';
 import VideoDemoModal from '@/components/landing/VideoDemoModal';
 import ProductDemoSimulator from '@/components/landing/ProductDemoSimulator';
 import FeatureTabSwitcher from '@/components/landing/FeatureTabSwitcher';
 import PricingSection from '@/components/landing/PricingSection';
+import { AuthCard } from '@/components/auth/AuthCard';
+import { createClient } from '@/lib/supabase/client';
 
 export default function LandingPage() {
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [heroSoundMuted, setHeroSoundMuted] = useState(true);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState<'signin' | 'signup'>('signin');
+  const [currentUser, setCurrentUser] = useState<{ email?: string; id?: string } | null>(null);
   const heroVideoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    async function loadUser() {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          setCurrentUser({ email: user.email, id: user.id });
+        }
+      } catch (err) {
+        // silent
+      }
+    }
+    loadUser();
+  }, []);
+
+  const handleSignOut = async () => {
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      setCurrentUser(null);
+      window.location.href = '/';
+    } catch (err) {
+      console.error('Sign out error:', err);
+      window.location.href = '/';
+    }
+  };
+
+  const openAuth = (tab: 'signin' | 'signup') => {
+    setAuthModalTab(tab);
+    setIsAuthModalOpen(true);
+  };
 
   const toggleHeroSound = () => {
     if (heroVideoRef.current) {
@@ -95,19 +136,43 @@ export default function LandingPage() {
 
         {/* Header Actions */}
         <div className="flex items-center gap-3">
-          <Link
-            href="/login"
-            className="text-xs sm:text-sm font-semibold text-slate-300 hover:text-white transition px-3 py-2 rounded-lg hover:bg-slate-800/60"
-          >
-            Sign In
-          </Link>
-          <Link
-            href="/signup"
-            className="px-5 py-2 text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 hover:from-cyan-400 hover:to-indigo-500 transition-all rounded-full shadow-lg shadow-cyan-500/20 flex items-center gap-1.5 hover:scale-105 border border-cyan-400/40"
-          >
-            <span>Start Capturing Free</span>
-            <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
-          </Link>
+          {currentUser ? (
+            <>
+              <Link
+                href="/dashboard"
+                className="px-4 py-2 text-xs sm:text-sm font-semibold text-cyan-300 bg-cyan-950/60 border border-cyan-500/30 hover:bg-cyan-900/60 hover:text-white transition rounded-xl flex items-center gap-2"
+              >
+                <LayoutDashboard className="w-4 h-4 text-cyan-400" />
+                <span>Go to Console</span>
+              </Link>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="text-xs sm:text-sm font-semibold text-slate-400 hover:text-red-400 transition px-3 py-2 rounded-lg hover:bg-red-500/10 flex items-center gap-1.5 cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => openAuth('signin')}
+                className="text-xs sm:text-sm font-semibold text-slate-300 hover:text-white transition px-3 py-2 rounded-lg hover:bg-slate-800/60 cursor-pointer"
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => openAuth('signup')}
+                className="px-5 py-2 text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 hover:from-cyan-400 hover:to-indigo-500 transition-all rounded-full shadow-lg shadow-cyan-500/20 flex items-center gap-1.5 hover:scale-105 border border-cyan-400/40 cursor-pointer"
+              >
+                <span>Start Capturing Free</span>
+                <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
+              </button>
+            </>
+          )}
         </div>
       </header>
 
@@ -166,13 +231,24 @@ export default function LandingPage() {
 
               {/* CTA Action Group */}
               <div className="flex flex-wrap items-center gap-3.5 mb-7">
-                <Link
-                  href="/signup"
-                  className="px-7 py-3.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold text-sm transition-all shadow-lg shadow-cyan-500/25 flex items-center gap-2 hover:scale-105"
-                >
-                  <span>Start Capturing Free</span>
-                  <ArrowRight className="w-4 h-4 stroke-[2.5]" />
-                </Link>
+                {currentUser ? (
+                  <Link
+                    href="/dashboard"
+                    className="px-7 py-3.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold text-sm transition-all shadow-lg shadow-cyan-500/25 flex items-center gap-2 hover:scale-105"
+                  >
+                    <span>Launch Console</span>
+                    <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openAuth('signup')}
+                    className="px-7 py-3.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold text-sm transition-all shadow-lg shadow-cyan-500/25 flex items-center gap-2 hover:scale-105 cursor-pointer"
+                  >
+                    <span>Start Capturing Free</span>
+                    <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setIsVideoModalOpen(true)}
@@ -526,13 +602,24 @@ export default function LandingPage() {
             <p className="text-slate-300 text-xs sm:text-sm mb-7 max-w-lg mx-auto leading-relaxed">
               Launch the FlowMind operations center and train your robotic AI agent in seconds.
             </p>
-            <Link
-              href="/signup"
-              className="px-8 py-3.5 rounded-full bg-gradient-to-r from-cyan-400 to-indigo-500 text-slate-950 hover:from-cyan-300 hover:to-indigo-400 font-extrabold text-xs sm:text-sm shadow-xl transition-all hover:scale-105 inline-flex items-center gap-2 group"
-            >
-              <span>Launch Agent Operations Center</span>
-              <ArrowRight className="w-4 h-4 stroke-[2.5] transition-transform group-hover:translate-x-1" />
-            </Link>
+            {currentUser ? (
+              <Link
+                href="/dashboard"
+                className="px-8 py-3.5 rounded-full bg-gradient-to-r from-cyan-400 to-indigo-500 text-slate-950 hover:from-cyan-300 hover:to-indigo-400 font-extrabold text-xs sm:text-sm shadow-xl transition-all hover:scale-105 inline-flex items-center gap-2 group"
+              >
+                <span>Launch Agent Operations Center</span>
+                <ArrowRight className="w-4 h-4 stroke-[2.5] transition-transform group-hover:translate-x-1" />
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={() => openAuth('signup')}
+                className="px-8 py-3.5 rounded-full bg-gradient-to-r from-cyan-400 to-indigo-500 text-slate-950 hover:from-cyan-300 hover:to-indigo-400 font-extrabold text-xs sm:text-sm shadow-xl transition-all hover:scale-105 inline-flex items-center gap-2 group cursor-pointer"
+              >
+                <span>Launch Agent Operations Center</span>
+                <ArrowRight className="w-4 h-4 stroke-[2.5] transition-transform group-hover:translate-x-1" />
+              </button>
+            )}
 
             {/* Micro-Trust Badges */}
             <div className="flex flex-wrap items-center justify-center gap-5 mt-7 text-[11px] font-semibold text-slate-400">
@@ -572,17 +659,52 @@ export default function LandingPage() {
           <Link href="#pricing" className="hover:text-cyan-400 transition-colors">
             Pricing
           </Link>
-          <Link href="/login" className="hover:text-cyan-400 transition-colors">
-            Sign In
-          </Link>
-          <Link href="/signup" className="text-cyan-400 font-semibold hover:underline">
-            Get Started Free
-          </Link>
+          {currentUser ? (
+            <Link href="/dashboard" className="text-cyan-400 font-semibold hover:underline">
+              Go to Console
+            </Link>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => openAuth('signin')}
+                className="hover:text-cyan-400 transition-colors cursor-pointer"
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => openAuth('signup')}
+                className="text-cyan-400 font-semibold hover:underline cursor-pointer"
+              >
+                Get Started Free
+              </button>
+            </>
+          )}
         </div>
       </footer>
 
       {/* Video Demo Modal */}
       <VideoDemoModal isOpen={isVideoModalOpen} onClose={() => setIsVideoModalOpen(false)} />
+
+      {/* Auth Modal Overlay with Sign In & Create Account Tabs */}
+      {isAuthModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsAuthModalOpen(false);
+          }}
+        >
+          <div className="w-full max-w-md relative my-auto">
+            <AuthCard
+              key={authModalTab}
+              defaultTab={authModalTab}
+              isModal={true}
+              onClose={() => setIsAuthModalOpen(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
