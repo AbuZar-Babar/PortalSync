@@ -89,15 +89,21 @@ async function resolveOrCreateOrgId(rawOrgId: string, supabase: SupabaseClient):
   // This MUST run before slug lookup so prefix tokens (e.g. ps_live_71f6abd5a67f4ecd) reliably
   // match the true parent organization (71f6abd5-a67f-4ecd-...) instead of a rogue slug or collision!
   const cleanSanitized = sanitized.replace(/-/g, '').toLowerCase();
+  const tokenPrefix = sanitized.split('_')[0].replace(/-/g, '').toLowerCase();
+  const targetPrefix = tokenPrefix.length >= 8 ? tokenPrefix : cleanSanitized;
+
   const { data: allOrgs } = await supabase
     .from('wf_organizations')
-    .select('id, name, slug')
-    .limit(100);
+    .select('id, name, slug');
 
   if (allOrgs) {
     const matched = allOrgs.find((o) => {
       const cleanId = o.id.replace(/-/g, '').toLowerCase();
-      return cleanId.startsWith(cleanSanitized) || (cleanSanitized.length >= 8 && cleanId === cleanSanitized);
+      return (
+        cleanId.startsWith(targetPrefix) ||
+        (targetPrefix.length >= 8 && cleanId === targetPrefix) ||
+        cleanId.startsWith(cleanSanitized)
+      );
     });
     if (matched) {
       return matched.id;
@@ -128,7 +134,7 @@ async function resolveOrCreateOrgId(rawOrgId: string, supabase: SupabaseClient):
 
   // If sanitized looks like a token prefix or UUID (>= 8 hex characters),
   // NEVER auto-create a rogue duplicate organization!
-  if (/^[a-f0-9]{8,}$/i.test(cleanSanitized)) {
+  if (/^[a-f0-9]{8,}$/i.test(targetPrefix) || /^[a-f0-9]{8,}$/i.test(cleanSanitized)) {
     return null;
   }
 
@@ -186,19 +192,41 @@ export async function authenticateRunnerOrUser(request: NextRequest): Promise<Ru
       };
     }
 
-    // Await runner heartbeat & telemetry to guarantee persistence in serverless environments
+    // Await runner heartbeat & telemetry safely without overwriting existing data with dummy defaults
     try {
+      const incomingHostname = request.headers.get('x-runner-hostname');
+      const incomingPlatform = request.headers.get('x-runner-platform');
+      const incomingVersion = request.headers.get('x-runner-version');
+      const incomingCdp = request.headers.get('x-runner-cdp');
+
+      // Fetch existing metadata to preserve real fields if incoming headers are partial or omitted
+      const { data: existingOrg } = await client
+        .from('wf_organizations')
+        .select('stripe_subscription_id')
+        .eq('id', orgId)
+        .maybeSingle();
+
+      let currentMeta: Record<string, any> = {};
+      if (existingOrg?.stripe_subscription_id) {
+        try {
+          currentMeta = JSON.parse(existingOrg.stripe_subscription_id);
+        } catch {}
+      }
+
+      const mergedPayload = {
+        ...currentMeta,
+        last_ping_at: new Date().toISOString(),
+        hostname: incomingHostname || currentMeta.hostname || 'FlowMind Desktop Worker',
+        platform: incomingPlatform || currentMeta.platform || 'Windows 11 x64',
+        version: incomingVersion || currentMeta.version || 'v1.4.0 (Enterprise Engine)',
+        token: runnerToken,
+        cdp_active: incomingCdp !== null ? incomingCdp === 'true' : (currentMeta.cdp_active ?? true),
+      };
+
       await client
         .from('wf_organizations')
         .update({
-          stripe_subscription_id: JSON.stringify({
-            last_ping_at: new Date().toISOString(),
-            hostname: request.headers.get('x-runner-hostname') || 'FlowMind Desktop Worker',
-            platform: request.headers.get('x-runner-platform') || 'Windows 11 x64',
-            version: request.headers.get('x-runner-version') || 'v1.4.0 (Enterprise Engine)',
-            token: runnerToken,
-            cdp_active: request.headers.get('x-runner-cdp') === 'true' || request.headers.get('x-runner-cdp') === null,
-          }),
+          stripe_subscription_id: JSON.stringify(mergedPayload),
         })
         .eq('id', orgId);
     } catch {

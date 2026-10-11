@@ -102,13 +102,28 @@ export async function POST(request: NextRequest) {
     body = {};
   }
 
+  // Fetch existing org metadata to merge and preserve fields
+  const { data: existingOrg } = await supabase
+    .from('wf_organizations')
+    .select('stripe_subscription_id')
+    .eq('id', orgId)
+    .maybeSingle();
+
+  let existingMeta: RunnerMetadata = {};
+  if (existingOrg?.stripe_subscription_id) {
+    try {
+      existingMeta = JSON.parse(existingOrg.stripe_subscription_id);
+    } catch {}
+  }
+
   const payload: RunnerMetadata = {
+    ...existingMeta,
     last_ping_at: new Date().toISOString(),
-    hostname: body.hostname || request.headers.get('x-runner-hostname') || 'FlowMind Desktop Worker',
-    platform: body.platform || request.headers.get('x-runner-platform') || 'Windows 11 x64',
-    version: body.version || request.headers.get('x-runner-version') || 'v1.4.0 (Enterprise Engine)',
-    token: token || body.token || `ps_live_${orgId.replace(/-/g, '').slice(0, 16)}`,
-    cdp_active: body.cdp_active ?? true,
+    hostname: body.hostname || request.headers.get('x-runner-hostname') || existingMeta.hostname || 'FlowMind Desktop Worker',
+    platform: body.platform || request.headers.get('x-runner-platform') || existingMeta.platform || 'Windows 11 x64',
+    version: body.version || request.headers.get('x-runner-version') || existingMeta.version || 'v1.4.0 (Enterprise Engine)',
+    token: token || body.token || existingMeta.token || `ps_live_${orgId.replace(/-/g, '').slice(0, 16)}`,
+    cdp_active: body.cdp_active !== undefined ? body.cdp_active : (existingMeta.cdp_active ?? true),
   };
 
   try {

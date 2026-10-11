@@ -49,12 +49,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
       setUserEmail(user.email || null);
 
-      // Fetch user's organization membership
+      // Fetch user's organization memberships
       const { data: members, error: memberError } = await supabase
         .from('wf_organization_members')
         .select('org_id, role, wf_organizations(name, slug, stripe_subscription_id)')
-        .eq('user_id', user.id)
-        .limit(1);
+        .eq('user_id', user.id);
 
       if (memberError) {
         console.error('Error fetching org membership:', memberError);
@@ -65,18 +64,51 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const activeOrgId = members[0].org_id;
-      const orgRecord = members[0].wf_organizations as { name?: string; slug?: string; stripe_subscription_id?: string | null } | null;
+      // 1. Determine active organization: saved preference -> org with active runner -> first membership
+      const savedOrgId = typeof window !== 'undefined' ? localStorage.getItem('wf_active_org_id') : null;
+      let activeMember = savedOrgId ? members.find((m) => m.org_id === savedOrgId) : null;
+
+      if (!activeMember) {
+        activeMember = members.find((m) => {
+          const org = m.wf_organizations as { stripe_subscription_id?: string | null } | null;
+          if (org?.stripe_subscription_id) {
+            try {
+              const meta = JSON.parse(org.stripe_subscription_id);
+              if (meta.last_ping_at) {
+                const diff = (Date.now() - new Date(meta.last_ping_at).getTime()) / 1000;
+                return diff < 120;
+              }
+            } catch {}
+          }
+          return false;
+        });
+      }
+
+      if (!activeMember) {
+        activeMember = members[0];
+      }
+
+      const activeOrgId = activeMember.org_id;
+      const orgRecord = activeMember.wf_organizations as { name?: string; slug?: string; stripe_subscription_id?: string | null } | null;
       setOrgId(activeOrgId);
       setOrganizationName(orgRecord?.name || 'My Organization');
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('wf_active_org_id', activeOrgId);
+      }
 
       const defaultToken = `ps_live_${activeOrgId.replace(/-/g, '').slice(0, 16)}`;
       setRunnerToken(defaultToken);
 
-      // Check online status via /api/v1/runners or organization metadata
+      // Check online status via /api/v1/runners (authenticated by token) or organization metadata
       let online = false;
       try {
-        const res = await fetch(`/api/v1/runners?org_id=${activeOrgId}`, { cache: 'no-store' });
+        const res = await fetch(`/api/v1/runners?org_id=${activeOrgId}`, {
+          cache: 'no-store',
+          headers: {
+            'x-runner-token': defaultToken,
+            'Authorization': `Bearer ${defaultToken}`,
+          },
+        });
         if (res.ok) {
           const data = await res.json();
           online = !!data.is_online;
@@ -115,26 +147,86 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       }
     }, 0);
 
-    // Heartbeat poller for runner status every 10 seconds
+    if (!orgId) {
+      return () => {
+        isMounted = false;
+        clearTimeout(timer);
+      };
+    }
+
+    const supabase = createClient();
+    const resolvedToken = runnerToken || `ps_live_${orgId.replace(/-/g, '').slice(0, 16)}`;
+
+    // Heartbeat poller for runner status every 5 seconds with direct DB fallback
     const interval = setInterval(async () => {
-      if (!orgId) return;
       try {
-        const res = await fetch(`/api/v1/runners?org_id=${orgId}`, { cache: 'no-store' });
+        const res = await fetch(`/api/v1/runners?org_id=${orgId}`, {
+          cache: 'no-store',
+          headers: {
+            'x-runner-token': resolvedToken,
+            'Authorization': `Bearer ${resolvedToken}`,
+          },
+        });
         if (res.ok) {
           const data = await res.json();
           if (isMounted) {
             setIsRunnerOnline(!!data.is_online);
           }
+        } else {
+          // Direct Supabase query fallback
+          const { data: directOrg } = await supabase
+            .from('wf_organizations')
+            .select('stripe_subscription_id')
+            .eq('id', orgId)
+            .maybeSingle();
+
+          if (directOrg?.stripe_subscription_id && isMounted) {
+            try {
+              const meta = JSON.parse(directOrg.stripe_subscription_id);
+              if (meta.last_ping_at) {
+                const diff = (Date.now() - new Date(meta.last_ping_at).getTime()) / 1000;
+                setIsRunnerOnline(diff < 60);
+              }
+            } catch {}
+          }
         }
       } catch {}
-    }, 10000);
+    }, 5000);
+
+    // Supabase Realtime subscription to organization telemetry updates
+    const orgChannel = supabase
+      .channel(`wf_org_heartbeat_sync_${orgId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'wf_organizations',
+          filter: `id=eq.${orgId}`,
+        },
+        (payload) => {
+          if (!isMounted) return;
+          const updated = payload.new as { stripe_subscription_id?: string | null } | undefined;
+          if (updated?.stripe_subscription_id) {
+            try {
+              const meta = JSON.parse(updated.stripe_subscription_id);
+              if (meta.last_ping_at) {
+                const diff = (Date.now() - new Date(meta.last_ping_at).getTime()) / 1000;
+                setIsRunnerOnline(diff < 60);
+              }
+            } catch {}
+          }
+        }
+      )
+      .subscribe();
 
     return () => {
       isMounted = false;
       clearTimeout(timer);
       clearInterval(interval);
+      void supabase.removeChannel(orgChannel);
     };
-  }, [fetchDashboardContext, orgId]);
+  }, [fetchDashboardContext, orgId, runnerToken]);
 
   const refreshDashboard = async () => {
     setIsRefreshing(true);

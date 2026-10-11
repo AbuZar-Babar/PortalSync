@@ -40,6 +40,7 @@ interface ConnectedWorker {
   lastPingAt: string | null;
   activeRun?: DrawerRunItem | null;
   ipAddress?: string;
+  cdpActive?: boolean;
 }
 
 interface DiagnosticResult {
@@ -216,11 +217,17 @@ export default function RunnersPage() {
       const resolvedToken = currentToken || runnerToken || `ps_live_${orgId.replace(/-/g, '').slice(0, 16)}`;
 
       try {
-        const res = await fetch(`/api/v1/runners?org_id=${orgId}`, { cache: 'no-store' });
+        const res = await fetch(`/api/v1/runners?org_id=${orgId}`, {
+          cache: 'no-store',
+          headers: {
+            'x-runner-token': resolvedToken,
+            'Authorization': `Bearer ${resolvedToken}`,
+          },
+        });
         if (res.ok) {
           const json = await res.json();
           if (json.runners && Array.isArray(json.runners) && json.runners.length > 0) {
-            apiRunners = json.runners.map((r: { id?: string; hostname?: string; label?: string; token?: string; platform?: string; engineVersion?: string; status?: string; lastPingAt?: string | null }, idx: number) => {
+            apiRunners = json.runners.map((r: { id?: string; hostname?: string; label?: string; token?: string; platform?: string; engineVersion?: string; status?: string; lastPingAt?: string | null; cdpActive?: boolean }, idx: number) => {
               const lastPingMs = r.lastPingAt ? new Date(r.lastPingAt).getTime() : 0;
               const diffSeconds = lastPingMs > 0 ? (Date.now() - lastPingMs) / 1000 : 999999;
               const isOnline = diffSeconds < 60 || isRunnerOnline || r.status === 'ONLINE';
@@ -236,7 +243,7 @@ export default function RunnersPage() {
 
               return {
                 id: r.id || `runner-${idx}`,
-                hostname: r.hostname || 'FlowMind Desktop Worker',
+                hostname: r.hostname || 'AbuZar-Laptop',
                 label: r.label || 'Primary Desktop Runner',
                 token: r.token || resolvedToken,
                 platform: r.platform || 'Windows 11 x64',
@@ -245,12 +252,60 @@ export default function RunnersPage() {
                 status,
                 lastPingAt: r.lastPingAt || (isOnline ? new Date().toISOString() : null),
                 activeRun: status === 'EXECUTING' ? runningRun : null,
+                cdpActive: r.cdpActive !== false,
               };
             });
           }
         }
       } catch (err) {
         console.warn('API runners fetch notice:', err);
+      }
+
+      // Direct Supabase database fallback if API route returned no runners
+      if (apiRunners.length === 0 && orgId) {
+        try {
+          const { data: orgDirect } = await supabase
+            .from('wf_organizations')
+            .select('id, name, stripe_subscription_id')
+            .eq('id', orgId)
+            .maybeSingle();
+
+          if (orgDirect?.stripe_subscription_id) {
+            try {
+              const meta = JSON.parse(orgDirect.stripe_subscription_id);
+              const lastPingMs = meta.last_ping_at ? new Date(meta.last_ping_at).getTime() : 0;
+              const diffSeconds = lastPingMs > 0 ? (Date.now() - lastPingMs) / 1000 : 999999;
+              const isOnline = diffSeconds < 60 || isRunnerOnline;
+
+              let status: ConnectedWorker['status'] = 'OFFLINE';
+              if (isTokenRevoked) {
+                status = 'REVOKED';
+              } else if (runningRun && isOnline) {
+                status = 'EXECUTING';
+              } else if (isOnline) {
+                status = 'ONLINE';
+              }
+
+              apiRunners = [
+                {
+                  id: 'runner_primary',
+                  hostname: meta.hostname || (isOnline ? 'AbuZar-Laptop' : 'FlowMind Desktop Worker'),
+                  label: 'Primary Desktop Runner',
+                  token: meta.token || resolvedToken,
+                  platform: meta.platform || 'Windows 11 x64',
+                  engineVersion: meta.version || 'v1.4.0 (Enterprise Engine)',
+                  claimsCount: Math.max(0, claimsCount),
+                  status,
+                  lastPingAt: meta.last_ping_at || (isOnline ? new Date().toISOString() : null),
+                  activeRun: status === 'EXECUTING' ? runningRun : null,
+                  cdpActive: meta.cdp_active !== false,
+                },
+              ];
+            } catch {}
+          }
+        } catch (dbErr) {
+          console.warn('Direct DB runners fallback notice:', dbErr);
+        }
       }
 
       if (apiRunners.length > 0) {
@@ -1454,8 +1509,10 @@ export default function RunnersPage() {
                     <div className="flex items-center gap-1.5">
                       {worker.status === 'ONLINE' || worker.status === 'EXECUTING' ? (
                         <>
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          <span className="text-emerald-400 font-medium">CDP Port 9222 Ready</span>
+                          <span className={`w-1.5 h-1.5 rounded-full ${worker.cdpActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                          <span className={`font-medium ${worker.cdpActive ? 'text-emerald-400' : 'text-amber-400'}`}>
+                            {worker.cdpActive ? 'CDP Port 9222 Ready' : 'Chrome Standby (Auto-Launch)'}
+                          </span>
                         </>
                       ) : worker.status === 'REVOKED' ? (
                         <>
