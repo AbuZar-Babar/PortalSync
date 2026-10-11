@@ -38,11 +38,11 @@ function runElectronBuilder(args) {
 
 if (platform === 'darwin') {
   console.log('Building macOS Intel x64 (.dmg, .zip) and Windows x64 (.exe)...');
-  const code = runElectronBuilder(['-mw', '--x64']);
+  const code = runElectronBuilder(['-mw', '--x64', '--publish', 'never']);
   process.exit(code || 0);
 } else if (platform === 'win32') {
   console.log('Building Windows x64 Targets (Setup Installer + Portable EXE)...');
-  const winCode = runElectronBuilder(['--win', '--x64']);
+  const winCode = runElectronBuilder(['--win', '--x64', '--publish', 'never']);
 
   if (winCode !== 0) {
     console.error('\n❌ Windows build failed with exit code:', winCode);

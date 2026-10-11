@@ -9,16 +9,17 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "build:win": "electron-builder --win --x64",
-    "build:mac": "electron-builder --mac --x64",
-    "build:mac:zip": "electron-builder --mac zip --x64",
-    "build:mac:dmg": "electron-builder --mac dmg --x64",
+    "build:win": "electron-builder --win --x64 --publish never",
+    "build:mac": "electron-builder --mac --x64 --publish never",
+    "build:mac:zip": "electron-builder --mac zip --x64 --publish never",
+    "build:mac:dmg": "electron-builder --mac dmg --x64 --publish never",
     "build:all": "node scripts/build-all.js",
-    "dist": "electron-builder"
+    "dist": "electron-builder --publish never"
   },
   "build": {
     "appId": "com.flowmind.worker",
     "productName": "FlowMind Worker",
+    "electronVersion": "33.2.0",
     "directories": {
       "output": "dist"
     },
@@ -119,7 +120,7 @@
     "puppeteer-core": "22.15.0"
   },
   "devDependencies": {
-    "electron": "^33.2.0",
+    "electron": "33.2.0",
     "electron-builder": "^26.15.3"
   }
 }
