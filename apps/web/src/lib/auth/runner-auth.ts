@@ -85,7 +85,26 @@ async function resolveOrCreateOrgId(rawOrgId: string, supabase: SupabaseClient):
     return sanitized;
   }
 
-  // 2. Lookup by slug
+  // 2. Lookup by UUID prefix safely (stripping hyphens to handle both hyphenated UUIDs and prefix tokens)
+  // This MUST run before slug lookup so prefix tokens (e.g. ps_live_71f6abd5a67f4ecd) reliably
+  // match the true parent organization (71f6abd5-a67f-4ecd-...) instead of a rogue slug or collision!
+  const cleanSanitized = sanitized.replace(/-/g, '').toLowerCase();
+  const { data: allOrgs } = await supabase
+    .from('wf_organizations')
+    .select('id, name, slug')
+    .limit(100);
+
+  if (allOrgs) {
+    const matched = allOrgs.find((o) => {
+      const cleanId = o.id.replace(/-/g, '').toLowerCase();
+      return cleanId.startsWith(cleanSanitized) || (cleanSanitized.length >= 8 && cleanId === cleanSanitized);
+    });
+    if (matched) {
+      return matched.id;
+    }
+  }
+
+  // 3. Lookup by slug
   const { data: bySlug } = await supabase
     .from('wf_organizations')
     .select('id')
@@ -94,23 +113,6 @@ async function resolveOrCreateOrgId(rawOrgId: string, supabase: SupabaseClient):
 
   if (bySlug) {
     return bySlug.id;
-  }
-
-  // 3. Lookup by UUID prefix safely (stripping hyphens to handle both hyphenated UUIDs and prefix tokens)
-  const cleanSanitized = sanitized.replace(/-/g, '').toLowerCase();
-  const { data: allOrgs } = await supabase
-    .from('wf_organizations')
-    .select('id')
-    .limit(100);
-
-  if (allOrgs) {
-    const matched = allOrgs.find((o) => {
-      const cleanId = o.id.replace(/-/g, '').toLowerCase();
-      return cleanId.startsWith(cleanSanitized) || cleanSanitized.startsWith(cleanId);
-    });
-    if (matched) {
-      return matched.id;
-    }
   }
 
   // 4. Lookup by name
@@ -124,7 +126,13 @@ async function resolveOrCreateOrgId(rawOrgId: string, supabase: SupabaseClient):
     return byName.id;
   }
 
-  // 5. Create new organization with safe slug
+  // If sanitized looks like a token prefix or UUID (>= 8 hex characters),
+  // NEVER auto-create a rogue duplicate organization!
+  if (/^[a-f0-9]{8,}$/i.test(cleanSanitized)) {
+    return null;
+  }
+
+  // 5. Create new organization with safe slug (only for custom friendly identifiers in tests/onboarding)
   const safeSlug =
     rawOrgId.toLowerCase().replace(/[^a-z0-9_-]/g, '-').slice(0, 40) ||
     `org-${Date.now()}`;
@@ -178,20 +186,24 @@ export async function authenticateRunnerOrUser(request: NextRequest): Promise<Ru
       };
     }
 
-    // Asynchronously record runner heartbeat & telemetry
-    void client
-      .from('wf_organizations')
-      .update({
-        stripe_subscription_id: JSON.stringify({
-          last_ping_at: new Date().toISOString(),
-          hostname: request.headers.get('x-runner-hostname') || 'DESKTOP-WIN11-WORKER',
-          platform: request.headers.get('x-runner-platform') || 'Windows 11 x64',
-          version: request.headers.get('x-runner-version') || 'v1.4.0 (Enterprise Engine)',
-          token: runnerToken,
-          cdp_active: request.headers.get('x-runner-cdp') === 'true',
-        }),
-      })
-      .eq('id', orgId);
+    // Await runner heartbeat & telemetry to guarantee persistence in serverless environments
+    try {
+      await client
+        .from('wf_organizations')
+        .update({
+          stripe_subscription_id: JSON.stringify({
+            last_ping_at: new Date().toISOString(),
+            hostname: request.headers.get('x-runner-hostname') || 'FlowMind Desktop Worker',
+            platform: request.headers.get('x-runner-platform') || 'Windows 11 x64',
+            version: request.headers.get('x-runner-version') || 'v1.4.0 (Enterprise Engine)',
+            token: runnerToken,
+            cdp_active: request.headers.get('x-runner-cdp') === 'true' || request.headers.get('x-runner-cdp') === null,
+          }),
+        })
+        .eq('id', orgId);
+    } catch {
+      // Non-fatal if telemetry update fails
+    }
 
     return {
       success: true,

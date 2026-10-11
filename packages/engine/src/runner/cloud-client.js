@@ -68,6 +68,7 @@ class CloudClient {
         headers['x-runner-hostname'] = os.hostname();
         headers['x-runner-platform'] = `${process.platform} ${process.arch}`;
         headers['x-runner-version'] = 'v1.4.0 (Enterprise Engine)';
+        headers['x-runner-cdp'] = 'true';
       } catch {}
     }
     return headers;
@@ -400,7 +401,7 @@ class CloudClient {
           hostname: os.hostname(),
           platform: `${process.platform} ${process.arch}`,
           version: 'v1.4.0 (Enterprise Engine)',
-          cdp_active: true,
+          cdp_active: extra.cdp_active !== false,
           ...extra,
         }),
       });

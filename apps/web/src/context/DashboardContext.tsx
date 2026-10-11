@@ -76,7 +76,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       // Check online status via /api/v1/runners or organization metadata
       let online = false;
       try {
-        const res = await fetch('/api/v1/runners', { cache: 'no-store' });
+        const res = await fetch(`/api/v1/runners?org_id=${activeOrgId}`, { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
           online = !!data.is_online;
@@ -84,7 +84,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           const parsed = JSON.parse(orgRecord.stripe_subscription_id);
           if (parsed.last_ping_at) {
             const diffSeconds = (Date.now() - new Date(parsed.last_ping_at).getTime()) / 1000;
-            online = diffSeconds < 45;
+            online = diffSeconds < 60;
           }
         }
       } catch {
@@ -93,7 +93,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
             const parsed = JSON.parse(orgRecord.stripe_subscription_id);
             if (parsed.last_ping_at) {
               const diffSeconds = (Date.now() - new Date(parsed.last_ping_at).getTime()) / 1000;
-              online = diffSeconds < 45;
+              online = diffSeconds < 60;
             }
           } catch {}
         }
@@ -119,7 +119,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const interval = setInterval(async () => {
       if (!orgId) return;
       try {
-        const res = await fetch('/api/v1/runners', { cache: 'no-store' });
+        const res = await fetch(`/api/v1/runners?org_id=${orgId}`, { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
           if (isMounted) {

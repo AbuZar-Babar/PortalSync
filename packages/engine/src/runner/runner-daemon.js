@@ -107,6 +107,7 @@ class RunnerDaemon {
     this.isStoppingCurrentRun = false;
     this.artifactTracker = new ArtifactTracker();
     this._pollTimer = null;
+    this._heartbeatTimer = null;
   }
 
   /**
@@ -134,6 +135,19 @@ class RunnerDaemon {
       this.logger.warn(`Chrome CDP not detected on port ${this.cdpPort}. Daemon will poll for runs, but browser execution requires Chrome running with --remote-debugging-port=${this.cdpPort}.`);
     }
 
+    // Send initial heartbeat and start continuous heartbeat interval (every 10s)
+    void this.cloudClient.sendHeartbeat({ cdp_active: cdpStatus.responding }).catch(() => {});
+    if (this._heartbeatTimer) clearInterval(this._heartbeatTimer);
+    this._heartbeatTimer = setInterval(async () => {
+      if (!this.isRunning) return;
+      try {
+        const cdp = await this.checkCdp();
+        await this.cloudClient.sendHeartbeat({ cdp_active: cdp.responding });
+      } catch {
+        // quiet background heartbeat error
+      }
+    }, 10000);
+
     // Polling loop
     while (this.isRunning) {
       try {
@@ -154,6 +168,11 @@ class RunnerDaemon {
   async stop() {
     this.logger.info('Stopping PortalSync Runner Daemon...');
     this.isRunning = false;
+
+    if (this._heartbeatTimer) {
+      clearInterval(this._heartbeatTimer);
+      this._heartbeatTimer = null;
+    }
 
     if (this._pollTimer) {
       clearTimeout(this._pollTimer);

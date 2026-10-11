@@ -20,12 +20,17 @@ export async function GET(request: NextRequest) {
   }
 
   const { orgId, supabase } = auth.context;
+  const searchParams = request.nextUrl.searchParams;
+  const queryOrgId = searchParams.get('org_id');
+  const effectiveOrgId = (queryOrgId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(queryOrgId))
+    ? queryOrgId
+    : orgId;
 
   try {
     const { data: org, error } = await supabase
       .from('wf_organizations')
       .select('id, name, stripe_subscription_id')
-      .eq('id', orgId)
+      .eq('id', effectiveOrgId)
       .maybeSingle();
 
     if (error || !org) {
@@ -43,15 +48,16 @@ export async function GET(request: NextRequest) {
 
     const lastPingMs = runnerMeta.last_ping_at ? new Date(runnerMeta.last_ping_at).getTime() : 0;
     const diffSeconds = lastPingMs > 0 ? (Date.now() - lastPingMs) / 1000 : 999999;
-    const isOnline = diffSeconds < 45;
+    const isOnline = diffSeconds < 60;
 
-    const defaultToken = `ps_live_${orgId.replace(/-/g, '').slice(0, 16)}`;
+    const defaultToken = `ps_live_${effectiveOrgId.replace(/-/g, '').slice(0, 16)}`;
     const pairedToken = runnerMeta.token || defaultToken;
+    const resolvedHostname = runnerMeta.hostname || (isOnline ? 'Active Desktop Runner' : 'FlowMind Desktop Worker');
 
     const runners = [
       {
         id: 'runner_primary',
-        hostname: runnerMeta.hostname || 'DESKTOP-WIN11-WORKER',
+        hostname: resolvedHostname,
         label: 'Primary Desktop Runner',
         token: pairedToken,
         platform: runnerMeta.platform || 'Windows 11 x64',
@@ -98,7 +104,7 @@ export async function POST(request: NextRequest) {
 
   const payload: RunnerMetadata = {
     last_ping_at: new Date().toISOString(),
-    hostname: body.hostname || request.headers.get('x-runner-hostname') || 'DESKTOP-WIN11-WORKER',
+    hostname: body.hostname || request.headers.get('x-runner-hostname') || 'FlowMind Desktop Worker',
     platform: body.platform || request.headers.get('x-runner-platform') || 'Windows 11 x64',
     version: body.version || request.headers.get('x-runner-version') || 'v1.4.0 (Enterprise Engine)',
     token: token || body.token || `ps_live_${orgId.replace(/-/g, '').slice(0, 16)}`,

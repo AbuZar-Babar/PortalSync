@@ -11,6 +11,7 @@ class RunnerController {
     this.lastError = null;
     this.recentRuns = [];
     this.onStatusChangeCallbacks = [];
+    this._heartbeatTimer = null;
   }
 
   onStatusChange(cb) {
@@ -132,6 +133,18 @@ class RunnerController {
         }
       };
 
+      // Start dedicated heartbeat timer (every 10s)
+      if (this._heartbeatTimer) {
+        clearInterval(this._heartbeatTimer);
+      }
+      this._heartbeatTimer = setInterval(async () => {
+        if (this.status !== 'active' && this.status !== 'starting') return;
+        try {
+          const cdpStatus = await chromeSpawner.isPortOpen();
+          await cloudClient.sendHeartbeat({ cdp_active: cdpStatus.open });
+        } catch {}
+      }, 10000);
+
       // Start polling & send initial heartbeat
       void cloudClient.sendHeartbeat().catch(() => {});
       this.daemon.start().catch((err) => {
@@ -142,6 +155,10 @@ class RunnerController {
       this._notifyStatus();
       return this.getState();
     } catch (err) {
+      if (this._heartbeatTimer) {
+        clearInterval(this._heartbeatTimer);
+        this._heartbeatTimer = null;
+      }
       this.status = 'error';
       this.lastError = err.message;
       this._notifyStatus();
@@ -150,6 +167,11 @@ class RunnerController {
   }
 
   async stop() {
+    if (this._heartbeatTimer) {
+      clearInterval(this._heartbeatTimer);
+      this._heartbeatTimer = null;
+    }
+
     if (this.status === 'idle') return this.getState();
 
     this.status = 'stopping';

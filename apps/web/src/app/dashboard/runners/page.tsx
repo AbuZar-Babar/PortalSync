@@ -223,7 +223,7 @@ export default function RunnersPage() {
             apiRunners = json.runners.map((r: { id?: string; hostname?: string; label?: string; token?: string; platform?: string; engineVersion?: string; status?: string; lastPingAt?: string | null }, idx: number) => {
               const lastPingMs = r.lastPingAt ? new Date(r.lastPingAt).getTime() : 0;
               const diffSeconds = lastPingMs > 0 ? (Date.now() - lastPingMs) / 1000 : 999999;
-              const isOnline = diffSeconds < 45 || isRunnerOnline || r.status === 'ONLINE';
+              const isOnline = diffSeconds < 60 || isRunnerOnline || r.status === 'ONLINE';
 
               let status: ConnectedWorker['status'] = 'OFFLINE';
               if (isTokenRevoked) {
@@ -236,7 +236,7 @@ export default function RunnersPage() {
 
               return {
                 id: r.id || `runner-${idx}`,
-                hostname: r.hostname || 'DESKTOP-WIN11-WORKER',
+                hostname: r.hostname || 'FlowMind Desktop Worker',
                 label: r.label || 'Primary Desktop Runner',
                 token: r.token || resolvedToken,
                 platform: r.platform || 'Windows 11 x64',
@@ -271,7 +271,7 @@ export default function RunnersPage() {
         setWorkers([
           {
             id: `runner-primary-${orgId.slice(0, 8)}`,
-            hostname: 'DESKTOP-WIN11-WORKER',
+            hostname: 'FlowMind Desktop Worker',
             label: 'Local Desktop Runner',
             token: resolvedToken,
             platform: 'Windows 11 x64',
@@ -291,7 +291,7 @@ export default function RunnersPage() {
     }
   }, [orgId, currentToken, runnerToken, isRunnerOnline, isTokenRevoked]);
 
-  // Initial load
+  // Initial load and periodic refresh ticker (every 5 seconds)
   useEffect(() => {
     let isMounted = true;
     const timer = setTimeout(() => {
@@ -300,9 +300,16 @@ export default function RunnersPage() {
       }
     }, 0);
 
+    const poller = setInterval(() => {
+      if (isMounted) {
+        void fetchWorkersAndRuns();
+      }
+    }, 5000);
+
     return () => {
       isMounted = false;
       clearTimeout(timer);
+      clearInterval(poller);
     };
   }, [fetchWorkersAndRuns]);
 
@@ -357,11 +364,36 @@ export default function RunnersPage() {
       // Ignored if table not in replication publication
     }
 
+    // Channel 3: Listen to organization heartbeat / runner metadata updates
+    let orgChannel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      orgChannel = supabase
+        .channel(`wf_organizations_telemetry_${orgId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'wf_organizations',
+            filter: `id=eq.${orgId}`,
+          },
+          () => {
+            void fetchWorkersAndRuns();
+          }
+        )
+        .subscribe();
+    } catch {
+      // Non-fatal if publication does not support
+    }
+
     return () => {
       setRealtimeConnected(false);
       void supabase.removeChannel(runsChannel);
       if (tokenChannel) {
         void supabase.removeChannel(tokenChannel);
+      }
+      if (orgChannel) {
+        void supabase.removeChannel(orgChannel);
       }
     };
   }, [orgId, fetchWorkersAndRuns]);
