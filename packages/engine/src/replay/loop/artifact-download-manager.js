@@ -14,13 +14,14 @@ const logger = require('../../utils/logger');
 
 class ArtifactDownloadManager {
   constructor(options = {}) {
-    this.runId = options.runId || `run_${Date.now()}`;
-    this.workflowId = options.workflowId || null;
-    this.workflowName = options.workflowName || 'workflow';
-    this.userId = options.userId || null;
-    this.forceRedownload = options.forceRedownload === true;
+    const opts = options || {};
+    this.runId = opts.runId || `run_${Date.now()}`;
+    this.workflowId = opts.workflowId || null;
+    this.workflowName = opts.workflowName || 'workflow';
+    this.userId = opts.userId || null;
+    this.forceRedownload = opts.forceRedownload === true;
 
-    this.runsDir = options.runsDir || path.resolve(process.cwd(), 'recordings', 'runs', this.runId);
+    this.runsDir = opts.runsDir || path.resolve(process.cwd(), 'recordings', 'runs', this.runId);
     this.downloadsDir = path.join(this.runsDir, 'downloads');
 
     // Structured downloads hierarchy: downloads/<workflow-slug>/<YYYY-MM-DD>/
@@ -31,8 +32,8 @@ class ArtifactDownloadManager {
     this.structuredDownloadsDir = path.resolve(this.workflowDownloadsBaseDir, this.dateStr);
 
     // Primary Run/ hierarchy: Run/<YYYY-MM-DD_HH-mm-ss>/<portalDomain>/<Category>/
-    const targetUrl = options.targetUrl || options.portalUrl || '';
-    let extractedDomain = options.portalDomain || '';
+    const targetUrl = opts.targetUrl || opts.portalUrl || '';
+    let extractedDomain = opts.portalDomain || '';
     if (!extractedDomain && targetUrl) {
       try {
         const u = new URL(targetUrl.startsWith('http') ? targetUrl : `https://${targetUrl}`);
@@ -49,8 +50,8 @@ class ArtifactDownloadManager {
       workflowId: this.workflowId,
       portalDomain: this.portalDomain,
       portalUrl: targetUrl,
-      runTimestamp: options.runTimestamp,
-      startedAt: options.startedAt
+      runTimestamp: opts.runTimestamp,
+      startedAt: opts.startedAt
     });
 
     this.runTimestamp = this.downloadManager.runTimestamp;

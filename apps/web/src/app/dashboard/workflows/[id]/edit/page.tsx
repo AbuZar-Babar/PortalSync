@@ -9,7 +9,7 @@ export default async function WorkflowEditPage({ params }: PageProps) {
   const { id } = await params;
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[#060913]">
+    <div className="h-full w-full overflow-hidden bg-[#060913]">
       <WorkflowEditorClient workflowId={id} />
     </div>
   );

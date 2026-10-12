@@ -70,14 +70,15 @@ export function Header({
 
   return (
     <header className="h-14 bg-[var(--header-bg,#0a0e1a)]/95 backdrop-blur-md border-b border-[var(--border-color,rgba(255,255,255,0.05))] px-6 flex items-center justify-between sticky top-0 z-20 select-none">
-      {/* Left: Breadcrumbs */}
+      {/* Left: Personalized Greeting */}
       <div className="flex items-center gap-2 text-xs">
-        <span className="text-slate-400 font-semibold tracking-wide flex items-center gap-1.5">
-          <span className="text-cyan-400">●</span> Workflow Agent
-        </span>
-        <span className="text-slate-600 font-medium">/</span>
+        <span className="text-cyan-400 font-bold">●</span>
+        <span className="text-slate-300 font-medium">Welcome,</span>
         <span className="text-white font-bold tracking-tight">
-          {getSectionTitle()}
+          {userEmail ? (() => {
+            const raw = userEmail.split('@')[0].split(/[._-]/)[0];
+            return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : 'there';
+          })() : 'there'}
         </span>
       </div>
 

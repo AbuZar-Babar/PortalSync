@@ -1086,3 +1086,20 @@ body {
 .animate-radar {
   animation: radarSweep 4s linear infinite;
 }
+
+/* 10. Horizontal Running Marquee Ticker */
+@keyframes runningTicker {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+.animate-running-ticker {
+  animation: runningTicker 30s linear infinite;
+  will-change: transform;
+}
+.animate-running-ticker:hover {
+  animation-play-state: paused;
+}

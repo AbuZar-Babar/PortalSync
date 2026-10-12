@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Play, 
   X, 
@@ -9,9 +9,14 @@ import {
   AlertCircle, 
   CheckCircle, 
   Cpu, 
-  Settings2,
-  Globe,
-  Loader2
+  Settings2, 
+  Globe, 
+  Loader2,
+  ListFilter,
+  Plus,
+  Trash2,
+  RefreshCw,
+  Clock
 } from 'lucide-react';
 import { Workflow } from '@/lib/types/database';
 import { DrawerRunItem } from './RunDetailsDrawer';
@@ -24,6 +29,16 @@ interface ExecutionPreflightModalProps {
   onRunDispatched?: (run: DrawerRunItem) => void;
 }
 
+interface FilterConditionRow {
+  id: string;
+  field: string;
+  customField: string;
+  operator: 'contains' | 'equals' | 'dateBetween';
+  value: string;
+  dateFrom: string;
+  dateTo: string;
+}
+
 function formatDomain(url?: string): string {
   if (!url) return '';
   try {
@@ -32,6 +47,249 @@ function formatDomain(url?: string): string {
   } catch {
     return url;
   }
+}
+
+function getWorkflowSteps(workflow: Workflow | null): any[] {
+  if (!workflow) return [];
+  const wd = (workflow.workflow_definition || {}) as Record<string, unknown>;
+  if (Array.isArray(wd.steps) && wd.steps.length > 0) return wd.steps;
+  if (Array.isArray(wd.actions) && wd.actions.length > 0) return wd.actions;
+  const wf = workflow as any;
+  if (Array.isArray(wf.steps) && wf.steps.length > 0) return wf.steps;
+  if (Array.isArray(wf.actions) && wf.actions.length > 0) return wf.actions;
+  return [];
+}
+
+function detectLoopCandidate(steps: Array<any>, savedIndex?: unknown): number {
+  if (!Array.isArray(steps) || steps.length === 0) return 0;
+  if (typeof savedIndex === 'number' && Number.isInteger(savedIndex) && savedIndex >= 0 && savedIndex < steps.length) {
+    return savedIndex;
+  }
+
+  // 1. Explicit role === 'LOOP' or step marked with loop
+  const roleIdx = steps.findIndex(
+    (s: any) => s && (s.role === 'LOOP' || s.isLoopCandidate === true || s.isLoop === true || s.loopMode === 'sequential_iteration')
+  );
+  if (roleIdx >= 0) return roleIdx;
+
+  // 2. Step targeting table rows or data items
+  const rowIdx = steps.findIndex((s: any) => {
+    if (!s) return false;
+    const tag = (s.target?.fingerprint?.tagName || s.fingerprint?.tagName || '').toUpperCase();
+    const role = (s.target?.fingerprint?.role || '').toLowerCase();
+    const text = (s.name || s.elementName || s.description || s.target?.elementName || s.target?.friendlyName || '').toLowerCase();
+    const candidates = Array.isArray(s.target?.candidates) ? s.target.candidates : [];
+    const selectors = candidates.map((c: any) => c.value || '').join(' ').toLowerCase();
+
+    return (
+      tag === 'TR' ||
+      tag === 'TD' ||
+      role === 'row' ||
+      role === 'gridcell' ||
+      selectors.includes('tr') ||
+      selectors.includes('tbody') ||
+      selectors.includes('data-row') ||
+      selectors.includes('.row') ||
+      text.includes('table row') ||
+      text.includes('row item') ||
+      text.includes('invoice row')
+    );
+  });
+  if (rowIdx >= 0) return rowIdx;
+
+  // 3. Fallback to step #2 (index 1 if length > 1, else index 0)
+  if (steps.length > 1) return 1;
+  return 0;
+}
+
+function extractWorkflowColumns(workflow: Workflow | null): string[] {
+  if (!workflow) return ['Type', 'Status', 'Invoice Number', 'Due Date', 'Amount'];
+  const fields = new Set<string>();
+
+  const addCleanCol = (raw: unknown) => {
+    if (typeof raw !== 'string') return;
+    let str = raw.trim();
+    if (!str || str.length > 50 || str.startsWith('{') || str.startsWith('<')) return;
+    if (EXPANDER_GLYPH_REGEX.test(str)) return;
+    str = str.replace(/^(click|select|enter|type|open|download|view|press)\s+/i, '').trim();
+    if (!str || str.length > 50) return;
+    fields.add(str);
+  };
+
+  // 1. From workflow filter_rules
+  const fr = (workflow.filter_rules || {}) as Record<string, unknown>;
+  if (Array.isArray(fr.available_fields)) fr.available_fields.forEach(addCleanCol);
+  if (Array.isArray(fr.columns)) fr.columns.forEach(addCleanCol);
+
+  // 2. From workflow_definition
+  const wd = (workflow.workflow_definition || {}) as Record<string, unknown>;
+  if (Array.isArray(wd.available_fields)) wd.available_fields.forEach(addCleanCol);
+  if (Array.isArray(wd.columns)) wd.columns.forEach(addCleanCol);
+
+  // 3. From steps or actions
+  const steps = getWorkflowSteps(workflow);
+  steps.forEach((step: any) => {
+    if (!step) return;
+    addCleanCol(step.extract_column);
+    addCleanCol(step.column);
+    addCleanCol(step.field);
+    addCleanCol(step.columnName);
+    addCleanCol(step.headerName);
+
+    // Target elements and friendly names
+    const target = step.target || {};
+    addCleanCol(target.elementName);
+    addCleanCol(target.friendlyName);
+    addCleanCol(step.elementName);
+
+    const fp = target.fingerprint || step.fingerprint;
+    if (fp) {
+      addCleanCol(fp.columnName);
+      addCleanCol(fp.headerName);
+      if (fp.attributes && typeof fp.attributes === 'object') {
+        addCleanCol(fp.attributes['data-column']);
+        addCleanCol(fp.attributes['data-field']);
+        addCleanCol(fp.attributes['name']);
+        addCleanCol(fp.attributes['id']);
+        addCleanCol(fp.attributes['aria-label']);
+        addCleanCol(fp.attributes['placeholder']);
+      }
+    }
+  });
+
+  // 4. Common table fields
+  const commonFields = ['Type', 'Status', 'Invoice Number', 'Due Date', 'Amount'];
+  commonFields.forEach(addCleanCol);
+
+  return Array.from(fields);
+}
+
+const EXPANDER_GLYPH_REGEX = /^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/i;
+
+function cleanStringValue(val: unknown): string {
+  if (val === null || val === undefined) return '';
+  let str = String(val).trim();
+  if (EXPANDER_GLYPH_REGEX.test(str)) return '';
+  str = str.replace(/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+/, '').trim();
+  return str;
+}
+
+function isDateField(fieldName: string): boolean {
+  if (!fieldName) return false;
+  return /date|due|created|posted|time|expire|billing/i.test(fieldName.trim());
+}
+
+function getTodayIsoDate(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+function extractFieldValuesMap(workflow: Workflow | null): Record<string, string[]> {
+  const result: Record<string, Set<string>> = {};
+
+  const addValue = (field: string, val: unknown) => {
+    const cleaned = cleanStringValue(val);
+    if (!cleaned) return;
+    const fKey = field.trim();
+    if (!result[fKey]) {
+      result[fKey] = new Set<string>();
+    }
+    result[fKey].add(cleaned);
+  };
+
+  // 1. From workflow filter_rules
+  if (workflow?.filter_rules && typeof workflow.filter_rules === 'object') {
+    const fr = workflow.filter_rules as any;
+    if (fr.fieldValues && typeof fr.fieldValues === 'object') {
+      Object.entries(fr.fieldValues).forEach(([k, vals]) => {
+        if (Array.isArray(vals)) {
+          vals.forEach((v) => addValue(k, v));
+        }
+      });
+    }
+    const savedFilter = fr.itemFilter || fr;
+    if (Array.isArray(savedFilter.conditions)) {
+      savedFilter.conditions.forEach((c: any) => {
+        if (c.field && c.value && typeof c.value === 'string') {
+          addValue(c.field, c.value);
+        }
+      });
+    }
+  }
+
+  // 2. From workflow_definition and steps
+  if (workflow?.workflow_definition && typeof workflow.workflow_definition === 'object') {
+    const wd = workflow.workflow_definition as any;
+    if (wd.fieldValues && typeof wd.fieldValues === 'object') {
+      Object.entries(wd.fieldValues).forEach(([k, vals]) => {
+        if (Array.isArray(vals)) {
+          vals.forEach((v) => addValue(k, v));
+        }
+      });
+    }
+  }
+
+  const steps = getWorkflowSteps(workflow);
+  steps.forEach((step: any) => {
+    if (!step) return;
+    const targetField = step.extract_column || step.column || step.field ||
+      step.target?.fingerprint?.columnName || step.fingerprint?.columnName ||
+      step.target?.fingerprint?.headerName || step.fingerprint?.headerName ||
+      step.target?.friendlyName || step.target?.elementName || step.elementName;
+
+    if (Array.isArray(step.options)) {
+      step.options.forEach((opt: any) => {
+        const text = typeof opt === 'string' ? opt : (opt.text || opt.label || opt.value);
+        if (targetField) addValue(targetField, text);
+        addValue('Type', text);
+      });
+    }
+    if (Array.isArray(step.selectOptions)) {
+      step.selectOptions.forEach((opt: any) => {
+        const text = typeof opt === 'string' ? opt : (opt.text || opt.label || opt.value);
+        if (targetField) addValue(targetField, text);
+        addValue('Type', text);
+      });
+    }
+
+    if (step.value && typeof step.value === 'string' && !step.value.startsWith('{{')) {
+      if (targetField) addValue(targetField, step.value);
+      if (/SI-|INV-|DR-|TX-|CM-|\b\d{4,10}\b/i.test(step.value)) {
+        addValue('Invoice Number', step.value);
+      }
+    }
+
+    const fpText = step.target?.fingerprint?.text || step.fingerprint?.text;
+    if (fpText && typeof fpText === 'string' && fpText.length < 50) {
+      if (targetField) addValue(targetField, fpText);
+      if (/SI-|INV-|DR-|TX-|CM-|\b\d{4,10}\b/i.test(fpText)) {
+        addValue('Invoice Number', fpText);
+      }
+    }
+  });
+
+  // 3. Domain defaults for common columns
+  const defaults: Record<string, string[]> = {
+    Type: ['Invoice', 'Bill', 'Statement', 'Credit Note', 'Receipt', 'Payment', 'Order'],
+    Status: ['Open', 'Pending', 'Paid', 'Overdue', 'Unpaid', 'Draft', 'Closed', 'Processing', 'Active'],
+    Priority: ['High', 'Normal', 'Low', 'Urgent'],
+  };
+
+  Object.entries(defaults).forEach(([col, defVals]) => {
+    defVals.forEach((val) => addValue(col, val));
+  });
+
+  const finalMap: Record<string, string[]> = {};
+  Object.entries(result).forEach(([k, valSet]) => {
+    finalMap[k] = Array.from(valSet).slice(0, 30);
+  });
+  return finalMap;
+}
+
+function formatStepLabel(step: any, idx: number): string {
+  if (!step) return `Step #${idx + 1}`;
+  const label = step.name || step.elementName || step.target?.friendlyName || step.target?.elementName || step.description || step.type || 'Action';
+  const role = step.role === 'LOOP' ? ' [LOOP]' : '';
+  return `Step #${idx + 1}: ${label}${role}`;
 }
 
 export function ExecutionPreflightModal({
@@ -48,18 +306,413 @@ export function ExecutionPreflightModal({
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Repeating step selector state
+  const [loopStepIndex, setLoopStepIndex] = useState<number>(0);
+  const [autoDetectedIndex, setAutoDetectedIndex] = useState<number>(0);
+
+  // Filter rules state
+  const [filterEnabled, setFilterEnabled] = useState<boolean>(false);
+  const [matchMode, setMatchMode] = useState<'all' | 'any'>('all');
+  const [availableColumns, setAvailableColumns] = useState<string[]>([]);
+  const [fieldValuesMap, setFieldValuesMap] = useState<Record<string, string[]>>({});
+  const [activeField, setActiveField] = useState<string>('Type');
+  const [scanningColumns, setScanningColumns] = useState<boolean>(false);
+  const [scanMessage, setScanMessage] = useState<string | null>(null);
+  const [conditions, setConditions] = useState<FilterConditionRow[]>([
+    {
+      id: 'c_initial',
+      field: 'Type',
+      customField: '',
+      operator: 'contains',
+      value: '',
+      dateFrom: '',
+      dateTo: '',
+    }
+  ]);
+
+  useEffect(() => {
+    if (workflow) {
+      const steps = getWorkflowSteps(workflow);
+      const isConfiguredAsLoop = Boolean(
+        workflow.workflow_definition?.isLoop === true ||
+        (workflow.workflow_definition as any)?.mode === 'loop' ||
+        (workflow as any).isLoop === true ||
+        (workflow as any).mode === 'loop' ||
+        steps.some((s: any) => s && (s.role === 'LOOP' || s.isLoopCandidate || s.isLoop || s.loopMode === 'sequential_iteration'))
+      );
+      if (isConfiguredAsLoop) {
+        setExecMode('loop');
+      }
+
+      const savedLoopIdx = workflow.workflow_definition?.loopStepIndex ??
+        (workflow.workflow_definition as any)?.settings?.loopStepIndex ??
+        (workflow as any).loopStepIndex;
+      const bestCandidate = detectLoopCandidate(steps, savedLoopIdx);
+      setAutoDetectedIndex(bestCandidate);
+      setLoopStepIndex(bestCandidate);
+
+      const cols = extractWorkflowColumns(workflow);
+      setAvailableColumns(cols);
+
+      const valMap = extractFieldValuesMap(workflow);
+      setFieldValuesMap(valMap);
+
+      // Check if workflow has saved filter rules
+      const savedFilter = (workflow.filter_rules?.itemFilter || workflow.filter_rules) as any;
+      if (savedFilter && Array.isArray(savedFilter.conditions) && savedFilter.conditions.length > 0) {
+        setFilterEnabled(true);
+        setMatchMode(savedFilter.matchMode === 'any' ? 'any' : 'all');
+        const restored = savedFilter.conditions.map((c: any, i: number) => {
+          const isDate = c.operator === 'dateBetween';
+          const isKnown = cols.includes(c.field);
+          return {
+            id: `c_saved_${i}`,
+            field: isKnown ? c.field : '__custom__',
+            customField: isKnown ? '' : (c.field || ''),
+            operator: (c.operator === 'dateBetween' ? 'dateBetween' : (c.operator === 'equals' ? 'equals' : 'contains')) as 'contains' | 'equals' | 'dateBetween',
+            value: isDate ? '' : (typeof c.value === 'string' ? c.value : ''),
+            dateFrom: isDate && typeof c.value === 'object' && c.value ? (c.value.from || '') : '',
+            dateTo: isDate && typeof c.value === 'object' && c.value ? (c.value.to || '') : '',
+          };
+        });
+        setConditions(restored);
+        if (restored[0]) {
+          setActiveField(restored[0].field === '__custom__' ? restored[0].customField : restored[0].field);
+        }
+      } else {
+        const firstCol = cols[0] || 'Type';
+        setActiveField(firstCol);
+        setConditions([
+          {
+            id: 'c_initial',
+            field: firstCol,
+            customField: '',
+            operator: 'contains',
+            value: '',
+            dateFrom: '',
+            dateTo: '',
+          }
+        ]);
+        setFilterEnabled(false);
+      }
+
+      if (isOpen) {
+        void handleRefreshFields(workflow);
+      }
+    }
+  }, [workflow, isOpen]);
+
   if (!isOpen || !workflow) return null;
 
   const domain = formatDomain(workflow.portal_url);
-  const stepCount = Array.isArray(workflow.workflow_definition?.steps) 
-    ? workflow.workflow_definition.steps.length 
-    : 0;
+  const steps = getWorkflowSteps(workflow);
+  const stepCount = steps.length;
+
+  const handleAddCondition = () => {
+    const defaultField = availableColumns[0] || 'Type';
+    setConditions((prev) => [
+      ...prev,
+      {
+        id: `c_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        field: defaultField,
+        customField: '',
+        operator: 'contains',
+        value: '',
+        dateFrom: '',
+        dateTo: '',
+      }
+    ]);
+  };
+
+  const handleRemoveCondition = (index: number) => {
+    setConditions((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleUpdateCondition = (index: number, updates: Partial<FilterConditionRow>) => {
+    setConditions((prev) => prev.map((c, idx) => (idx === index ? { ...c, ...updates } : c)));
+  };
+
+  const getValuesForField = (fieldName: string): string[] => {
+    if (!fieldName) return [];
+    const norm = fieldName.trim().toLowerCase();
+    for (const [k, vals] of Object.entries(fieldValuesMap)) {
+      if (k.trim().toLowerCase() === norm) {
+        return vals;
+      }
+    }
+    return [];
+  };
+
+  const handleSelectColumnPill = (col: string) => {
+    setActiveField(col);
+    if (conditions.length > 0) {
+      if (col === '__custom__') {
+        handleUpdateCondition(0, { field: '__custom__' });
+      } else {
+        handleUpdateCondition(0, { field: col, customField: '' });
+      }
+    }
+  };
+
+  const handleSelectValuePill = (val: string) => {
+    if (val === '__all__') {
+      if (conditions.length > 0) {
+        handleUpdateCondition(0, { value: '' });
+      }
+      return;
+    }
+    if (conditions.length > 0) {
+      handleUpdateCondition(0, { value: val });
+    }
+  };
+
+  const applyDatePreset = (preset: 'overdue' | 'upcoming' | 'today' | 'in_folder' | 'not_in_folder') => {
+    if (preset === 'in_folder') {
+      setItemMode('old');
+      return;
+    }
+    if (preset === 'not_in_folder') {
+      setItemMode('new');
+      return;
+    }
+
+    const todayIso = getTodayIsoDate();
+    if (preset === 'overdue') {
+      handleUpdateCondition(0, {
+        operator: 'dateBetween',
+        dateFrom: '',
+        dateTo: todayIso,
+      });
+    } else if (preset === 'upcoming') {
+      handleUpdateCondition(0, {
+        operator: 'dateBetween',
+        dateFrom: todayIso,
+        dateTo: '2099-12-31',
+      });
+    } else if (preset === 'today') {
+      handleUpdateCondition(0, {
+        operator: 'dateBetween',
+        dateFrom: todayIso,
+        dateTo: todayIso,
+      });
+    }
+  };
+
+  const handleRefreshFields = async (targetWorkflow?: Workflow | null) => {
+    const wf = targetWorkflow || workflow;
+    setScanningColumns(true);
+    setScanMessage(null);
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+      // 1. Try dedicated live discovery endpoint on local desktop worker bridge
+      let res = await fetch('http://127.0.0.1:49152/discover', {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          workflow: wf,
+          loopStepIndex,
+          url: wf?.portal_url
+        })
+      }).catch(() => null);
+
+      if (!res || !res.ok) {
+        res = await fetch('http://127.0.0.1:49152/api/discover', {
+          method: 'POST',
+          signal: controller.signal,
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ workflow: wf, loopStepIndex, url: wf?.portal_url })
+        }).catch(() => null);
+      }
+
+      if (!res || !res.ok) {
+        res = await fetch('http://127.0.0.1:49152/record/status', {
+          signal: controller.signal,
+          headers: { Accept: 'application/json' },
+        }).catch(() => null);
+      }
+
+      if (!res || !res.ok) {
+        if (wf?.id) {
+          res = await fetch(`/api/v1/workflows/${wf.id}/discover`, {
+            method: 'POST',
+            signal: controller.signal,
+            headers: { 'Content-Type': 'application/json' },
+          }).catch(() => null);
+        }
+      }
+      clearTimeout(timeoutId);
+
+      if (res && res.ok) {
+        const data = await res.json().catch(() => null);
+        const discovered = new Set<string>();
+        const nextValMap: Record<string, string[]> = {};
+        const appendVal = (col: string, val: unknown) => {
+          const clean = cleanStringValue(val);
+          if (!clean) return;
+          const k = col.trim();
+          if (!nextValMap[k]) nextValMap[k] = [];
+          if (!nextValMap[k].includes(clean)) {
+            nextValMap[k] = [...nextValMap[k], clean].slice(0, 30);
+          }
+        };
+
+        if (data) {
+          if (Array.isArray(data.availableFields)) {
+            data.availableFields.forEach((f: any) => { if (typeof f === 'string' && f.trim()) discovered.add(f.trim()); });
+          }
+          if (Array.isArray(data.columns)) {
+            data.columns.forEach((c: any) => { if (typeof c === 'string' && c.trim()) discovered.add(c.trim()); });
+          }
+          if (data.fieldValues && typeof data.fieldValues === 'object') {
+            Object.entries(data.fieldValues).forEach(([k, vals]) => {
+              if (Array.isArray(vals)) {
+                vals.forEach((v) => appendVal(k, v));
+              }
+            });
+          }
+          if (Array.isArray(data.items)) {
+            data.items.forEach((item: any) => {
+              if (item && typeof item === 'object') {
+                const itemFields = item.fields || item;
+                Object.entries(itemFields).forEach(([k, v]) => {
+                  if (typeof k === 'string' && !k.startsWith('_')) {
+                    discovered.add(k.trim());
+                    appendVal(k.trim(), v);
+                  }
+                });
+              }
+            });
+          }
+          if (Array.isArray(data.actions)) {
+            data.actions.forEach((a: any) => {
+              if (a.extract_column) discovered.add(String(a.extract_column).trim());
+              if (a.column) discovered.add(String(a.column).trim());
+              const fp = a.target?.fingerprint || a.fingerprint;
+              if (fp?.columnName) discovered.add(String(fp.columnName).trim());
+              if (fp?.headerName) discovered.add(String(fp.headerName).trim());
+            });
+          }
+        }
+
+        setAvailableColumns((prev) => {
+          const merged = new Set([...prev, ...discovered]);
+          return Array.from(merged);
+        });
+
+        setFieldValuesMap((prev) => {
+          const merged: Record<string, string[]> = { ...prev };
+          Object.entries(nextValMap).forEach(([col, vals]) => {
+            if (!merged[col]) {
+              merged[col] = vals;
+            } else {
+              const s = new Set([...merged[col], ...vals]);
+              merged[col] = Array.from(s).slice(0, 30);
+            }
+          });
+          return merged;
+        });
+
+        const liveCount = data?.itemCount ? ` (${data.itemCount} items on page)` : '';
+        setScanMessage(`Discovered ${discovered.size} column(s) from live page${liveCount}`);
+      } else {
+        setScanMessage('Worker bridge idle; using recorded workflow columns');
+      }
+    } catch {
+      setScanMessage('Worker bridge unavailable; using recorded workflow columns');
+    } finally {
+      setScanningColumns(false);
+      setTimeout(() => setScanMessage(null), 3500);
+    }
+  };
 
   const handleLaunch = async () => {
     setSubmitting(true);
     setError(null);
     try {
       const itemsLimit = maxItems.trim() ? parseInt(maxItems, 10) : 0;
+
+      let constructedFilter: Record<string, unknown> | null = null;
+      if (execMode === 'loop' && filterEnabled) {
+        if (!conditions || conditions.length === 0) {
+          setError('Please add at least one filter condition, or select "Process all items".');
+          setSubmitting(false);
+          return;
+        }
+
+        const validConditions: Array<{ field: string; operator: string; value: any }> = [];
+
+        for (let i = 0; i < conditions.length; i++) {
+          const c = conditions[i];
+          const isCustom = c.field === '__custom__';
+          const fieldName = (isCustom ? c.customField : c.field).trim();
+
+          if (!fieldName) {
+            setError(`Please enter a column header name for condition #${i + 1}.`);
+            setSubmitting(false);
+            return;
+          }
+
+          if (c.operator === 'dateBetween') {
+            let from = (c.dateFrom || '').trim();
+            let to = (c.dateTo || '').trim();
+
+            if (!from && !to) {
+              setError(`Please select a valid date range for "${fieldName}".`);
+              setSubmitting(false);
+              return;
+            }
+
+            if (!from) from = to;
+            if (!to) to = from;
+
+            if (from > to) {
+              const temp = from;
+              from = to;
+              to = temp;
+            }
+
+            validConditions.push({
+              field: fieldName,
+              operator: 'dateBetween',
+              value: { from, to },
+            });
+          } else {
+            const val = (c.value || '').trim();
+            if (!val) {
+              setError(`Please enter a filter value for "${fieldName}".`);
+              setSubmitting(false);
+              return;
+            }
+
+            validConditions.push({
+              field: fieldName,
+              operator: c.operator,
+              value: val,
+            });
+          }
+        }
+
+        if (validConditions.length === 0) {
+          setError('Please configure at least one active filter condition, or select "Process all items".');
+          setSubmitting(false);
+          return;
+        }
+
+        constructedFilter = {
+          matchMode,
+          conditions: validConditions,
+        };
+
+        if (validConditions.length === 1) {
+          constructedFilter.field = validConditions[0].field;
+          constructedFilter.operator = validConditions[0].operator;
+          constructedFilter.value = validConditions[0].value;
+        }
+      }
+
       const res = await fetch('/api/v1/runs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -70,7 +723,11 @@ export function ExecutionPreflightModal({
           total_items_discovered: itemsLimit || 0,
           mode: execMode,
           item_mode: itemMode,
-          paginate: paginate
+          paginate: paginate,
+          isLoop: execMode === 'loop',
+          loopStepIndex: execMode === 'loop' ? loopStepIndex : null,
+          loopLimit: execMode === 'loop' && itemsLimit > 0 ? itemsLimit : null,
+          itemFilter: constructedFilter,
         })
       });
 
@@ -101,7 +758,7 @@ export function ExecutionPreflightModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="relative w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/50">
           <div className="flex items-center gap-3">
@@ -196,62 +853,510 @@ export function ExecutionPreflightModal({
 
           {/* Loop Configuration (if loop selected) */}
           {execMode === 'loop' && (
-            <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/40 space-y-4 animate-in fade-in duration-150">
-              <div className="flex items-center gap-2 text-xs font-semibold text-cyan-400">
-                <Settings2 className="h-3.5 w-3.5" />
-                <span>Batch Iteration Limits</span>
-              </div>
-
-              <div>
-                <label className="block text-xs text-slate-300 mb-1 font-medium">Download & Sync Strategy</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: 'new', label: 'Skip Existing', desc: 'New files only' },
-                    { id: 'all', label: 'All Items', desc: 'Process all rows' },
-                    { id: 'old', label: 'Re-download', desc: 'Overwrite files' }
-                  ].map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => setItemMode(opt.id as 'new'|'all'|'old')}
-                      className={`p-2.5 rounded-lg border text-center transition cursor-pointer ${
-                        itemMode === opt.id
-                          ? 'border-cyan-500/50 bg-cyan-500/20 text-white ring-1 ring-cyan-500/30'
-                          : 'border-slate-800 bg-slate-900 text-slate-400 hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="text-xs font-semibold">{opt.label}</div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">{opt.desc}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                <div>
-                  <label htmlFor="inputMaxItems" className="block text-xs text-slate-300 mb-1 font-medium">Max Items Limit</label>
-                  <input
-                    id="inputMaxItems"
-                    type="number"
-                    min="1"
-                    placeholder="All items (no limit)"
-                    value={maxItems}
-                    onChange={(e) => setMaxItems(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition"
-                  />
-                </div>
-                <div className="flex items-center gap-2 pt-6">
-                  <input
-                    type="checkbox"
-                    id="chkPaginate"
-                    checked={paginate}
-                    onChange={(e) => setPaginate(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-800 bg-slate-900 text-cyan-500 focus:ring-cyan-500/20 cursor-pointer"
-                  />
-                  <label htmlFor="chkPaginate" className="text-xs text-slate-300 select-none cursor-pointer">
-                    Multi-page pagination
+            <div className="space-y-4 animate-in fade-in duration-150">
+              {/* Repeating Step Selector */}
+              <div className="space-y-1.5 p-3.5 rounded-xl border border-slate-800 bg-slate-950/40">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="selectLoopStep" className="block text-xs font-semibold text-slate-300">
+                    Repeating Step (Loop Target)
                   </label>
+                  <span className="text-[11px] text-cyan-400 font-mono">
+                    Step #{loopStepIndex + 1}
+                  </span>
                 </div>
+                {steps.length > 0 ? (
+                  <select
+                    id="selectLoopStep"
+                    value={loopStepIndex}
+                    onChange={(e) => setLoopStepIndex(parseInt(e.target.value, 10))}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 transition cursor-pointer"
+                  >
+                    {steps.map((step: any, idx: number) => (
+                      <option key={idx} value={idx}>
+                        {formatStepLabel(step, idx)} {idx === autoDetectedIndex ? '(Auto-detected Loop Target)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-xs text-slate-500 italic">No recorded steps found in this workflow.</p>
+                )}
+                <p className="text-[11px] text-slate-400">
+                  Select the repeating action that iterates over items or table rows.
+                </p>
+              </div>
+
+              {/* Batch Iteration Limits */}
+              <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/40 space-y-4">
+                <div className="flex items-center gap-2 text-xs font-semibold text-cyan-400">
+                  <Settings2 className="h-3.5 w-3.5" />
+                  <span>Batch Iteration Limits</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-slate-300 mb-1 font-medium">Download & Sync Strategy</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'new', label: 'Skip Existing', desc: 'New files only' },
+                      { id: 'all', label: 'All Items', desc: 'Process all rows' },
+                      { id: 'old', label: 'Re-download', desc: 'Overwrite files' }
+                    ].map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setItemMode(opt.id as 'new'|'all'|'old')}
+                        className={`p-2.5 rounded-lg border text-center transition cursor-pointer ${
+                          itemMode === opt.id
+                            ? 'border-cyan-500/50 bg-cyan-500/20 text-white ring-1 ring-cyan-500/30'
+                            : 'border-slate-800 bg-slate-900 text-slate-400 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="text-xs font-semibold">{opt.label}</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">{opt.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label htmlFor="inputMaxItems" className="block text-xs text-slate-300 mb-1 font-medium">Max Items Limit</label>
+                    <input
+                      id="inputMaxItems"
+                      type="number"
+                      min="1"
+                      placeholder="All items (no limit)"
+                      value={maxItems}
+                      onChange={(e) => setMaxItems(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pt-6">
+                    <input
+                      type="checkbox"
+                      id="chkPaginate"
+                      checked={paginate}
+                      onChange={(e) => setPaginate(e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-800 bg-slate-900 text-cyan-500 focus:ring-cyan-500/20 cursor-pointer"
+                    />
+                    <label htmlFor="chkPaginate" className="text-xs text-slate-300 select-none cursor-pointer">
+                      Multi-page pagination
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter Rules Section */}
+              <div className="space-y-3 p-4 rounded-xl border border-slate-800 bg-slate-950/40">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ListFilter className="h-4 w-4 text-cyan-400" />
+                    <span className="text-xs font-semibold text-white">Item Filter Rules</span>
+                  </div>
+                  <span className="text-[11px] text-slate-400">Row criteria filter</span>
+                </div>
+
+                {/* Filter Mode Toggle */}
+                <div className="grid grid-cols-2 gap-2 p-1 rounded-lg bg-slate-900 border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setFilterEnabled(false)}
+                    className={`py-1.5 px-3 rounded-md text-xs font-semibold transition cursor-pointer ${
+                      !filterEnabled
+                        ? 'bg-slate-800 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-slate-300'
+                    }`}
+                  >
+                    Process all items (No filter)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterEnabled(true)}
+                    className={`py-1.5 px-3 rounded-md text-xs font-semibold transition cursor-pointer ${
+                      filterEnabled
+                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-300'
+                    }`}
+                  >
+                    Filter items by condition
+                  </button>
+                </div>
+
+                {/* Filter Conditions Editor (When Enabled) */}
+                {filterEnabled && (
+                  <div className="space-y-3 pt-1 animate-in fade-in duration-150">
+                    {/* Controls Bar: Match Mode + Refresh Fields */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-medium text-slate-300">Match Mode:</span>
+                        <div className="inline-flex rounded-lg border border-slate-800 bg-slate-900 p-0.5">
+                          <button
+                            type="button"
+                            onClick={() => setMatchMode('all')}
+                            className={`px-2 py-0.5 rounded text-[10px] font-semibold transition cursor-pointer ${
+                              matchMode === 'all'
+                                ? 'bg-cyan-500 text-slate-950 font-bold'
+                                : 'text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            ALL rules (AND)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setMatchMode('any')}
+                            className={`px-2 py-0.5 rounded text-[10px] font-semibold transition cursor-pointer ${
+                              matchMode === 'any'
+                                ? 'bg-cyan-500 text-slate-950 font-bold'
+                                : 'text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            ANY rule (OR)
+                          </button>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => void handleRefreshFields()}
+                        disabled={scanningColumns}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-800 bg-slate-900 text-[11px] text-slate-300 hover:text-white hover:border-slate-700 transition cursor-pointer disabled:opacity-50"
+                        title="Scan columns from local worker bridge"
+                      >
+                        <RefreshCw className={`h-3 w-3 text-cyan-400 ${scanningColumns ? 'animate-spin' : ''}`} />
+                        <span>{scanningColumns ? 'Scanning...' : 'Re-scan Columns'}</span>
+                      </button>
+                    </div>
+
+                    {scanMessage && (
+                      <p className="text-[11px] text-cyan-400/90 italic bg-cyan-500/10 px-2.5 py-1 rounded border border-cyan-500/20">
+                        {scanMessage}
+                      </p>
+                    )}
+
+                    {/* Section 2a: Quick Column / Field Pills */}
+                    <div className="space-y-1.5 pt-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-slate-300 flex items-center gap-1.5">
+                          <Layers className="h-3 w-3 text-cyan-400" />
+                          Quick Pick: Discovered Columns
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          {availableColumns.length} detected
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {availableColumns.map((col) => {
+                          const isColActive = (conditions[0]?.field || activeField) === col;
+                          return (
+                            <button
+                              key={col}
+                              type="button"
+                              onClick={() => handleSelectColumnPill(col)}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition cursor-pointer ${
+                                isColActive
+                                  ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 font-bold'
+                                  : 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white hover:border-slate-700'
+                              }`}
+                            >
+                              {col}
+                            </button>
+                          );
+                        })}
+                        <button
+                          type="button"
+                          onClick={() => handleSelectColumnPill('__custom__')}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition cursor-pointer ${
+                            (conditions[0]?.field || activeField) === '__custom__'
+                              ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 font-bold'
+                              : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                          }`}
+                        >
+                          Custom...
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Section 2b: Smart Date & Lifecycle Logic (When Date field detected) */}
+                    {(() => {
+                      const activeColName = conditions[0]?.field === '__custom__'
+                        ? (conditions[0]?.customField || 'Custom')
+                        : (conditions[0]?.field || activeField || availableColumns[0] || 'Type');
+                      const isDateCol = isDateField(activeColName);
+                      if (!isDateCol) return null;
+
+                      return (
+                        <div className="p-2.5 rounded-lg border border-cyan-500/30 bg-cyan-950/20 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-cyan-300 flex items-center gap-1.5">
+                              <Clock className="h-3 w-3 text-cyan-400" />
+                              Quick Date Filter for &ldquo;{activeColName}&rdquo;:
+                            </span>
+                            <span className="text-[10px] font-semibold text-cyan-400/80">
+                              Live Runtime Filtering
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => applyDatePreset('overdue')}
+                              className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-cyan-500/40 bg-slate-900 text-cyan-300 hover:bg-cyan-500/20 transition cursor-pointer"
+                              title="Due date has passed (Due Date <= Today)"
+                            >
+                              Overdue (on or before today)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyDatePreset('upcoming')}
+                              className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-cyan-500/40 bg-slate-900 text-cyan-300 hover:bg-cyan-500/20 transition cursor-pointer"
+                              title="Due date has not arrived yet (Due Date >= Today)"
+                            >
+                              Upcoming (after today)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyDatePreset('today')}
+                              className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-cyan-500/40 bg-slate-900 text-cyan-300 hover:bg-cyan-500/20 transition cursor-pointer"
+                              title="Due date is today"
+                            >
+                              Due Today
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyDatePreset('not_in_folder')}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition cursor-pointer ${
+                                itemMode === 'new'
+                                  ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300 font-bold'
+                                  : 'border-slate-800 bg-slate-900 text-slate-400 hover:text-white'
+                              }`}
+                              title="Skip items already in folder, process new only"
+                            >
+                              New (Not in folder)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyDatePreset('in_folder')}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition cursor-pointer ${
+                                itemMode === 'old'
+                                  ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300 font-bold'
+                                  : 'border-slate-800 bg-slate-900 text-slate-400 hover:text-white'
+                              }`}
+                              title="Process only items already downloaded in folder"
+                            >
+                              Already in Folder
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Section 2c: Quick Detected Options for current field */}
+                    {(() => {
+                      const activeColName = conditions[0]?.field === '__custom__'
+                        ? (conditions[0]?.customField || '')
+                        : (conditions[0]?.field || activeField || availableColumns[0] || 'Type');
+                      const detectedValues = getValuesForField(activeColName);
+                      if (detectedValues.length === 0) return null;
+
+                      return (
+                        <div className="space-y-1.5 pt-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-semibold text-slate-300 flex items-center gap-1.5">
+                              <ListFilter className="h-3 w-3 text-cyan-400" />
+                              Detected Options for &ldquo;{activeColName}&rdquo;:
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              {detectedValues.length} option(s)
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {detectedValues.map((v) => {
+                              const isValSelected = conditions.some((c) => c.value?.toLowerCase() === v.toLowerCase());
+                              return (
+                                <button
+                                  key={v}
+                                  type="button"
+                                  onClick={() => handleSelectValuePill(v)}
+                                  className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition cursor-pointer ${
+                                    isValSelected
+                                      ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 font-bold'
+                                      : 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white hover:border-slate-700'
+                                  }`}
+                                  title={`Filter by '${v}'`}
+                                >
+                                  {v}
+                                </button>
+                              );
+                            })}
+                            <button
+                              type="button"
+                              onClick={() => handleSelectValuePill('__all__')}
+                              className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-800 bg-slate-900 text-slate-400 hover:text-white hover:border-slate-700 transition cursor-pointer"
+                              title="Clear filter value"
+                            >
+                              Fetch All
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Condition Rows */}
+                    <div className="space-y-2">
+                      {conditions.map((cond, idx) => {
+                        const isCustom = cond.field === '__custom__';
+                        const isDate = cond.operator === 'dateBetween';
+                        const fieldNameForOptions = isCustom ? cond.customField : cond.field;
+                        const rowOptions = getValuesForField(fieldNameForOptions);
+
+                        return (
+                          <div
+                            key={cond.id}
+                            className="p-2.5 rounded-lg border border-slate-800 bg-slate-900/80 space-y-2"
+                          >
+                            <div className="grid grid-cols-12 gap-2 items-center">
+                              {/* Field Dropdown */}
+                              <div className="col-span-4">
+                                <select
+                                  aria-label="Filter Field"
+                                  value={cond.field}
+                                  onChange={(e) => {
+                                    handleUpdateCondition(idx, { field: e.target.value });
+                                    if (idx === 0) setActiveField(e.target.value);
+                                  }}
+                                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 transition cursor-pointer"
+                                >
+                                  {availableColumns.map((col) => (
+                                    <option key={col} value={col}>
+                                      {col}
+                                    </option>
+                                  ))}
+                                  <option value="__custom__">Custom column...</option>
+                                </select>
+                              </div>
+
+                              {/* Operator Dropdown */}
+                              <div className="col-span-3">
+                                <select
+                                  aria-label="Filter Operator"
+                                  value={cond.operator}
+                                  onChange={(e) => {
+                                    const nextOp = e.target.value as 'contains' | 'equals' | 'dateBetween';
+                                    handleUpdateCondition(idx, { operator: nextOp });
+                                  }}
+                                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 transition cursor-pointer"
+                                >
+                                  <option value="contains">contains</option>
+                                  <option value="equals">equals</option>
+                                  <option value="dateBetween">dateBetween</option>
+                                </select>
+                              </div>
+
+                              {/* Value Input or Date Pickers */}
+                              <div className={conditions.length > 1 ? 'col-span-4' : 'col-span-5'}>
+                                {isDate ? (
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="date"
+                                      aria-label="From Date"
+                                      value={cond.dateFrom}
+                                      onChange={(e) => handleUpdateCondition(idx, { dateFrom: e.target.value })}
+                                      className="w-full bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-[11px] text-white focus:outline-none focus:border-cyan-500"
+                                      title="From Date"
+                                    />
+                                    <span className="text-[10px] text-slate-500 shrink-0">to</span>
+                                    <input
+                                      type="date"
+                                      aria-label="To Date"
+                                      value={cond.dateTo}
+                                      onChange={(e) => handleUpdateCondition(idx, { dateTo: e.target.value })}
+                                      className="w-full bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-[11px] text-white focus:outline-none focus:border-cyan-500"
+                                      title="To Date"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <input
+                                      type="text"
+                                      placeholder="Filter value..."
+                                      list={`datalist_${cond.id}`}
+                                      value={cond.value}
+                                      onChange={(e) => handleUpdateCondition(idx, { value: e.target.value })}
+                                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition"
+                                    />
+                                    <datalist id={`datalist_${cond.id}`}>
+                                      {rowOptions.map((opt) => (
+                                        <option key={opt} value={opt} />
+                                      ))}
+                                    </datalist>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Remove Button */}
+                              {conditions.length > 1 && (
+                                <div className="col-span-1 flex justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveCondition(idx)}
+                                    className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded transition cursor-pointer"
+                                    title="Remove Condition"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Quick Suggestion Chips under input */}
+                            {rowOptions.length > 0 && !isDate && (
+                              <div className="flex flex-wrap items-center gap-1 pt-1">
+                                <span className="text-[10px] text-slate-500">Suggested:</span>
+                                {rowOptions.slice(0, 5).map((opt) => (
+                                  <button
+                                    key={opt}
+                                    type="button"
+                                    onClick={() => handleUpdateCondition(idx, { value: opt })}
+                                    className={`text-[10px] px-1.5 py-0.5 rounded border transition cursor-pointer ${
+                                      cond.value === opt
+                                        ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 font-bold'
+                                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                                    }`}
+                                  >
+                                    {opt}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Custom Column Input if selected */}
+                            {isCustom && (
+                              <div className="pt-1">
+                                <input
+                                  type="text"
+                                  placeholder="Enter exact column header name..."
+                                  value={cond.customField}
+                                  onChange={(e) => handleUpdateCondition(idx, { customField: e.target.value })}
+                                  className="w-full bg-slate-900 border border-cyan-500/40 rounded-lg px-2.5 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Add Condition Button */}
+                    <div className="flex justify-end pt-1">
+                      <button
+                        type="button"
+                        onClick={handleAddCondition}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900 text-xs text-cyan-400 hover:text-cyan-300 hover:bg-slate-800 transition cursor-pointer"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>Add Condition</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

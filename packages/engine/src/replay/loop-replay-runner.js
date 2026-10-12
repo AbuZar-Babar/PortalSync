@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Intelligent Replay & Batch Execution Runner
+ * Workflow Capture - Intelligent Replay & Batch Execution Runner
  * 
  * Executes standard sequential workflows and generalized loops over table rows,
  * list items, or grids. Manages auto-navigation to target URLs, CDP file download
@@ -99,7 +99,11 @@ class LoopReplayRunner {
     }
     this.loopLimit = validatedLimit;
     this.loopLimitError = limitError;
-    this.rowFilter = options.itemFilter || options.rowFilter || null;
+    this.rowFilter = options.rowFilter || this.itemFilter || options.itemFilter || null;
+    this.itemFilter = this.itemFilter || this.rowFilter || null;
+    this.loopStepIndex = Number.isInteger(options.loopStepIndex) ? options.loopStepIndex : null;
+    this.isLoop = options.isLoop === true || options.mode === 'loop';
+    this.mode = options.mode || (this.isLoop ? 'loop' : 'single');
 
     // Structured downloads hierarchy: downloads/<workflow-slug>/<YYYY-MM-DD>/
     const rawSlug = (this.workflowName || this.workflowId || 'workflow').toLowerCase();
@@ -129,8 +133,8 @@ class LoopReplayRunner {
       workflowId: this.workflowId,
       portalDomain: this.portalDomain,
       portalUrl: targetUrl,
-      runTimestamp: options.runTimestamp,
-      startedAt: options.startedAt
+      runTimestamp: options?.runTimestamp,
+      startedAt: options?.startedAt
     });
     this.runTimestamp = this.downloadManager.runTimestamp;
     this.runDomainDir = this.downloadManager.runDomainDir;
@@ -169,8 +173,28 @@ class LoopReplayRunner {
    */
   async start(workflow, options = {}) {
     if (!workflow) return { success: false, error: 'No workflow provided' };
-    if (workflow.isLoop || options.isLoop || options.mode === 'loop') {
-      return this.executeLoop(workflow, options.loopStepIndex ?? workflow.loopStepIndex, options.onProgress);
+    const steps = workflow.steps ||
+      (workflow.workflow_definition && (workflow.workflow_definition.steps || workflow.workflow_definition.actions)) ||
+      (workflow.recordingData && workflow.recordingData.actions) ||
+      workflow.actions ||
+      [];
+    const stepsHasLoop = steps.some(s => s && (s.role === 'LOOP' || s.isLoop || s.loopMode === 'sequential_iteration'));
+    const isLoopMode = Boolean(
+      workflow.isLoop ||
+      workflow.workflow_definition?.isLoop ||
+      workflow.workflow_definition?.mode === 'loop' ||
+      options.isLoop ||
+      options.mode === 'loop' ||
+      this.isLoop ||
+      this.mode === 'loop' ||
+      stepsHasLoop
+    );
+    if (isLoopMode) {
+      const stepIdx = options.loopStepIndex ??
+        workflow.loopStepIndex ??
+        workflow.workflow_definition?.loopStepIndex ??
+        this.loopStepIndex;
+      return this.executeLoop(workflow, stepIdx, options.onProgress);
     }
     return this.executeStandard(workflow, options.onProgress);
   }
@@ -2299,6 +2323,34 @@ class LoopReplayRunner {
         }
       }
     }
+    if (!this.itemFilter && (workflow?.itemFilter || workflow?.filter_rules?.itemFilter || workflow?.workflow_definition?.itemFilter)) {
+      const rawFilter = workflow.itemFilter || workflow?.filter_rules?.itemFilter || workflow?.workflow_definition?.itemFilter;
+      const filterValidation = validateItemFilter(rawFilter);
+      if (filterValidation && filterValidation.valid) {
+        this.itemFilter = filterValidation.filter;
+      } else {
+        const normalizedConditions = ConditionEvaluator.normalizeConditions(rawFilter);
+        const EXTENDED_OPS = new Set([
+          'contains', 'includes', 'equals', 'eq', '==', '===', 'not_equals', 'neq', '!=',
+          'starts_with', 'ends_with', 'in', 'one_of', 'not_in',
+          'greater_than', 'gt', '>', 'after', 'date_after', 'date_gt',
+          'greater_than_or_equal', 'gte', '>=', 'on_or_after', 'date_on_or_after', 'date_gte',
+          'less_than', 'lt', '<', 'before', 'date_before', 'date_lt',
+          'less_than_or_equal', 'lte', '<=', 'on_or_before', 'date_on_or_before', 'date_lte',
+          'date_between', 'between_dates', 'last_n_days'
+        ]);
+        const isSupportedByConditionEvaluator = Boolean(
+          rawFilter &&
+          normalizedConditions.rules.length > 0 &&
+          normalizedConditions.rules.every(r => r.field && EXTENDED_OPS.has(String(r.operator || '').toLowerCase().trim()))
+        );
+        this.itemFilter = isSupportedByConditionEvaluator ? rawFilter : null;
+      }
+      this.rowFilter = this.itemFilter;
+    }
+    if (!this.loopLimit && (workflow?.loopLimit || workflow?.workflow_definition?.loopLimit)) {
+      this.loopLimit = workflow.loopLimit || workflow.workflow_definition?.loopLimit;
+    }
     this.initDirectories();
     const manifest = {
       runId: this.runId,
@@ -2429,7 +2481,11 @@ class LoopReplayRunner {
       await this.replayEngine._ensureSelectorResolverInFrame(page.mainFrame());
 
       // 1. Partition steps into Setup vs Loop Steps
-      const steps = workflow.steps || (workflow.recordingData && workflow.recordingData.actions) || workflow.actions || [];
+      const steps = workflow.steps ||
+        (workflow.workflow_definition && (workflow.workflow_definition.steps || workflow.workflow_definition.actions)) ||
+        (workflow.recordingData && workflow.recordingData.actions) ||
+        workflow.actions ||
+        [];
 
       // Determine effective loopStepIndex:
       let effectiveLoopStepIndex = Number.isInteger(loopStepIndex) ? loopStepIndex : null;
@@ -2446,8 +2502,12 @@ class LoopReplayRunner {
       } else {
         if (Number.isInteger(workflow.loopStepIndex) && workflow.loopStepIndex >= 0) {
           effectiveLoopStepIndex = workflow.loopStepIndex;
+        } else if (Number.isInteger(workflow.workflow_definition?.loopStepIndex) && workflow.workflow_definition.loopStepIndex >= 0) {
+          effectiveLoopStepIndex = workflow.workflow_definition.loopStepIndex;
         } else if (Number.isInteger(workflow.settings?.loopStepIndex) && workflow.settings.loopStepIndex >= 0) {
           effectiveLoopStepIndex = workflow.settings.loopStepIndex;
+        } else if (Number.isInteger(this.loopStepIndex) && this.loopStepIndex >= 0) {
+          effectiveLoopStepIndex = this.loopStepIndex;
         } else {
           const autoIdx = LoopDetector.findLoopCandidateIndex(steps);
           if (autoIdx >= 0) {
@@ -2508,7 +2568,7 @@ class LoopReplayRunner {
         for (let i = 0; i < partition.setupSteps.length; i++) {
           const step = partition.setupSteps[i];
           if (isSessionAuth && i <= setupLoginSeq.endIndex) {
-            logger.info(`[Loop Runner] Skipping setup login step #${i + 1} (${step.name || step.elementName || 'Login step'}) — session already authenticated.`);
+            logger.info(`[Loop Runner] Skipping setup login step #${i + 1} (${step.name || step.elementName || 'Login step'}) - session already authenticated.`);
             continue;
           }
           await this.replayEngine.executeAction(step, i);
@@ -2524,10 +2584,132 @@ class LoopReplayRunner {
           minItems: 2,
           minScore: 0.55
         });
+
+        if (!discovery.success || discovery.itemCount < 1) {
+          discovery = await ItemDiscovery.discover(page, targetStep.target || targetStep.fingerprint, {
+            minItems: 1,
+            minScore: 0.45
+          }).catch(() => discovery);
+        }
       }
 
-      if (!discovery.success || discovery.itemCount < 2) {
-        logger.warn(`[Loop Runner] Item discovery did not detect multiple items: ${discovery.reason || 'only single item found'}. Falling back to standard execution.`);
+      // If primary target step did not discover collection, search all other loop steps
+      if (!discovery || !discovery.success || discovery.itemCount < 1) {
+        for (let sIdx = 1; sIdx < partition.loopSteps.length; sIdx++) {
+          const candidateStep = partition.loopSteps[sIdx];
+          const candDisc = await ItemDiscovery.discover(page, candidateStep.target || candidateStep.fingerprint, {
+            minItems: 1,
+            minScore: 0.40
+          }).catch(() => null);
+          if (candDisc && candDisc.success && candDisc.itemCount >= 1) {
+            logger.info(`[Loop Runner] Discovered collection on loop step #${effectiveLoopStepIndex + sIdx + 1} (${candDisc.itemCount} items)`);
+            discovery = candDisc;
+            break;
+          }
+        }
+      }
+
+      // If still not discovered, use PageInspector to autonomously locate table collections on the active page
+      if (!discovery || !discovery.success || discovery.itemCount < 1) {
+        try {
+          const inspection = await PageInspector.inspectPage(page).catch(() => null);
+          if (inspection && Array.isArray(inspection.collections) && inspection.collections.length > 0) {
+            const primaryCol = inspection.collections[0];
+            const rowCount = primaryCol.rowCount || (Array.isArray(primaryCol.items) ? primaryCol.items.length : 0);
+            if (rowCount >= 1) {
+              logger.info(`[Loop Runner] PageInspector identified data table collection: "${primaryCol.entityName || 'Table'}" with ${rowCount} items.`);
+              discovery = {
+                success: true,
+                itemCount: rowCount,
+                confidence: 0.85,
+                collection: {
+                  itemTag: primaryCol.itemTag || 'tr',
+                  containerSelector: primaryCol.containerSelector || 'table',
+                  ancestorSelector: primaryCol.ancestorSelector || 'table',
+                  columns: primaryCol.columns || []
+                },
+                items: (primaryCol.items || []).map((row, rIdx) => ({
+                  index: rIdx,
+                  label: row.Text || `Row #${rIdx + 1}`,
+                  text: row.Text || row._rawText || '',
+                  fields: row
+                }))
+              };
+            }
+          }
+        } catch (inspErr) {
+          logger.warn(`[Loop Runner] PageInspector fallback inspection note: ${inspErr.message}`);
+        }
+      }
+
+      // If no DOM table exists but the workflow was explicitly set to loop, execute sequential step iteration loop
+      const isExplicitLoopWorkflow = Boolean(
+        this.isLoop ||
+        this.mode === 'loop' ||
+        workflow.isLoop === true ||
+        workflow.workflow_definition?.isLoop === true ||
+        workflow.workflow_definition?.mode === 'loop' ||
+        steps.some(s => s && (s.role === 'LOOP' || s.isLoop || s.loopMode === 'sequential_iteration'))
+      );
+
+      if ((!discovery || !discovery.success || discovery.itemCount < 1) && isExplicitLoopWorkflow) {
+        const loopLimitVal = Number.isInteger(this.loopLimit) && this.loopLimit > 0
+          ? this.loopLimit
+          : (Number.isInteger(workflow.loopLimit) && workflow.loopLimit > 0
+              ? workflow.loopLimit
+              : (Number.isInteger(workflow.workflow_definition?.loopLimit) && workflow.workflow_definition.loopLimit > 0
+                  ? workflow.workflow_definition.loopLimit
+                  : 3));
+
+        logger.info(`[Loop Runner] No table DOM collection detected; executing sequential step loop for ${loopLimitVal} iteration(s)...`);
+        manifest.mode = 'STEP_LOOP';
+        manifest.itemsTotal = loopLimitVal;
+        manifest.matchingCount = loopLimitVal;
+        manifest.matching = loopLimitVal;
+        manifest.selectedCount = loopLimitVal;
+        manifest.selected = loopLimitVal;
+        manifest.pagesProcessed = 1;
+
+        for (let iter = 0; iter < loopLimitVal; iter++) {
+          if (this.isAborted || (this.replayEngine && this.replayEngine.isAborted)) break;
+          logger.info(`[Loop Runner] Executing iteration ${iter + 1}/${loopLimitVal}...`);
+
+          for (let sIdx = 0; sIdx < partition.loopSteps.length; sIdx++) {
+            if (this.isAborted || (this.replayEngine && this.replayEngine.isAborted)) break;
+            const loopStep = partition.loopSteps[sIdx];
+            const actionWithLoopIndex = {
+              ...loopStep,
+              value: typeof loopStep.value === 'string' && loopStep.value.includes('{{loop:index}}')
+                ? loopStep.value.replace(/\{\{loop:index\}\}/g, String(iter))
+                : loopStep.value
+            };
+            await this.replayEngine.executeAction(actionWithLoopIndex, effectiveLoopStepIndex + sIdx);
+          }
+
+          const iterResult = {
+            index: iter + 1,
+            itemIndex: iter,
+            label: `Iteration #${iter + 1}`,
+            status: 'SUCCESS',
+            timestamp: new Date().toISOString()
+          };
+          manifest.results.push(iterResult);
+          manifest.itemsSucceeded = (manifest.itemsSucceeded || 0) + 1;
+          onProgress({ status: 'ITEM_PROCESSED', itemResult: iterResult, manifest });
+        }
+
+        manifest.status = 'COMPLETED';
+        manifest.endTime = new Date().toISOString();
+        this.writeLoopCheckpoint(manifest, null, null, 1, null, null);
+        try {
+          fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+        } catch {}
+        onProgress({ status: manifest.status, manifest });
+        return manifest;
+      }
+
+      if (!discovery || !discovery.success || discovery.itemCount < 1) {
+        logger.warn(`[Loop Runner] Item discovery did not detect matching items: ${(discovery && discovery.reason) || 'zero items found'}. Falling back to standard execution.`);
         return await this.executeStandard(workflow, onProgress);
       }
 
@@ -2799,7 +2981,7 @@ class LoopReplayRunner {
             const doneCount = (manifest.selectedCount || 0);
             if (doneCount >= effectiveLimit) {
               const limitReason = `Beyond loop limit (${effectiveLimit})`;
-              logger.info(`[Loop Runner] 🛑 Skipping item #${i + 1} ("${itemIdentifier.itemLabel}") — ${limitReason}`);
+              logger.info(`[Loop Runner] 🛑 Skipping item #${i + 1} ("${itemIdentifier.itemLabel}") - ${limitReason}`);
               this._limitReached = true;
               const skippedIndex = resumeItemIndex != null && currentPage === resumePage && i === resumePageItemIndex
                 ? resumeItemIndex
@@ -2857,7 +3039,7 @@ class LoopReplayRunner {
 
           // "new only" mode (default): skip items already downloaded
           if (dedupe.isDuplicate && this.itemMode === 'new' && !this.forceRedownload) {
-            logger.info(`[Loop Runner] Skipping item #${i + 1} ("${itemIdentifier.itemLabel}") — already downloaded: "${dedupe.record?.filename || 'existing'}" (${dedupe.record?.filePath || 'folder'})`);
+            logger.info(`[Loop Runner] Skipping item #${i + 1} ("${itemIdentifier.itemLabel}") - already downloaded: "${dedupe.record?.filename || 'existing'}" (${dedupe.record?.filePath || 'folder'})`);
             const skippedIndex = resumeItemIndex != null && currentPage === resumePage && i === resumePageItemIndex
               ? resumeItemIndex
               : manifest.results.reduce((max, result) => Math.max(max, Number(result.index) || 0), 0) + 1;
@@ -3127,7 +3309,7 @@ class LoopReplayRunner {
                 const collectionStillPresent = await this.isCollectionPresent(page, discovery);
 
                 if (!collectionStillPresent) {
-                  logger.info('[Loop Runner] Collection view not present after item — restoring state to: ' + currentPageUrl);
+                  logger.info('[Loop Runner] Collection view not present after item - restoring state to: ' + currentPageUrl);
                   const currentTabUrl = page.url() || '';
                   if (currentPageUrl && currentTabUrl !== currentPageUrl) {
                     await page.goto(currentPageUrl, { waitUntil: 'domcontentloaded' }).catch(() => { });

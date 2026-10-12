@@ -12,7 +12,6 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Home,
   LogOut
 } from 'lucide-react';
 import { RobotAvatar } from './RobotAvatar';
@@ -130,29 +129,6 @@ export function Sidebar({ isRunnerOnline = false }: SidebarProps) {
           )}
         </Link>
 
-        {/* Worker Status Badge */}
-        <div
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
-            isRunnerOnline
-              ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-300'
-              : 'bg-slate-800/40 border-white/5 text-slate-400'
-          } ${isCollapsed ? 'justify-center px-1' : ''}`}
-          title={isRunnerOnline ? 'Local Desktop Runner Connected & Ready' : 'No Desktop Runner Connected'}
-        >
-          <span
-            className={`w-2 h-2 rounded-full flex-shrink-0 ${
-              isRunnerOnline
-                ? 'bg-cyan-400 shadow-[0_0_8px_#00f0ff]'
-                : 'bg-slate-500'
-            }`}
-          />
-          {!isCollapsed && (
-            <span className="text-[11px] font-bold uppercase tracking-wider overflow-hidden text-ellipsis whitespace-nowrap">
-              {isRunnerOnline ? 'WORKER ONLINE' : 'WORKER OFFLINE'}
-            </span>
-          )}
-        </div>
-
         {/* Navigation Items */}
         <nav className="flex flex-col gap-1 mt-1" aria-label="Main Navigation">
           {navItems.map((item) => {
@@ -193,18 +169,6 @@ export function Sidebar({ isRunnerOnline = false }: SidebarProps) {
 
       {/* Bottom Section */}
       <div className="flex flex-col gap-1 pt-3 border-t border-white/5">
-        {/* Landing Home Link */}
-        <Link
-          href="/"
-          title={isCollapsed ? 'Public Landing Page' : undefined}
-          className={`flex items-center gap-3 h-9 px-3 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors ${
-            isCollapsed ? 'justify-center px-0' : ''
-          }`}
-        >
-          <Home className="w-4 h-4 flex-shrink-0" />
-          {!isCollapsed && <span>Public Home</span>}
-        </Link>
-
         {/* Sign Out Button */}
         <button
           onClick={async () => {

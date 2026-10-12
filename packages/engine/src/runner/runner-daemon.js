@@ -3,7 +3,7 @@
  * 
  * Continuous desktop automation daemon that:
  * 1. Verifies local Chrome CDP connection on port 9222
- * 2. Runs an HTTP polling loop every 10–15 seconds querying for pending cloud runs
+ * 2. Runs an HTTP polling loop every 10-15 seconds querying for pending cloud runs
  * 3. Claims runs atomically (pending -> running)
  * 4. Boots LoopReplayRunner with cloud workflow parameters and streams telemetry
  * 5. Handles 90-second Human-in-the-Loop (HITL) 2FA intervention:
@@ -13,7 +13,7 @@
  * 6. Computes SHA-256 hashes of downloaded invoice PDFs (guaranteeing zero duplicates)
  * 7. Saves files locally in target_folder and registers artifacts in cloud
  * 
- * Zero external dependencies — pure Node.js CommonJS.
+ * Zero external dependencies - pure Node.js CommonJS.
  */
 
 'use strict';
@@ -25,6 +25,7 @@ const os = require('os');
 const { CloudClient } = require('./cloud-client');
 const { ArtifactTracker, computeSha256, sanitizePortalName, resolvePortalStorageDir } = require('./dedup-helper');
 const { detect2FAChallenge, waitFor2FAResolution } = require('./hitl-detector');
+const LoopDetector = require('../shared/loop-detector');
 
 /**
  * Diagnostic check to verify if Chrome CDP is responding
@@ -288,7 +289,73 @@ class RunnerDaemon {
         startUrl: startUrl,
       };
 
-      const isLoop = def.metadata?.isLoop || metadata.isLoop || workflow?.isLoop || false;
+      const candidateStepIdx = LoopDetector.findLoopCandidateIndex(steps);
+      const stepsHasLoop = steps.some(s => s && (s.role === 'LOOP' || s.isLoop || s.loopMode === 'sequential_iteration'));
+
+      const isLoop = Boolean(
+        run.is_loop === true ||
+        run.isLoop === true ||
+        run.mode === 'loop' ||
+        def.metadata?.isLoop === true ||
+        def.isLoop === true ||
+        def.mode === 'loop' ||
+        metadata.isLoop === true ||
+        workflow?.isLoop === true ||
+        stepsHasLoop ||
+        (candidateStepIdx >= 0 && (run.mode === 'loop' || def.mode === 'loop' || !run.mode))
+      );
+      const mode = (run.mode === 'loop' || run.mode === 'single')
+        ? run.mode
+        : (isLoop ? 'loop' : (def.mode || 'single'));
+
+      // Safely resolve filter object from candidate rules
+      function resolveCandidateFilter(candidate) {
+        if (!candidate || typeof candidate !== 'object') return null;
+        if (candidate.itemFilter) return resolveCandidateFilter(candidate.itemFilter);
+        if (Array.isArray(candidate.conditions) && candidate.conditions.length > 0) return candidate;
+        if (candidate.field || candidate.column || candidate.filterValue) return candidate;
+        return null;
+      }
+
+      // Resolve filter and loop parameters from run, definition, and filter_rules
+      const rawRunFilter = run.itemFilter ?? run.item_filter ?? null;
+      const rawDefFilter = def.itemFilter ?? null;
+      const rawWfFilter = resolveCandidateFilter(workflow?.filter_rules) ?? resolveCandidateFilter(def.filter_rules) ?? null;
+
+      const itemFilter = (rawRunFilter !== null && rawRunFilter !== undefined)
+        ? rawRunFilter
+        : ((rawDefFilter !== null && rawDefFilter !== undefined)
+            ? rawDefFilter
+            : rawWfFilter);
+
+      const rowFilter = run.rowFilter ??
+        run.row_filter ??
+        def.rowFilter ??
+        itemFilter;
+
+      const loopLimit = run.loopLimit ??
+        run.loop_limit ??
+        def.loopLimit ??
+        def.maxItems ??
+        (run.total_items_discovered > 0 ? run.total_items_discovered : null);
+
+      let loopStepIndex = run.loopStepIndex ??
+        run.loop_step_index ??
+        def.loopStepIndex ??
+        def.settings?.loopStepIndex ??
+        workflow?.loopStepIndex ??
+        null;
+
+      if (loopStepIndex === null && isLoop) {
+        if (candidateStepIdx >= 0) {
+          loopStepIndex = candidateStepIdx;
+        } else if (steps.length > 1) {
+          loopStepIndex = 1;
+        } else {
+          loopStepIndex = 0;
+        }
+      }
+
       const uploadToCloud = Boolean(def.upload_to_cloud ?? workflow?.upload_to_cloud ?? false);
 
       // Determine target download directory organized by portal name
@@ -346,6 +413,12 @@ class RunnerDaemon {
         workflowName: sanitizedPortalName || rawPortalName || 'workflow',
         targetUrl: startUrl,
         structuredDownloadsDir: runTargetDir,
+        itemFilter: itemFilter,
+        rowFilter: rowFilter,
+        loopLimit: loopLimit,
+        loopStepIndex: loopStepIndex,
+        isLoop: isLoop,
+        mode: mode,
       });
       this.currentRunner = runner;
 
@@ -418,10 +491,19 @@ class RunnerDaemon {
           metadata: metadata,
         },
         isLoop: isLoop,
+        loopStepIndex: loopStepIndex,
+        itemFilter: itemFilter,
+        rowFilter: rowFilter,
+        loopLimit: loopLimit,
       };
 
-      this.logger.info(`Starting execution of "${rawPortalName}" (${steps.length} actions) on ${startUrl}`);
-      const result = await runner.start(effectiveWorkflow, { onProgress });
+      this.logger.info(`Starting execution of "${rawPortalName}" (${steps.length} actions) on ${startUrl} [mode: ${mode}, isLoop: ${isLoop}, loopStepIndex: ${loopStepIndex}]`);
+      const result = await runner.start(effectiveWorkflow, {
+        onProgress,
+        loopStepIndex: loopStepIndex,
+        isLoop: isLoop,
+        mode: mode,
+      });
 
       // Clean up watchdog
       if (hitlInterval) {

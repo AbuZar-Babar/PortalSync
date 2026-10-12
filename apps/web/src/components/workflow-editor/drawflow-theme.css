@@ -1,5 +1,5 @@
 /* ===================================================================
-   FlowMind — Dedicated Drawflow Theme (Quixotic Slate / Emerald)
+   FlowMind - Dedicated Drawflow Theme (Quixotic Slate / Emerald)
    =================================================================== */
 
 /* Full Canvas Viewport & Background */
@@ -92,8 +92,12 @@
 }
 
 .drawflow .drawflow-node.is-loop-anchor {
-  border: 2px solid #10b981 !important;
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.35), 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
+  border: 2px solid #f59e0b !important;
+  box-shadow: 0 0 22px rgba(245, 158, 11, 0.4), 0 0 0 3px rgba(245, 158, 11, 0.22) !important;
+}
+
+.df-node-card-inner.is-loop-anchor {
+  border-radius: 11px;
 }
 
 /* Inner content wrapper */
@@ -296,6 +300,34 @@
   gap: 6px;
   margin-top: 2px;
   flex-wrap: wrap;
+}
+
+.df-loop-anchor-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  letter-spacing: 0.02em;
+}
+
+.df-checkbox-state-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: rgba(56, 189, 248, 0.14);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  letter-spacing: 0.02em;
 }
 
 .df-idempotent-pill {

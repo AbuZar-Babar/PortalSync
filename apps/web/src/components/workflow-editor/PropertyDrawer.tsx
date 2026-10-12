@@ -1,6 +1,5 @@
 'use client';
-
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StepNodeData,
   StepActionType,
@@ -17,6 +16,9 @@ import {
   Layers,
   Database,
   Cloud,
+  CheckSquare,
+  ListFilter,
+  Repeat,
 } from 'lucide-react';
 
 interface PropertyDrawerProps {
@@ -26,6 +28,40 @@ interface PropertyDrawerProps {
   onClose: () => void;
   onUpdate: (nodeId: string | number, updatedData: StepNodeData) => void;
   onDelete: (nodeId: string | number) => void;
+}
+
+/**
+ * Extracts available select/dropdown options from metadata or DOM fingerprints
+ */
+export function extractAvailableOptions(nodeData: StepNodeData): Array<{ value: string; label: string }> {
+  const options: Array<{ value: string; label: string }> = [];
+
+  // 1. Explicit options saved on step or meta
+  const rawOptions = nodeData.options || (nodeData.meta as Record<string, unknown> | undefined)?.options;
+  if (Array.isArray(rawOptions) && rawOptions.length > 0) {
+    return rawOptions.map((opt) => (typeof opt === 'string' ? { value: opt, label: opt } : opt));
+  }
+
+  // 2. Extracted from fingerprint text
+  const fp = (nodeData.rawTarget?.fingerprint || (nodeData.target as unknown as Record<string, unknown>)?.fingerprint) as Record<string, unknown> | undefined;
+  if (fp && typeof fp.text === 'string' && (fp.tagName === 'select' || fp.role === 'combobox' || fp.role === 'listbox' || nodeData.action === 'SELECT')) {
+    const raw = fp.text.trim();
+    const lines = raw.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    if (lines.length > 1) {
+      return lines.map((t) => ({ value: t.toLowerCase().replace(/[^a-z0-9]+/g, '_'), label: t }));
+    }
+    const parts = raw.split(/\s{2,}/).map((s) => s.trim()).filter(Boolean);
+    if (parts.length > 1) {
+      return parts.map((t) => ({ value: t.toLowerCase().replace(/[^a-z0-9]+/g, '_'), label: t }));
+    }
+  }
+
+  // 3. Fallback to current step value
+  if (nodeData.value) {
+    options.push({ value: String(nodeData.value), label: String(nodeData.value) });
+  }
+
+  return options;
 }
 
 export default function PropertyDrawer({
@@ -40,6 +76,19 @@ export default function PropertyDrawer({
   const [candidatesText, setCandidatesText] = useState<string>(
     (nodeData?.candidates || []).join('\n')
   );
+
+  // Sync draft when selected nodeData changes
+  useEffect(() => {
+    if (nodeData) {
+      setDraft({ ...nodeData });
+      setCandidatesText((nodeData.candidates || []).join('\n'));
+    }
+  }, [nodeId, nodeData]);
+
+  const availableOptions = useMemo(() => {
+    if (!draft) return [];
+    return extractAvailableOptions(draft);
+  }, [draft]);
 
   if (!isOpen || !draft || nodeId === null) {
     return null;
@@ -59,6 +108,17 @@ export default function PropertyDrawer({
     });
   };
 
+  const isCheckboxStep = Boolean(
+    draft.isCheckbox === true ||
+    draft.desiredState !== undefined ||
+    draft.checked !== undefined ||
+    (draft.rawTarget && (draft.rawTarget as Record<string, unknown>)?.isCheckbox) ||
+    (draft.rawTarget && ((draft.rawTarget as Record<string, unknown>)?.fingerprint as Record<string, unknown>)?.type === 'checkbox') ||
+    (draft.rawTarget && ((draft.rawTarget as Record<string, unknown>)?.fingerprint as Record<string, unknown>)?.tagName === 'mat-pseudo-checkbox') ||
+    (draft.name && draft.name.toLowerCase().includes('checkbox')) ||
+    (draft.action === 'CLICK' && draft.is_idempotent)
+  );
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!draft || nodeId === null) return;
@@ -68,10 +128,23 @@ export default function PropertyDrawer({
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
 
+    const isCb = Boolean(draft.isCheckbox ?? isCheckboxStep);
+    const finalDesiredState = draft.desiredState !== undefined
+      ? draft.desiredState
+      : (draft.checked !== undefined ? draft.checked : true);
+
     const updated: StepNodeData = {
       ...draft,
       candidates: parsedCandidates,
       timeout_ms: Number(draft.timeout_ms) || 5000,
+      isCheckbox: isCb,
+      ...(isCb ? {
+        desiredState: finalDesiredState,
+        checked: finalDesiredState,
+        isUncheck: finalDesiredState === false,
+        is_idempotent: true,
+      } : {}),
+      isLoop: draft.role === 'LOOP' || draft.isLoop === true,
     };
 
     onUpdate(nodeId, updated);
@@ -169,7 +242,19 @@ export default function PropertyDrawer({
             </label>
             <select
               value={draft.role || 'SETUP'}
-              onChange={(e) => setDraft({ ...draft, role: e.target.value as 'SETUP' | 'LOOP' })}
+              onChange={(e) => {
+                const newRole = e.target.value as 'SETUP' | 'LOOP';
+                const nextDraft: StepNodeData = {
+                  ...draft,
+                  role: newRole,
+                  isLoop: newRole === 'LOOP',
+                  loopMode: newRole === 'LOOP' ? 'sequential_iteration' : undefined,
+                };
+                setDraft(nextDraft);
+                if (nodeId !== null) {
+                  onUpdate(nodeId, nextDraft);
+                }
+              }}
               className="w-full rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 py-2 text-xs text-slate-300 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition"
             >
               <option value="SETUP">Run Once (Setup)</option>
@@ -263,6 +348,93 @@ export default function PropertyDrawer({
           />
         </div>
 
+        {/* Available Options & Loop Selection for Select / Dropdown */}
+        {(draft.action === 'SELECT' || availableOptions.length > 0) && (
+          <div className="rounded-lg border border-indigo-500/25 bg-indigo-500/5 p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-indigo-300 flex items-center gap-1.5">
+                <ListFilter className="h-3.5 w-3.5" />
+                Available Options
+              </span>
+              <span className="text-[10px] text-slate-400 font-mono">
+                {availableOptions.length} Discovered
+              </span>
+            </div>
+            <select
+              value={draft.role === 'LOOP' || draft.value === '{{loop:index}}' ? '__dynamic_loop__' : (draft.value || '')}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '__dynamic_loop__') {
+                  setDraft({
+                    ...draft,
+                    role: 'LOOP',
+                    isLoop: true,
+                    loopMode: 'sequential_iteration',
+                    value: '{{loop:index}}',
+                  });
+                } else {
+                  setDraft({
+                    ...draft,
+                    value: val,
+                    role: draft.role === 'LOOP' ? 'SETUP' : draft.role,
+                    isLoop: false,
+                    loopMode: undefined,
+                  });
+                }
+              }}
+              className="w-full rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-2 text-xs font-medium text-slate-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
+            >
+              {availableOptions.map((opt, idx) => (
+                <option key={idx} value={opt.value}>
+                  {idx + 1}. {opt.label}
+                </option>
+              ))}
+              <option value="__dynamic_loop__" className="text-amber-400 font-bold bg-slate-950">
+                ↻ Repeats for each record (Iterate sequentially)
+              </option>
+            </select>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Select a fixed choice or choose to repeat for each record across batch execution runs.
+            </p>
+          </div>
+        )}
+
+        {/* Checkbox Target State: Idempotent action explanation */}
+        {(draft.action === 'CLICK' || isCheckboxStep) && (
+          <div className="rounded-lg border border-sky-500/25 bg-sky-500/5 p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-sky-400 flex items-center gap-1.5">
+                <CheckSquare className="h-3.5 w-3.5" />
+                Checkbox Target State
+              </span>
+              <span className="inline-flex items-center rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-300 border border-sky-500/20">
+                Safe to retry
+              </span>
+            </div>
+            <select
+              value={draft.desiredState === false ? 'false' : 'true'}
+              onChange={(e) => {
+                const shouldBeChecked = e.target.value === 'true';
+                setDraft({
+                  ...draft,
+                  isCheckbox: true,
+                  desiredState: shouldBeChecked,
+                  checked: shouldBeChecked,
+                  isUncheck: !shouldBeChecked,
+                  is_idempotent: true,
+                });
+              }}
+              className="w-full rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-2 text-xs font-semibold text-sky-200 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 transition"
+            >
+              <option value="true">Ensure checked (ON)</option>
+              <option value="false">Ensure unchecked (OFF)</option>
+            </select>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Pre-checks the DOM element state before clicking. Guarantees checkboxes remain in the intended state without accidental un-checking.
+            </p>
+          </div>
+        )}
+
         {/* Checkbox Idempotent Flag */}
         <div className="rounded-lg border border-slate-800/80 bg-slate-900/40 p-3.5">
           <label className="flex items-start gap-3 cursor-pointer">
@@ -278,7 +450,7 @@ export default function PropertyDrawer({
                 State-Aware Checkbox Idempotency
               </span>
               <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
-                Pre-checks the DOM element state before clicking. Guarantees checkboxes remain in the intended state without accidental un-checking.
+                Skip clicking if element is already in the target state.
               </p>
             </div>
           </label>
@@ -292,14 +464,39 @@ export default function PropertyDrawer({
               Extraction Schema
             </div>
             <div>
-              <label className="block text-[11px] text-slate-400 mb-1">Column Name</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] text-slate-400">Column Name</label>
+                <span className="text-[10px] text-teal-400/80">Recommended fields available</span>
+              </div>
               <input
                 type="text"
+                list="extract_column_recommendations"
                 value={draft.extract_column || ''}
                 onChange={(e) => setDraft({ ...draft, extract_column: e.target.value })}
                 placeholder="e.g. invoice_number"
                 className="w-full rounded border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-xs text-teal-200"
               />
+              <datalist id="extract_column_recommendations">
+                {['invoice_number', 'invoice_date', 'due_date', 'total_amount', 'status', 'customer_name', 'vendor_name', 'description', 'tax_amount', 'balance_due'].map(col => (
+                  <option key={col} value={col} />
+                ))}
+              </datalist>
+              <div className="mt-2 flex flex-wrap gap-1">
+                {['invoice_number', 'due_date', 'total_amount', 'status'].map(rec => (
+                  <button
+                    key={rec}
+                    type="button"
+                    onClick={() => setDraft({ ...draft, extract_column: rec })}
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-mono border transition ${
+                      draft.extract_column === rec
+                        ? 'bg-teal-500/20 border-teal-500 text-teal-300 font-bold'
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    +{rec}
+                  </button>
+                ))}
+              </div>
             </div>
             <div>
               <label className="block text-[11px] text-slate-400 mb-1">Target Property</label>

@@ -637,8 +637,9 @@ class ReplayEngine extends EventEmitter {
         return { success: true, type: 'CLICK', skipped: true };
       }
 
+      const resolvedTarget = this._normalizeActionTarget(action.target || action.fingerprint, action);
       const { elementHandle, candidate, confidenceScore } = await this.waitForTargetElement(
-        action.target || action.fingerprint,
+        resolvedTarget,
         index,
         action.type,
         action
@@ -893,9 +894,80 @@ class ReplayEngine extends EventEmitter {
   }
 
   /**
+   * Resiliently normalize target into a complete Target object with candidates array and fingerprint
+   */
+  _normalizeActionTarget(target, action = null) {
+    if (target && typeof target === 'object' && Array.isArray(target.candidates) && target.candidates.length > 0 && target.fingerprint) {
+      return target;
+    }
+
+    const candidateStrings = [];
+    if (typeof target === 'string' && target.trim()) {
+      candidateStrings.push(target.trim());
+    } else if (target && typeof target === 'object') {
+      if (typeof target.selector === 'string' && target.selector.trim()) {
+        candidateStrings.push(target.selector.trim());
+      }
+      if (Array.isArray(target.candidates)) {
+        for (const c of target.candidates) {
+          const val = typeof c === 'string' ? c : c?.value;
+          if (val && typeof val === 'string' && val.trim() && !candidateStrings.includes(val.trim())) {
+            candidateStrings.push(val.trim());
+          }
+        }
+      }
+    }
+
+    if (action && typeof action === 'object') {
+      if (typeof action.target === 'string' && action.target.trim() && !candidateStrings.includes(action.target.trim())) {
+        candidateStrings.push(action.target.trim());
+      }
+      if (Array.isArray(action.candidates)) {
+        for (const c of action.candidates) {
+          const val = typeof c === 'string' ? c : c?.value;
+          if (val && typeof val === 'string' && val.trim() && !candidateStrings.includes(val.trim())) {
+            candidateStrings.push(val.trim());
+          }
+        }
+      }
+    }
+
+    const normalizedCandidates = candidateStrings.map((sel, idx) => {
+      const isXpath = sel.startsWith('//') || sel.startsWith('(') || sel.startsWith('/html');
+      return {
+        strategy: isXpath ? 'xpath' : 'css-path',
+        value: sel,
+        priority: idx + 1,
+        uniqueness: 1,
+      };
+    });
+
+    const fallbackFingerprint = (target && typeof target === 'object' && target.fingerprint)
+      ? target.fingerprint
+      : {
+          tagName: null,
+          isSynthetic: true,
+          text: action?.value || action?.name || '',
+          attributes: {},
+          classes: [],
+          dimensions: { width: 100, height: 40 },
+          isCheckbox: Boolean(action?.isCheckbox || (action?.name && action.name.toLowerCase().includes('checkbox'))),
+          isPassword: Boolean(action?.name && action.name.toLowerCase().includes('password')),
+        };
+
+    return {
+      candidates: normalizedCandidates.length > 0 ? normalizedCandidates : [{ strategy: 'css-path', value: 'body', priority: 1, uniqueness: 1 }],
+      fingerprint: fallbackFingerprint,
+      elementName: action?.name || 'Target Element',
+      friendlyName: action?.name || 'Target Element',
+    };
+  }
+
+  /**
    * Condition-based in-page polling resolver loop across main page and all child frames (iframes)
    */
   async waitForTargetElement(target, actionIndex, actionType, action = null) {
+    target = this._normalizeActionTarget(target, action);
     const startTime = Date.now();
     let lastResolutionResult = null;
     let lastInterruptionCheck = startTime;

@@ -19,10 +19,19 @@ export interface StepNodeData {
   timeout_ms?: number;
   is_idempotent?: boolean;
   role?: 'SETUP' | 'LOOP';
+  isCheckbox?: boolean;
+  desiredState?: boolean;
+  checked?: boolean;
+  isUncheck?: boolean;
+  isLoop?: boolean;
+  loopMode?: string;
+  isLoopAnchor?: boolean;
+  options?: Array<{ value: string; label: string }>;
   extract_column?: string;
   extract_attribute?: string;
   download_dir?: string;
   upload_to_cloud?: boolean;
+  rawTarget?: Record<string, unknown> | null;
   [key: string]: unknown;
 }
 
@@ -175,7 +184,7 @@ export function createDefaultStepData(action: StepActionType, index: number): St
 /**
  * Generates the Quixotic Slate / Emerald node card HTML for Drawflow canvas
  */
-export function renderNodeHtml(data: StepNodeData): string {
+export function renderNodeHtml(data: StepNodeData, isLoopAnchor?: boolean): string {
   const action = (data.action || 'CLICK').toUpperCase() as StepActionType;
   const def = ACTION_DEFINITIONS[action] || ACTION_DEFINITIONS.CLICK;
 
@@ -183,7 +192,9 @@ export function renderNodeHtml(data: StepNodeData): string {
   const friendlyName = data.name || def.defaultName;
   const targetStr = data.target ? truncateSelector(String(data.target)) : '';
   const valueStr = data.value ? String(data.value) : '';
-  const isLoop = data.role === 'LOOP' || action === 'LOOP_START';
+
+  const isAnchor = Boolean(isLoopAnchor ?? data.isLoopAnchor);
+  const isLoop = Boolean(data.role === 'LOOP' || data.isLoop === true || action === 'LOOP_START' || isAnchor);
 
   let selectorRow = '';
   if (def.hasTarget && targetStr) {
@@ -206,6 +217,27 @@ export function renderNodeHtml(data: StepNodeData): string {
     `;
   }
 
+  const loopAnchorBadge = isAnchor
+    ? `<span class="df-loop-anchor-pill" title="Primary anchor: Repeating loop sequence starts here">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
+        Loop Anchor
+      </span>`
+    : '';
+
+  const isCheckbox = Boolean(
+    data.isCheckbox === true ||
+    data.desiredState !== undefined ||
+    data.checked !== undefined ||
+    (data.rawTarget && (data.rawTarget as Record<string, unknown>)?.isCheckbox) ||
+    (data.name && data.name.toLowerCase().includes('checkbox'))
+  );
+
+  const checkboxStateBadge = isCheckbox && data.desiredState !== undefined
+    ? `<span class="df-checkbox-state-pill" title="State-aware idempotency: ${data.desiredState ? 'Ensure ON (checked)' : 'Ensure OFF (unchecked)'}">
+        ${data.desiredState ? 'Ensure ON' : 'Ensure OFF'}
+      </span>`
+    : '';
+
   const idempotentBadge = data.is_idempotent
     ? `<span class="df-idempotent-pill" title="Pre-verifies checkbox state before action">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
@@ -215,8 +247,14 @@ export function renderNodeHtml(data: StepNodeData): string {
 
   const timeoutBadge = `<span class="df-timeout-pill">${data.timeout_ms || def.defaultTimeout}ms</span>`;
 
+  const heroDesc = isAnchor
+    ? 'Loop Anchor · Starts repeat sequence'
+    : isLoop
+    ? 'Repeats in loop sequence'
+    : 'Executes once in workflow';
+
   return `
-    <div class="df-node-card-inner ${isLoop ? 'is-loop' : ''}">
+    <div class="df-node-card-inner ${isLoop ? 'is-loop' : ''} ${isAnchor ? 'is-loop-anchor' : ''}">
       <div class="df-node-header">
         <div class="df-action-badge ${def.badgeClass}">
           <span>${def.iconSvg}</span>
@@ -235,13 +273,15 @@ export function renderNodeHtml(data: StepNodeData): string {
 
       <div class="df-node-hero">
         <span class="df-node-title" title="${escapeHtml(friendlyName)}">${escapeHtml(friendlyName)}</span>
-        <span class="df-node-desc">${isLoop ? 'Repeats for each record' : 'Executes once in workflow'}</span>
+        <span class="df-node-desc">${heroDesc}</span>
       </div>
 
       <div class="df-node-body">
         ${selectorRow}
         ${valueRow}
         <div class="df-badge-row">
+          ${loopAnchorBadge}
+          ${checkboxStateBadge}
           ${idempotentBadge}
           ${timeoutBadge}
         </div>

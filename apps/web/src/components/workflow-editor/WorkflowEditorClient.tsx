@@ -6,7 +6,7 @@ import { Loader2 } from 'lucide-react';
 
 export function EditorLoadingState() {
   return (
-    <div className="flex h-screen w-screen flex-col items-center justify-center bg-[#060913] text-slate-100 select-none">
+    <div className="flex h-full w-full flex-col items-center justify-center bg-[#060913] text-slate-100 select-none">
       <div className="relative flex items-center justify-center">
         <div className="h-16 w-16 rounded-full border-2 border-emerald-500/20 border-t-emerald-400 animate-spin" />
         <Loader2 className="absolute h-6 w-6 text-emerald-400 animate-pulse" />

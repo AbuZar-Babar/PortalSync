@@ -371,8 +371,9 @@ class RecorderRoutes {
       };
 
       await this.activeRecorder.start();
-      this.broadcast('recording_state', { isRecording: true, name, startedAt: this.activeRecorder.startedAt });
-      return sendJson(res, 200, { success: true, name, startedAt: this.activeRecorder.startedAt });
+      const startedAt = this.activeRecorder?.startedAt || new Date().toISOString();
+      this.broadcast('recording_state', { isRecording: true, name, startedAt });
+      return sendJson(res, 200, { success: true, name, startedAt });
     } catch (err) {
       if (this.activeRecorder) {
         this.activeRecorder.stop().catch(() => {});

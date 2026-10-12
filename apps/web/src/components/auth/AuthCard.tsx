@@ -18,8 +18,29 @@ import {
   ArrowRight,
 } from 'lucide-react';
 
-interface AuthCardProps {
+export type PlanTier = 'starter' | 'pro' | 'enterprise';
+
+export const PLAN_DETAILS: Record<PlanTier, { name: string; price: string; steps: string }> = {
+  starter: {
+    name: 'Starter',
+    price: '$29 / mo',
+    steps: '25,000 steps/mo',
+  },
+  pro: {
+    name: 'Pro',
+    price: '$99 / mo',
+    steps: '150,000 steps/mo',
+  },
+  enterprise: {
+    name: 'Enterprise',
+    price: '$249 / mo',
+    steps: '500,000+ steps/mo',
+  },
+};
+
+export interface AuthCardProps {
   defaultTab?: 'signin' | 'signup';
+  selectedPlan?: PlanTier;
   redirectedFrom?: string;
   isModal?: boolean;
   onClose?: () => void;
@@ -27,6 +48,7 @@ interface AuthCardProps {
 
 export function AuthCard({
   defaultTab = 'signin',
+  selectedPlan = 'starter',
   redirectedFrom = '/dashboard',
   isModal = false,
   onClose,
@@ -181,7 +203,7 @@ export function AuthCard({
             id: orgId,
             name: cleanCompany,
             slug: `${orgSlug}-${Math.random().toString(36).substring(2, 7)}`,
-            plan_tier: 'starter',
+            plan_tier: selectedPlan || 'starter',
           });
 
           if (!orgError) {
@@ -238,12 +260,12 @@ export function AuthCard({
   };
 
   return (
-    <div className={`bg-slate-900/95 border border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-8 backdrop-blur-xl relative ${isModal ? 'w-full max-w-md' : ''}`}>
+    <div className={`bg-[#09090d]/95 border border-white/15 rounded-2xl sm:rounded-3xl shadow-2xl p-6 sm:p-8 backdrop-blur-xl relative ${isModal ? 'w-full max-w-md' : ''}`}>
       {isModal && onClose && (
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 text-slate-500 hover:text-white p-1 rounded-lg hover:bg-white/5 transition cursor-pointer"
+          className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-white/5 transition cursor-pointer"
           aria-label="Close"
         >
           <X className="w-5 h-5" />
@@ -268,7 +290,7 @@ export function AuthCard({
       )}
 
       {/* Prominent Tab Switcher Header */}
-      <div className="flex bg-slate-950/80 p-1.5 rounded-xl border border-white/5 mb-6 gap-1.5" role="tablist">
+      <div className="flex bg-[#050508] p-1.5 rounded-xl border border-white/10 mb-6 gap-1.5" role="tablist">
         <button
           type="button"
           role="tab"
@@ -279,8 +301,8 @@ export function AuthCard({
           }}
           className={`flex-1 py-2.5 px-4 rounded-lg font-bold text-xs sm:text-sm transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 ${
             activeTab === 'signin'
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-              : 'text-slate-400 hover:text-white hover:bg-white/5'
+              ? 'bg-white text-zinc-950 shadow-md'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
         >
           <Lock className="w-3.5 h-3.5" />
@@ -297,14 +319,34 @@ export function AuthCard({
           }}
           className={`flex-1 py-2.5 px-4 rounded-lg font-bold text-xs sm:text-sm transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 ${
             activeTab === 'signup'
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-              : 'text-slate-400 hover:text-white hover:bg-white/5'
+              ? 'bg-white text-zinc-950 shadow-md'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
         >
           <Building className="w-3.5 h-3.5" />
           <span>Create Account</span>
         </button>
       </div>
+
+      {/* Selected Subscription Plan Banner */}
+      {activeTab === 'signup' && selectedPlan && (
+        <div className="mb-5 p-3 rounded-xl bg-white/[0.04] border border-white/15 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            <div>
+              <span className="font-bold text-white tracking-tight">
+                {PLAN_DETAILS[selectedPlan]?.name || selectedPlan} Plan Selected
+              </span>
+              <span className="text-zinc-400 text-[11px] block sm:inline sm:ml-2">
+                {PLAN_DETAILS[selectedPlan]?.steps}
+              </span>
+            </div>
+          </div>
+          <span className="font-mono text-white font-bold text-xs shrink-0 pl-2">
+            {PLAN_DETAILS[selectedPlan]?.price}
+          </span>
+        </div>
+      )}
 
       {/* TAB 1: SIGN IN */}
       {activeTab === 'signin' && (
@@ -332,9 +374,9 @@ export function AuthCard({
 
           <form className="space-y-4" onSubmit={handleSignIn}>
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">Work Email</label>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Work Email</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
                   <Mail className="w-4 h-4" />
                 </div>
                 <input
@@ -344,14 +386,14 @@ export function AuthCard({
                   value={signInEmail}
                   onChange={(e) => setSignInEmail(e.target.value)}
                   placeholder="ap-team@acmecorp.com"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition text-sm"
+                  className="w-full pl-10 pr-4 py-2.5 bg-[#050508] border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-white/40 transition text-sm"
                 />
               </div>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-semibold text-slate-300">Password</label>
+                <label className="block text-xs font-semibold text-zinc-300">Password</label>
                 <button
                   type="button"
                   onClick={() => {
@@ -364,7 +406,7 @@ export function AuthCard({
                 </button>
               </div>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
@@ -374,12 +416,12 @@ export function AuthCard({
                   value={signInPassword}
                   onChange={(e) => setSignInPassword(e.target.value)}
                   placeholder="••••••••••••"
-                  className="w-full pl-10 pr-10 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition text-sm"
+                  className="w-full pl-10 pr-10 py-2.5 bg-[#050508] border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-white/40 transition text-sm"
                 />
                 <button
                   type="button"
                   onClick={() => setShowSignInPassword(!showSignInPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300 transition cursor-pointer"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-500 hover:text-zinc-300 transition cursor-pointer"
                   tabIndex={-1}
                   aria-label={showSignInPassword ? 'Hide password' : 'Show password'}
                 >
@@ -391,7 +433,7 @@ export function AuthCard({
             <button
               type="submit"
               disabled={signInLoading}
-              className="w-full mt-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg shadow-blue-500/20 transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="w-full mt-3 py-3 px-4 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs uppercase tracking-wider shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               {signInLoading ? (
                 <>
@@ -432,9 +474,9 @@ export function AuthCard({
 
           <form className="space-y-3.5" onSubmit={handleSignUp}>
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Company or Team Name</label>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1">Company or Workspace Name</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
                   <Building className="w-4 h-4" />
                 </div>
                 <input
@@ -442,16 +484,16 @@ export function AuthCard({
                   required
                   value={signUpCompany}
                   onChange={(e) => setSignUpCompany(e.target.value)}
-                  placeholder="Acme Global Logistics"
-                  className="w-full pl-10 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition text-sm"
+                  placeholder="Acme Logistics"
+                  className="w-full pl-10 pr-4 py-2 bg-[#050508] border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-white/40 transition text-sm"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Work Email</label>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1">Work Email</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
                   <Mail className="w-4 h-4" />
                 </div>
                 <input
@@ -460,16 +502,16 @@ export function AuthCard({
                   autoComplete="email"
                   value={signUpEmail}
                   onChange={(e) => setSignUpEmail(e.target.value)}
-                  placeholder="ap-team@acmeglobal.com"
-                  className="w-full pl-10 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition text-sm"
+                  placeholder="name@company.com"
+                  className="w-full pl-10 pr-4 py-2 bg-[#050508] border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-white/40 transition text-sm"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1">Password</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
@@ -480,12 +522,12 @@ export function AuthCard({
                   value={signUpPassword}
                   onChange={(e) => setSignUpPassword(e.target.value)}
                   placeholder="Minimum 6 characters"
-                  className="w-full pl-10 pr-10 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition text-sm"
+                  className="w-full pl-10 pr-10 py-2 bg-[#050508] border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-white/40 transition text-sm"
                 />
                 <button
                   type="button"
                   onClick={() => setShowSignUpPassword(!showSignUpPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300 transition cursor-pointer"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-500 hover:text-zinc-300 transition cursor-pointer"
                   tabIndex={-1}
                   aria-label={showSignUpPassword ? 'Hide password' : 'Show password'}
                 >
@@ -495,9 +537,9 @@ export function AuthCard({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Confirm Password</label>
+              <label className="block text-xs font-semibold text-zinc-300 mb-1">Confirm Password</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
@@ -508,10 +550,10 @@ export function AuthCard({
                   value={signUpConfirmPassword}
                   onChange={(e) => setSignUpConfirmPassword(e.target.value)}
                   placeholder="Re-enter password"
-                  className={`w-full pl-10 pr-10 py-2 bg-slate-950 border rounded-xl text-white placeholder-slate-500 focus:outline-none transition text-sm ${
+                  className={`w-full pl-10 pr-10 py-2 bg-[#050508] border rounded-xl text-white placeholder-zinc-500 focus:outline-none transition text-sm ${
                     signUpConfirmPassword && signUpConfirmPassword !== signUpPassword
                       ? 'border-red-500/50 focus:border-red-500'
-                      : 'border-slate-800 focus:border-blue-500'
+                      : 'border-white/10 focus:border-white/40'
                   }`}
                 />
                 {signUpConfirmPassword && signUpConfirmPassword === signUpPassword && (
@@ -528,7 +570,7 @@ export function AuthCard({
             <button
               type="submit"
               disabled={signUpLoading}
-              className="w-full mt-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg shadow-blue-500/20 transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="w-full mt-3 py-3 px-4 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs uppercase tracking-wider shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               {signUpLoading ? (
                 <>
@@ -546,35 +588,35 @@ export function AuthCard({
         </div>
       )}
 
-      <div className="mt-6 pt-5 border-t border-slate-800/80 text-center">
-        <p className="text-[11px] text-slate-500">
-          Enterprise Grade • End-to-End Encrypted • SOC2 Ready
+      <div className="mt-6 pt-5 border-t border-white/10 text-center">
+        <p className="text-[11px] font-mono text-zinc-500">
+          Enterprise Security · Local Replay Execution · Zero Extensions
         </p>
       </div>
 
       {/* Forgot Password Modal */}
       {showForgotModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl relative">
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#09090d] border border-white/15 rounded-2xl p-6 max-w-md w-full shadow-2xl relative">
             <button
               type="button"
               onClick={() => {
                 setShowForgotModal(false);
                 setForgotMessage(null);
               }}
-              className="absolute top-4 right-4 text-slate-500 hover:text-white transition cursor-pointer"
+              className="absolute top-4 right-4 text-zinc-400 hover:text-white transition cursor-pointer"
               aria-label="Close modal"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
+              <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-white">
                 <KeyRound className="w-5 h-5" />
               </div>
               <div>
                 <h3 className="text-base font-bold text-white">Reset Password</h3>
-                <p className="text-xs text-slate-400">Enter your email to receive a recovery link</p>
+                <p className="text-xs text-zinc-400">Enter your email to receive a recovery link</p>
               </div>
             </div>
 
@@ -597,9 +639,9 @@ export function AuthCard({
 
             <form onSubmit={handleResetPassword} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Account Email</label>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">Account Email</label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
                     <Mail className="w-4 h-4" />
                   </div>
                   <input
@@ -608,7 +650,7 @@ export function AuthCard({
                     value={forgotEmail}
                     onChange={(e) => setForgotEmail(e.target.value)}
                     placeholder="name@company.com"
-                    className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white text-xs placeholder-slate-500 focus:outline-none focus:border-blue-500 transition"
+                    className="w-full pl-9 pr-4 py-2 bg-[#050508] border border-white/10 rounded-lg text-white text-xs placeholder-zinc-500 focus:outline-none focus:border-white/40 transition"
                   />
                 </div>
               </div>
@@ -620,14 +662,14 @@ export function AuthCard({
                     setShowForgotModal(false);
                     setForgotMessage(null);
                   }}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/5 transition cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-full text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/5 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={forgotLoading}
-                  className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                  className="px-4 py-1.5 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 text-xs font-bold transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                 >
                   {forgotLoading ? (
                     <>

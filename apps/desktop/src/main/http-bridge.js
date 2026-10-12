@@ -207,6 +207,134 @@ class HttpBridge {
           }
         }
 
+        // 7. Live Page and Table Item Discovery Endpoint
+        if ((pathname === '/discover' || pathname === '/api/discover') && (req.method === 'POST' || req.method === 'GET')) {
+          try {
+            const body = req.method === 'POST' ? await this.parseBody(req).catch(() => ({})) : {};
+            const workflow = body.workflow || null;
+            const targetUrl = body.url || workflow?.portal_url || workflow?.start_url || workflow?.targetUrl;
+
+            const { connectToBrowser } = engineResolver.requireEngine('src/utils/cdp-connector');
+            const { PageInspector } = engineResolver.requireEngine('src/shared/page-inspector');
+            const ItemDiscovery = engineResolver.requireEngine('src/shared/item-discovery');
+            const LoopReplayRunner = engineResolver.requireEngine('src/replay/loop-replay-runner');
+
+            const { browser, page } = await connectToBrowser({ autoLaunch: false }).catch(() => ({ browser: null, page: null }));
+            if (!page) {
+              return this.sendJson(req, res, 200, {
+                success: false,
+                reason: 'No active Chrome browser session on port 9222',
+                availableFields: [],
+                fieldValues: {},
+                itemCount: 0,
+                items: []
+              });
+            }
+
+            const currentUrl = page.url ? page.url() : '';
+            if (targetUrl && (currentUrl === 'about:blank' || !currentUrl)) {
+              await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+            }
+
+            const inspection = await PageInspector.inspectPage(page).catch(() => ({ collections: [] }));
+            const discoveredCols = new Set();
+            const fieldValuesMap = {};
+
+            const addVal = (field, val) => {
+              if (!field || val === null || val === undefined) return;
+              const f = String(field).trim();
+              let v = String(val).trim();
+              if (!f || !v) return;
+              if (/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/i.test(v)) return;
+              v = v.replace(/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+/, '').trim();
+              if (!v) return;
+              if (!fieldValuesMap[f]) fieldValuesMap[f] = [];
+              if (!fieldValuesMap[f].includes(v)) {
+                fieldValuesMap[f].push(v);
+              }
+            };
+
+            let primaryItems = [];
+            let totalItemCount = 0;
+
+            if (inspection && Array.isArray(inspection.collections) && inspection.collections.length > 0) {
+              const primaryCollection = inspection.collections[0];
+              totalItemCount = primaryCollection.rowCount || (primaryCollection.items?.length ?? 0);
+              (primaryCollection.columns || []).forEach(c => {
+                if (c && typeof c === 'string' && c.trim()) discoveredCols.add(c.trim());
+              });
+
+              if (Array.isArray(primaryCollection.items)) {
+                primaryItems = primaryCollection.items;
+                primaryCollection.items.forEach(row => {
+                  Object.entries(row).forEach(([col, val]) => {
+                    if (col && !col.startsWith('_')) {
+                      discoveredCols.add(col.trim());
+                      addVal(col.trim(), val);
+                    }
+                  });
+                });
+              }
+            }
+
+            // Also inspect workflow steps for target elements and ItemDiscovery
+            const steps = workflow?.steps || workflow?.workflow_definition?.steps || [];
+            if (steps.length > 0) {
+              const stepIdx = Number.isInteger(body.loopStepIndex) ? body.loopStepIndex : 0;
+              const targetStep = steps[stepIdx] || steps[0];
+              if (targetStep) {
+                const discovery = await ItemDiscovery.discover(page, targetStep.target || targetStep.fingerprint, {
+                  minItems: 1,
+                  minScore: 0.4
+                }).catch(() => null);
+
+                if (discovery && discovery.success) {
+                  totalItemCount = Math.max(totalItemCount, discovery.itemCount || 0);
+                  if (typeof LoopReplayRunner.extractDiscoveredItems === 'function') {
+                    const extracted = await LoopReplayRunner.extractDiscoveredItems(page, discovery).catch(() => []);
+                    if (Array.isArray(extracted)) {
+                      extracted.forEach(it => {
+                        if (it.fields) {
+                          Object.entries(it.fields).forEach(([k, v]) => {
+                            if (k && typeof k === 'string') {
+                              discoveredCols.add(k.trim());
+                              addVal(k.trim(), v);
+                            }
+                          });
+                        }
+                      });
+                    }
+                  }
+                }
+              }
+            }
+
+            const cleanFieldValues = {};
+            Object.entries(fieldValuesMap).forEach(([k, vals]) => {
+              cleanFieldValues[k] = vals.slice(0, 30);
+            });
+
+            return this.sendJson(req, res, 200, {
+              success: true,
+              availableFields: Array.from(discoveredCols),
+              fieldValues: cleanFieldValues,
+              itemCount: totalItemCount,
+              items: primaryItems.slice(0, 50),
+              url: page.url ? page.url() : '',
+              title: (typeof page.title === 'function') ? await page.title().catch(() => '') : ''
+            });
+          } catch (err) {
+            console.warn('[HTTPBridge] Discovery handler error:', err.message);
+            return this.sendJson(req, res, 500, {
+              success: false,
+              error: err.message,
+              availableFields: [],
+              fieldValues: {},
+              itemCount: 0
+            });
+          }
+        }
+
         // 404 Fallback
         return this.sendJson(req, res, 404, { error: 'Not Found', path: pathname });
       } catch (err) {
@@ -300,7 +428,7 @@ class HttpBridge {
       isRecording: true,
       name: sessionName,
       url: targetUrl,
-      startedAt: this.sessionMeta.startedAt
+      startedAt: this.sessionMeta?.startedAt || this.activeRecorder?.startedAt || new Date().toISOString()
     };
   }
 

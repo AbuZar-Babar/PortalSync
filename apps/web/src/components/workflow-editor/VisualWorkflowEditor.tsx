@@ -11,6 +11,9 @@ import {
   createDefaultStepData,
 } from './CustomNodes';
 import PropertyDrawer from './PropertyDrawer';
+import { useDashboard } from '@/context/DashboardContext';
+import { Workflow } from '@/lib/types/database';
+import { ExecutionPreflightModal } from '@/components/dashboard/ExecutionPreflightModal';
 import {
   ArrowLeft,
   Play,
@@ -38,14 +41,18 @@ interface VisualWorkflowEditorProps {
 
 interface LoadedStepCandidate {
   value?: string;
+  strategy?: string;
+  priority?: number;
+  uniqueness?: number;
 }
 
 interface LoadedStepRecord {
   name?: string;
   action?: string;
   type?: string;
-  target?: string | { selector?: string; candidates?: LoadedStepCandidate[] };
-  candidates?: string[];
+  target?: string | Record<string, unknown>;
+  candidates?: string[] | LoadedStepCandidate[];
+  rawTarget?: Record<string, unknown> | null;
   value?: string | number;
   timeout_ms?: number;
   is_idempotent?: boolean;
@@ -56,6 +63,15 @@ interface LoadedStepRecord {
   attribute?: string;
   download_dir?: string;
   upload_to_cloud?: boolean;
+  isCheckbox?: boolean;
+  desiredState?: boolean;
+  checked?: boolean;
+  isUncheck?: boolean;
+  isLoop?: boolean;
+  loopMode?: string;
+  options?: Array<{ value: string; label: string }> | string[];
+  meta?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 interface LoadedWorkflowRecord {
@@ -70,6 +86,7 @@ interface LoadedWorkflowRecord {
 }
 
 export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEditorProps) {
+  const { isRunnerOnline, orgId } = useDashboard();
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<Drawflow | null>(null);
 
@@ -79,6 +96,7 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [isDirty, setIsDirty] = useState<boolean>(false);
+  const [isPreflightOpen, setIsPreflightOpen] = useState<boolean>(false);
   const [saveMessage, setSaveMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [runMessage, setRunMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
@@ -101,21 +119,52 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
     setIsDirty(true);
   }, []);
 
-  // Update step numbers sequentially in the DOM
+  // Update step numbers sequentially in the DOM and apply loop anchor classes
   const refreshStepVisuals = useCallback(() => {
     if (!editorRef.current) return;
     try {
       const exportData = editorRef.current.export();
-      const nodes = exportData.drawflow.Home?.data || {};
+      const nodes: Record<string, DrawflowNode> = (exportData.drawflow.Home?.data || {}) as Record<string, DrawflowNode>;
       const nodeKeys = Object.keys(nodes);
 
-      nodeKeys.forEach((key, index) => {
+      // Sort nodes by X position to follow execution flow
+      const sortedKeys = [...nodeKeys].sort((a, b) => (nodes[a]?.pos_x || 0) - (nodes[b]?.pos_x || 0));
+
+      let activeLoopIndex = -1;
+      sortedKeys.forEach((key, index) => {
+        const d = (nodes[key]?.data || {}) as StepNodeData;
+        const isLoop = d.role === 'LOOP' || d.isLoop === true || d.action === 'LOOP_START';
+        if (isLoop && activeLoopIndex === -1) {
+          activeLoopIndex = index;
+        }
+      });
+
+      sortedKeys.forEach((key, index) => {
         const node = nodes[key];
         const domNode = document.getElementById(`node-${key}`);
         if (domNode && node && node.data) {
-          const stepNumElem = domNode.querySelector('.df-step-number');
-          if (stepNumElem) {
-            stepNumElem.textContent = `#${index + 1}`;
+          const stepData = node.data as StepNodeData;
+          stepData.stepIndex = index;
+
+          const isLoop = stepData.role === 'LOOP' || stepData.isLoop === true || stepData.action === 'LOOP_START';
+          const isLoopAnchor = isLoop && (index === activeLoopIndex);
+
+          stepData.isLoopAnchor = isLoopAnchor;
+
+          if (isLoopAnchor) {
+            domNode.classList.add('is-loop-anchor');
+            domNode.classList.remove('is-loop-node');
+          } else if (isLoop) {
+            domNode.classList.add('is-loop-node');
+            domNode.classList.remove('is-loop-anchor');
+          } else {
+            domNode.classList.remove('is-loop-anchor');
+            domNode.classList.remove('is-loop-node');
+          }
+
+          const contentElem = domNode.querySelector('.drawflow_content_node');
+          if (contentElem) {
+            contentElem.innerHTML = renderNodeHtml(stepData, isLoopAnchor);
           }
         }
       });
@@ -184,18 +233,77 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
         firstLoopIdx = idx;
       }
 
+      const rawTarget = (d.rawTarget && typeof d.rawTarget === 'object') ? (d.rawTarget as Record<string, unknown>) : null;
+      const candidateList: string[] = Array.isArray(d.candidates) ? d.candidates : [];
+
+      let targetPayload: unknown = d.target || '';
+      if (rawTarget) {
+        targetPayload = {
+          ...rawTarget,
+          selector: d.target || (rawTarget as Record<string, unknown>).selector || '',
+          candidates: candidateList.length > 0
+            ? candidateList.map((c, cIdx) => {
+                const existing = Array.isArray((rawTarget as Record<string, unknown>).candidates)
+                  ? ((rawTarget as Record<string, unknown>).candidates as Array<Record<string, unknown>>).find((cand) => cand && cand.value === c)
+                  : null;
+                return existing || {
+                  strategy: c.startsWith('//') || c.startsWith('(') ? 'xpath' : 'css-path',
+                  value: c,
+                  priority: cIdx + 1,
+                  uniqueness: 1,
+                };
+              })
+            : (rawTarget as Record<string, unknown>).candidates || [],
+        };
+      } else if (candidateList.length > 0) {
+        targetPayload = {
+          selector: d.target || '',
+          candidates: candidateList.map((c, cIdx) => ({
+            strategy: c.startsWith('//') || c.startsWith('(') ? 'xpath' : 'css-path',
+            value: c,
+            priority: cIdx + 1,
+            uniqueness: 1,
+          })),
+          fingerprint: { tagName: null },
+        };
+      }
+
+      const isCb = Boolean(
+        d.isCheckbox === true ||
+        d.desiredState !== undefined ||
+        d.checked !== undefined ||
+        (rawTarget && (rawTarget as Record<string, unknown>).isCheckbox) ||
+        (d.name && d.name.toLowerCase().includes('checkbox'))
+      );
+
+      const desiredState = d.isUncheck === true
+        ? false
+        : (d.desiredState !== undefined
+          ? Boolean(d.desiredState)
+          : (d.checked !== undefined ? Boolean(d.checked) : true));
+
       return {
         index: idx,
         name: d.name || `Step #${idx + 1}`,
         action,
         type: action,
-        target: d.target || '',
-        candidates: Array.isArray(d.candidates) ? d.candidates : [],
+        target: targetPayload,
+        candidates: candidateList,
+        rawTarget,
         value: d.value || '',
         timeout_ms: Number(d.timeout_ms) || 5000,
-        is_idempotent: Boolean(d.is_idempotent),
+        is_idempotent: Boolean(d.is_idempotent ?? isCb),
         role: d.role || (action === 'LOOP_START' ? 'LOOP' : 'SETUP'),
         isLoop,
+        loopMode: d.loopMode || (isLoop ? 'sequential_iteration' : null),
+        isLoopCandidate: isLoop,
+        ...(isCb ? {
+          isCheckbox: true,
+          desiredState,
+          checked: desiredState,
+          isUncheck: !desiredState,
+        } : {}),
+        ...(Array.isArray(d.options) ? { options: d.options } : {}),
         ...(d.extract_column ? { extract_column: d.extract_column, extract_attribute: d.extract_attribute } : {}),
         ...(d.download_dir ? { download_dir: d.download_dir, upload_to_cloud: d.upload_to_cloud } : {}),
       };
@@ -228,8 +336,9 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
           steps,
           actions: steps,
           start_url: portalUrl,
+          mode: hasLoop ? 'loop' : 'single',
           isLoop: hasLoop,
-          loopStepIndex,
+          loopStepIndex: hasLoop && loopStepIndex >= 0 ? loopStepIndex : null,
         },
       };
 
@@ -275,12 +384,17 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
         await handleSaveToCloud();
       }
 
+      const { steps, hasLoop, loopStepIndex } = compileTopologicalSteps();
+
       const res = await fetch('/api/v1/runs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflow_id: workflowId,
           status: 'pending',
+          mode: hasLoop ? 'loop' : 'single',
+          isLoop: hasLoop,
+          loopStepIndex: hasLoop && loopStepIndex >= 0 ? loopStepIndex : null,
         }),
       });
 
@@ -415,6 +529,18 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
   useEffect(() => {
     if (!containerRef.current) return;
 
+    let isSubscribed = true;
+
+    // 1. Purge any stale canvas instances or DOM nodes
+    if (editorRef.current) {
+      try {
+        editorRef.current.clear();
+      } catch {}
+      editorRef.current = null;
+    }
+    containerRef.current.innerHTML = '';
+
+    // 2. Instantiate and start a single Drawflow canvas
     const editor = new Drawflow(containerRef.current);
     editor.reroute = true;
     editor.reroute_fix_curvature = true;
@@ -453,7 +579,11 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
         if (parentNode && parentNode.id) {
           const rawId = parentNode.id.replace('node-', '');
           if (confirm('Delete this step?')) {
-            editor.removeNodeId(parentNode.id);
+            try {
+              editor.removeNodeId(parentNode.id);
+            } catch (delErr) {
+              console.warn('Step delete notice:', delErr);
+            }
             const currentSelected = selectedNodeIdRef.current;
             if (currentSelected === rawId || currentSelected === Number(rawId)) {
               setIsDrawerOpen(false);
@@ -488,11 +618,18 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
           }
         }
 
+        if (!isSubscribed) return;
+
         if (wfData) {
           setWorkflowName(wfData.name || 'Untitled Workflow');
           setPortalUrl(wfData.portal_url || '');
 
           const def = wfData.workflow_definition || {};
+
+          // Always ensure editor canvas is clean before importing or synthesizing
+          try {
+            editor.clear();
+          } catch {}
 
           // Graph loading logic
           if (def.drawflow && typeof def.drawflow === 'object' && 'drawflow' in def.drawflow) {
@@ -512,15 +649,37 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
               const targetSelector =
                 typeof step.target === 'string'
                   ? step.target
-                  : step.target?.selector || '';
+                  : (step.target as Record<string, unknown>)?.selector as string || '';
+
+              const rawTarget = typeof step.target === 'object' && step.target !== null
+                ? (step.target as Record<string, unknown>)
+                : (step.rawTarget || null);
 
               const candidateList: string[] = Array.isArray(step.candidates)
-                ? step.candidates
-                : typeof step.target === 'object' && step.target !== null && Array.isArray(step.target.candidates)
-                ? step.target.candidates
-                    .map((c: LoadedStepCandidate) => (typeof c === 'string' ? c : c.value || ''))
+                ? (step.candidates as Array<string | LoadedStepCandidate>)
+                    .map((c) => (typeof c === 'string' ? c : c.value || ''))
+                    .filter((v: string) => v.length > 0)
+                : typeof step.target === 'object' && step.target !== null && Array.isArray((step.target as Record<string, unknown>).candidates)
+                ? ((step.target as Record<string, unknown>).candidates as Array<LoadedStepCandidate | string>)
+                    .map((c) => (typeof c === 'string' ? c : c.value || ''))
                     .filter((v: string) => v.length > 0)
                 : [];
+
+              const isCb = Boolean(
+                step.isCheckbox === true ||
+                step.desiredState !== undefined ||
+                step.checked !== undefined ||
+                (rawTarget && (rawTarget as Record<string, unknown>).isCheckbox) ||
+                (step.name && step.name.toLowerCase().includes('checkbox'))
+              );
+
+              const desiredState = step.isUncheck === true
+                ? false
+                : (step.desiredState !== undefined
+                  ? Boolean(step.desiredState)
+                  : (step.checked !== undefined ? Boolean(step.checked) : true));
+
+              const isLoopStep = Boolean(step.role === 'LOOP' || step.isLoop || act === 'LOOP_START');
 
               const stepData: StepNodeData = {
                 stepIndex: idx,
@@ -528,10 +687,24 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
                 action: act,
                 target: targetSelector,
                 candidates: candidateList,
+                rawTarget: rawTarget as Record<string, unknown> | null,
                 value: String(step.value ?? ''),
                 timeout_ms: step.timeout_ms || 5000,
-                is_idempotent: Boolean(step.is_idempotent),
-                role: step.role || (act === 'LOOP_START' ? 'LOOP' : 'SETUP'),
+                is_idempotent: Boolean(step.is_idempotent ?? isCb),
+                role: step.role || (isLoopStep ? 'LOOP' : 'SETUP'),
+                isLoop: isLoopStep,
+                loopMode: step.loopMode || (isLoopStep ? 'sequential_iteration' : undefined),
+                isCheckbox: isCb,
+                ...(isCb ? {
+                  desiredState,
+                  checked: desiredState,
+                  isUncheck: !desiredState,
+                } : {}),
+                options: Array.isArray(step.options)
+                  ? (step.options as Array<{ value: string; label: string }>)
+                  : Array.isArray((step.meta as Record<string, unknown> | undefined)?.options)
+                  ? ((step.meta as Record<string, unknown>).options as Array<{ value: string; label: string }>)
+                  : undefined,
                 extract_column: step.extract_column || step.column || '',
                 extract_attribute: step.extract_attribute || step.attribute || '',
                 download_dir: step.download_dir || '',
@@ -551,16 +724,30 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
           }
         }
       } catch (err) {
-        console.error('Error loading workflow:', err);
+        if (isSubscribed) {
+          console.error('Error loading workflow:', err);
+        }
       } finally {
-        setIsLoading(false);
+        if (isSubscribed) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadWorkflow();
 
     return () => {
+      isSubscribed = false;
       container.removeEventListener('click', handleContainerClick);
+      if (editorRef.current) {
+        try {
+          editorRef.current.clear();
+        } catch {}
+        editorRef.current = null;
+      }
+      if (container) {
+        container.innerHTML = '';
+      }
     };
   }, [workflowId, markDirty, refreshStepVisuals]);
 
@@ -577,7 +764,7 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
   }, [isDirty]);
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#060913] text-slate-100 antialiased select-none">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-[#060913] text-slate-100 antialiased select-none">
       {/* ===================================================================
           Top Navigation Bar
           =================================================================== */}
@@ -585,14 +772,14 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
         {/* Left: Back & Title */}
         <div className="flex items-center gap-4 min-w-0">
           <Link
-            href="/dashboard"
+            href="/dashboard/workflows"
             onClick={(e) => {
               if (isDirty && !confirm('You have unsaved changes. Leave without saving?')) {
                 e.preventDefault();
               }
             }}
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400 hover:border-slate-700 hover:bg-slate-800 hover:text-white transition cursor-pointer"
-            title="Back to Dashboard"
+            title="Back to Workflows"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
@@ -653,6 +840,19 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2.5">
+          {/* Desktop Worker Daemon Connection Status Indicator */}
+          <div
+            className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border ${
+              isRunnerOnline
+                ? 'border-emerald-500/30 bg-emerald-950/40 text-emerald-400'
+                : 'border-slate-800 bg-slate-900/60 text-slate-400'
+            }`}
+            title={isRunnerOnline ? 'Desktop Worker daemon online' : 'Desktop Worker daemon offline'}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${isRunnerOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
+            <span>{isRunnerOnline ? 'Worker Online' : 'Worker Offline'}</span>
+          </div>
+
           {/* Add Step Dropdown Button */}
           <div className="relative">
             <button
@@ -755,6 +955,16 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
             {isSaving ? 'Saving…' : isDirty ? 'Save to Cloud *' : 'Saved'}
           </button>
 
+          {/* Configure Batch & Filter Button */}
+          <button
+            onClick={() => setIsPreflightOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-950/40 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 transition cursor-pointer"
+            title="Configure batch loop and filter parameters before running"
+          >
+            <ListFilter className="h-3.5 w-3.5 text-cyan-400" />
+            <span className="hidden sm:inline">Batch & Filter</span>
+          </button>
+
           {/* Run Now Button */}
           <button
             onClick={handleRunNow}
@@ -832,6 +1042,40 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
           onUpdate={handleUpdateStep}
           onDelete={handleDeleteNode}
         />
+
+        {/* Execution Preflight Modal */}
+        {isPreflightOpen && (
+          <ExecutionPreflightModal
+            isOpen={isPreflightOpen}
+            onClose={() => setIsPreflightOpen(false)}
+            workflow={{
+              id: workflowId,
+              name: workflowName,
+              portal_url: portalUrl,
+              schema_version: '1.0.0',
+              org_id: orgId || '',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              workflow_definition: {
+                drawflow: editorRef.current ? editorRef.current.export() : undefined,
+                steps: compileTopologicalSteps().steps,
+                actions: compileTopologicalSteps().steps,
+                mode: compileTopologicalSteps().hasLoop ? 'loop' : 'single',
+                isLoop: compileTopologicalSteps().hasLoop,
+                loopStepIndex: compileTopologicalSteps().loopStepIndex >= 0 ? compileTopologicalSteps().loopStepIndex : null,
+              },
+              filter_rules: {},
+            }}
+            onRunDispatched={(run) => {
+              setIsPreflightOpen(false);
+              setRunMessage({
+                text: `Run dispatched! Status: ${run.status} (Run ID: ${run.id?.slice(0, 8) || 'active'})`,
+                type: 'success',
+              });
+              setTimeout(() => setRunMessage(null), 5000);
+            }}
+          />
+        )}
       </main>
     </div>
   );

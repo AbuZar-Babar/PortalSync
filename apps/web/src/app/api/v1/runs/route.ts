@@ -103,9 +103,57 @@ export async function POST(request: NextRequest) {
     // Ensure workflow exists to satisfy foreign key
     const { data: existingWorkflow } = await supabase
       .from('wf_workflows')
-      .select('id')
+      .select('id, workflow_definition, filter_rules')
       .eq('id', workflow_id)
       .maybeSingle();
+
+    const currentDef = (existingWorkflow?.workflow_definition && typeof existingWorkflow.workflow_definition === 'object')
+      ? existingWorkflow.workflow_definition as Record<string, unknown>
+      : {};
+    const currentFilterRules = (existingWorkflow?.filter_rules && typeof existingWorkflow.filter_rules === 'object')
+      ? existingWorkflow.filter_rules as Record<string, unknown>
+      : {};
+
+    const steps = Array.isArray(currentDef.steps) && currentDef.steps.length > 0
+      ? currentDef.steps
+      : (Array.isArray(currentDef.actions) ? currentDef.actions : []);
+    const hasLoopStep = steps.some((s: any) => s && (s.role === 'LOOP' || s.isLoop || s.loopMode === 'sequential_iteration'));
+    const detectedLoopIndex = steps.findIndex((s: any) => s && (s.role === 'LOOP' || s.isLoop || s.loopMode === 'sequential_iteration'));
+
+    // Determine loop execution mode
+    const hasExplicitMode = body.mode !== undefined || body.isLoop !== undefined;
+    const isLoopCandidate = Boolean(currentDef.isLoop || currentDef.mode === 'loop' || hasLoopStep);
+    const mode = hasExplicitMode
+      ? (body.mode || (body.isLoop ? 'loop' : 'single'))
+      : (isLoopCandidate ? 'loop' : 'single');
+    const isLoop = hasExplicitMode
+      ? Boolean(body.isLoop ?? (mode === 'loop'))
+      : isLoopCandidate;
+
+    // Determine loop step index
+    const hasExplicitLoopStepIndex = body.loopStepIndex !== undefined || body.loop_step_index !== undefined;
+    const explicitLoopStepIndex = body.loopStepIndex !== undefined ? body.loopStepIndex : body.loop_step_index;
+    const loopStepIndex = hasExplicitLoopStepIndex
+      ? (explicitLoopStepIndex !== null ? Number(explicitLoopStepIndex) : null)
+      : (currentDef.loopStepIndex !== undefined && currentDef.loopStepIndex !== null
+          ? Number(currentDef.loopStepIndex)
+          : (isLoop && detectedLoopIndex >= 0 ? detectedLoopIndex : null));
+
+    // Determine loop limit
+    const hasExplicitLoopLimit = body.loopLimit !== undefined || body.loop_limit !== undefined;
+    const explicitLoopLimit = body.loopLimit !== undefined ? body.loopLimit : body.loop_limit;
+    const loopLimit = hasExplicitLoopLimit
+      ? (explicitLoopLimit !== null ? Number(explicitLoopLimit) : null)
+      : (Number(total_items_discovered) > 0
+          ? Number(total_items_discovered)
+          : (currentDef.loopLimit !== undefined && currentDef.loopLimit !== null ? Number(currentDef.loopLimit) : null));
+
+    // Determine item filter
+    const hasExplicitItemFilter = body.itemFilter !== undefined || body.item_filter !== undefined;
+    const explicitItemFilter = body.itemFilter !== undefined ? body.itemFilter : body.item_filter;
+    const itemFilter = hasExplicitItemFilter
+      ? explicitItemFilter
+      : (currentDef.itemFilter !== undefined ? currentDef.itemFilter : null);
 
     if (!existingWorkflow) {
       // Auto-create stub workflow if not found to satisfy FK constraints in testing environments
@@ -114,8 +162,39 @@ export async function POST(request: NextRequest) {
         org_id: effectiveOrgId,
         name: `Workflow ${workflow_id.slice(0, 8)}`,
         portal_url: 'https://example.com',
-        workflow_definition: {},
+        workflow_definition: {
+          mode,
+          isLoop,
+          loopStepIndex: (loopStepIndex !== null && loopStepIndex !== undefined) ? loopStepIndex : null,
+          loopLimit: (loopLimit !== null && loopLimit !== undefined) ? loopLimit : null,
+          itemFilter: itemFilter || null,
+        },
+        filter_rules: itemFilter ? (typeof itemFilter === 'object' ? itemFilter : { itemFilter }) : { itemFilter: null },
       });
+    } else {
+      // Update workflow definition and filter rules with current execution configuration
+      const updatedDef: Record<string, unknown> = {
+        ...currentDef,
+        mode,
+        isLoop,
+        loopStepIndex: (loopStepIndex !== null && loopStepIndex !== undefined) ? loopStepIndex : null,
+        loopLimit: (loopLimit !== null && loopLimit !== undefined) ? loopLimit : null,
+        itemFilter: itemFilter || null,
+      };
+
+      const updatedFilterRules: Record<string, unknown> = {
+        ...currentFilterRules,
+        itemFilter: itemFilter || null,
+      };
+
+      await supabase
+        .from('wf_workflows')
+        .update({
+          workflow_definition: updatedDef,
+          filter_rules: updatedFilterRules,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', workflow_id);
     }
 
     const { data: newRun, error } = await supabase
@@ -136,7 +215,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ run: newRun }, { status: 201 });
+    return NextResponse.json({
+      run: {
+        ...newRun,
+        mode,
+        isLoop,
+        loopStepIndex,
+        loopLimit,
+        itemFilter,
+      }
+    }, { status: 201 });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Invalid JSON body';
     return NextResponse.json({ error: message }, { status: 400 });

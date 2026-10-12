@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { usePathname } from 'next/navigation';
 import { DashboardProvider, useDashboard } from '@/context/DashboardContext';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { Header } from '@/components/dashboard/Header';
@@ -8,6 +9,9 @@ import { RunDetailsDrawer } from '@/components/dashboard/RunDetailsDrawer';
 import { RobotAvatar } from '@/components/dashboard/RobotAvatar';
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isWorkflowEditor = pathname?.includes('/workflows/') && pathname?.includes('/edit');
+
   const {
     organizationName,
     userEmail,
@@ -29,6 +33,21 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
           <span>Connecting to Workflow Agent Cloud...</span>
         </div>
+      </div>
+    );
+  }
+
+  // Full-bleed studio canvas view: bypass dashboard sidebar/header and overflow wrappers
+  if (isWorkflowEditor) {
+    return (
+      <div className="fixed inset-0 h-screen w-screen overflow-hidden bg-[#060913] text-slate-100">
+        {children}
+        <RunDetailsDrawer
+          isOpen={isDrawerOpen}
+          onClose={closeRunDetails}
+          run={selectedRun}
+          onStopRun={stopActiveRun}
+        />
       </div>
     );
   }

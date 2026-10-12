@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { Bot, Building2, CheckCircle2, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { Building2, CheckCircle2, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -61,17 +62,16 @@ export default function OnboardingPage() {
         return;
       }
 
-      const slug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'workspace';
-      const uniqueSlug = `${slug}-${Math.random().toString(36).substring(2, 7)}`;
+      const orgSlug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'workspace';
       const orgId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `org_${Date.now()}`;
 
-      // 1. Create Organization with explicit ID (avoids RLS SELECT rejection before membership)
+      // 1. Create Organization
       const { error: orgError } = await supabase
         .from('wf_organizations')
         .insert({
           id: orgId,
-          name: companyName.trim(),
-          slug: uniqueSlug,
+          name: companyName,
+          slug: `${orgSlug}-${Math.random().toString(36).substring(2, 7)}`,
           plan_tier: tier,
         });
 
@@ -107,45 +107,51 @@ export default function OnboardingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-400 gap-3">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-        <p className="text-sm">Preparing your workspace...</p>
+      <div className="min-h-screen bg-[#050507] flex flex-col items-center justify-center text-zinc-400 gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-white" />
+        <p className="text-xs font-mono">Preparing your workspace...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-lg">
-        <div className="flex items-center justify-center gap-2 mb-6">
-          <div className="p-2 rounded-xl bg-blue-600/10 text-blue-400 border border-blue-500/20">
-            <Bot className="w-8 h-8" />
-          </div>
-          <span className="font-bold text-2xl tracking-tight text-white">PortalSync</span>
-        </div>
+    <div className="min-h-screen bg-[#050507] text-white flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Background Radial Ambient Glows */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-5xl h-[420px] bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(99,102,241,0.18),rgba(255,255,255,0))] pointer-events-none -z-10" />
 
-        <h2 className="text-center text-3xl font-extrabold tracking-tight text-white">
-          Welcome! Let&apos;s set up your team workspace
-        </h2>
-        <p className="mt-2 text-center text-sm text-slate-400">
-          This workspace will hold your automated vendor portals, run histories, and invoice vaults.
+      <div className="sm:mx-auto sm:w-full sm:max-w-lg text-center">
+        {/* Typographic Brand Logo */}
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 group mb-6 focus:outline-none"
+          aria-label="FlowMind Home"
+        >
+          <div className="w-2.5 h-2.5 rounded-full bg-white group-hover:scale-110 transition-transform" />
+          <span className="text-xl font-extrabold tracking-tight text-white">FlowMind.</span>
+        </Link>
+
+        <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white mb-2">
+          Set up your workspace
+        </h1>
+        <p className="text-xs sm:text-sm text-zinc-400 max-w-md mx-auto">
+          This workspace will hold your automated routines, execution run histories, and download vaults.
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-lg px-4">
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl shadow-xl p-8 backdrop-blur-xl">
+        <div className="bg-[#09090d]/95 border border-white/15 rounded-2xl sm:rounded-3xl shadow-2xl p-6 sm:p-8 backdrop-blur-xl">
           {error && (
-            <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+            <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs sm:text-sm flex items-start gap-3">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
 
           <form className="space-y-6" onSubmit={handleCreateOrg}>
             <div>
-              <label className="block text-sm font-medium text-slate-300">Organization or Company Name</label>
-              <div className="mt-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Workspace or Company Name</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
                   <Building2 className="w-4 h-4" />
                 </div>
                 <input
@@ -153,56 +159,56 @@ export default function OnboardingPage() {
                   required
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="e.g. Apex Financial Corp"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition text-sm"
+                  placeholder="Acme Operations"
+                  className="w-full pl-10 pr-4 py-2.5 bg-[#050508] border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-white/40 transition text-sm"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Select Initial Plan Tier</label>
+              <label className="block text-xs font-semibold text-zinc-300 mb-2">Select Initial Plan Tier</label>
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { id: 'starter', label: 'Starter', portals: 'Up to 3 Portals' },
-                  { id: 'professional', label: 'Pro', portals: 'Up to 15 Portals', recommended: true },
-                  { id: 'enterprise', label: 'Enterprise', portals: 'Unlimited' },
+                  { id: 'starter', label: 'Starter', steps: '25k steps/mo' },
+                  { id: 'professional', label: 'Pro', steps: '150k steps/mo', recommended: true },
+                  { id: 'enterprise', label: 'Enterprise', steps: '500k+ steps/mo' },
                 ].map((plan) => (
                   <button
                     key={plan.id}
                     type="button"
                     onClick={() => setTier(plan.id as 'starter' | 'professional' | 'enterprise')}
-                    className={`relative p-3 rounded-xl border text-left transition ${
+                    className={`relative p-3 rounded-xl border text-left transition cursor-pointer ${
                       tier === plan.id
-                        ? 'border-blue-500 bg-blue-600/10 text-white shadow-sm shadow-blue-500/20'
-                        : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700'
+                        ? 'border-white bg-white/10 text-white shadow-md'
+                        : 'border-white/10 bg-[#050508] text-zinc-400 hover:border-white/20'
                     }`}
                   >
                     {plan.recommended && (
-                      <span className="absolute -top-2 right-2 bg-blue-500 text-white text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-full">
-                        Popular
+                      <span className="absolute -top-2 right-2 bg-white text-zinc-950 text-[9px] uppercase font-bold font-mono px-1.5 py-0.5 rounded-full">
+                        Recommended
                       </span>
                     )}
-                    <div className="font-semibold text-sm">{plan.label}</div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">{plan.portals}</div>
+                    <div className="font-bold text-xs text-white">{plan.label}</div>
+                    <div className="text-[10px] text-zinc-400 mt-0.5">{plan.steps}</div>
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="rounded-xl bg-slate-950/60 border border-slate-800/80 p-4 space-y-2">
-              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Workspace Features Included:</div>
-              <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
-                <div className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-blue-400" /> Multi-Tenant RLS</div>
-                <div className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-blue-400" /> Desktop Runner Bridge</div>
-                <div className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-blue-400" /> Auto PDF Hash Deduplication</div>
-                <div className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-blue-400" /> Live WebSocket Telemetry</div>
+            <div className="rounded-xl bg-[#050508] border border-white/10 p-4 space-y-2">
+              <div className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider">Included Capabilities:</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-zinc-300">
+                <div className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Multi-Tenant RLS Security</div>
+                <div className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Local Chrome CDP Bridge</div>
+                <div className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> SHA-256 File Deduplication</div>
+                <div className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Live Run Telemetry</div>
               </div>
             </div>
 
             <button
               type="submit"
               disabled={submitting || !companyName.trim()}
-              className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-lg shadow-blue-500/20 transition flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-3.5 px-4 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs uppercase tracking-wider shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               {submitting ? (
                 <>

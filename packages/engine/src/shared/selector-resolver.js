@@ -788,8 +788,11 @@
    * Score candidate element against recorded fingerprint [0.0 - 1.0]
    */
   function scoreFingerprint(element, fingerprint) {
-    if (!element || !fingerprint) {
+    if (!element) {
       return { score: 0, matchedTag: false, passed: false };
+    }
+    if (!fingerprint || !fingerprint.tagName || fingerprint.isSynthetic) {
+      return { score: 1.0, matchedTag: true, passed: true };
     }
 
     const elemTag = element.tagName.toLowerCase();
@@ -1010,13 +1013,72 @@
    */
   function resolveElement(target, options, doc) {
     const d = doc || (typeof document !== 'undefined' ? document : null);
-    if (!target || !target.candidates || !target.fingerprint) {
+    if (!target) {
       return {
         element: null,
         resolvedCandidate: null,
         confidenceScore: 0,
         success: false,
-        attempts: [{ error: 'Invalid target object: candidates and fingerprint are required' }]
+        attempts: [{ error: 'Invalid target object: target is required' }]
+      };
+    }
+
+    // Auto-normalize target if passed as a string, flat array of candidate strings, or missing fingerprint
+    let normalizedTarget = target;
+    if (typeof target === 'string') {
+      const trimmed = target.trim();
+      const isXpath = trimmed.startsWith('//') || trimmed.startsWith('(') || trimmed.startsWith('/html');
+      normalizedTarget = {
+        candidates: [{
+          strategy: isXpath ? CONSTANTS.SELECTOR_STRATEGIES.XPATH : CONSTANTS.SELECTOR_STRATEGIES.CSS_PATH,
+          value: trimmed,
+          priority: 1,
+          uniqueness: 1
+        }],
+        fingerprint: { tagName: null, isSynthetic: true }
+      };
+    } else if (target && typeof target === 'object') {
+      let rawCandidates = target.candidates;
+      if (!Array.isArray(rawCandidates) || rawCandidates.length === 0) {
+        if (typeof target.selector === 'string' && target.selector.trim()) {
+          rawCandidates = [target.selector.trim()];
+        } else if (typeof target.target === 'string' && target.target.trim()) {
+          rawCandidates = [target.target.trim()];
+        }
+      }
+
+      if (Array.isArray(rawCandidates) && rawCandidates.length > 0) {
+        const normalizedCandidates = rawCandidates.map((c, idx) => {
+          if (typeof c === 'string') {
+            const trimmed = c.trim();
+            const isXpath = trimmed.startsWith('//') || trimmed.startsWith('(') || trimmed.startsWith('/html');
+            return {
+              strategy: isXpath ? CONSTANTS.SELECTOR_STRATEGIES.XPATH : CONSTANTS.SELECTOR_STRATEGIES.CSS_PATH,
+              value: trimmed,
+              priority: idx + 1,
+              uniqueness: 1
+            };
+          }
+          return c;
+        });
+
+        normalizedTarget = {
+          ...target,
+          candidates: normalizedCandidates,
+          fingerprint: (target.fingerprint && target.fingerprint.tagName) ? target.fingerprint : { tagName: null, isSynthetic: true }
+        };
+      }
+    }
+
+    target = normalizedTarget;
+
+    if (!target || !target.candidates || target.candidates.length === 0) {
+      return {
+        element: null,
+        resolvedCandidate: null,
+        confidenceScore: 0,
+        success: false,
+        attempts: [{ error: 'Invalid target object: candidates are required' }]
       };
     }
 
