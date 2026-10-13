@@ -6,7 +6,7 @@ export default function RobotMascot() {
         fill="none"
         viewBox="0 0 320 360"
         xmlns="http://www.w3.org/2000/svg"
-        aria-label="FlowMind 3D Robot Mascot"
+        aria-label="ReFlow 3D Robot Mascot"
         role="img"
       >
         <defs>

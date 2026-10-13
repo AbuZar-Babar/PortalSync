@@ -468,7 +468,7 @@ export function RunDetailsDrawer({ isOpen, onClose, run, onStopRun }: RunDetails
           {/* Footer */}
           <div className="border-t border-slate-800 px-6 py-4 bg-slate-950/60 flex items-center justify-between">
             <span className="text-[11px] text-slate-500 font-mono">
-              FlowMind Desktop Engine Bridge v1.0
+              ReFlow Desktop Engine Bridge v1.0
             </span>
             <button
               onClick={handleClose}

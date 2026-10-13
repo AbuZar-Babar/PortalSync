@@ -86,8 +86,8 @@ class DesktopNotifier {
     if (!Notification || typeof Notification.isSupported !== 'function' || !Notification.isSupported()) return;
 
     const notif = new Notification({
-      title: 'FlowMind Local Worker',
-      body: 'FlowMind is running in the background. Click to restore window.',
+      title: 'ReFlow Local Worker',
+      body: 'ReFlow is running in the background. Click to restore window.',
       silent: true,
     });
 

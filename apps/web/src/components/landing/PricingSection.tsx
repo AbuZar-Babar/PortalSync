@@ -331,7 +331,7 @@ export default function PricingSection({ onSelectTier }: PricingSectionProps = {
                 02 / How does it connect to Chrome?
               </h4>
               <p className="text-xs text-zinc-400 leading-relaxed">
-                FlowMind communicates via standard Chrome DevTools Protocol (CDP) port 9222. It requires zero browser extensions and does not tamper with DOM sandboxes.
+                ReFlow communicates via standard Chrome DevTools Protocol (CDP) port 9222. It requires zero browser extensions and does not tamper with DOM sandboxes.
               </p>
             </div>
             <div>

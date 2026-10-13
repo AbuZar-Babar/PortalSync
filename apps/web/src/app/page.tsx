@@ -71,10 +71,10 @@ export default function LandingPage() {
           <Link
             href="/"
             className="flex items-center gap-2 group focus:outline-none focus:ring-1 focus:ring-white/40 rounded-full"
-            aria-label="FlowMind Home"
+            aria-label="ReFlow Home"
           >
             <div className="w-2.5 h-2.5 rounded-full bg-white group-hover:scale-110 transition-transform" />
-            <span className="text-base font-extrabold tracking-tight text-white">FlowMind.</span>
+            <span className="text-base font-extrabold tracking-tight text-white">ReFlow.</span>
           </Link>
 
           {/* Minimal Navigation Links */}
@@ -158,7 +158,7 @@ export default function LandingPage() {
           {/* User-Friendly Subheading */}
           <ScrollReveal direction="up" delay={160}>
             <p className="text-base sm:text-lg text-zinc-300 max-w-2xl leading-relaxed mb-8">
-              Record what you do in Google Chrome once. FlowMind remembers your clicks and repeats your task in seconds with zero manual effort.
+              Record what you do in Google Chrome once. ReFlow remembers your clicks and repeats your task in seconds with zero manual effort.
             </p>
           </ScrollReveal>
 
@@ -278,7 +278,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 02 / How FlowMind Works (n8n-style Node Pipeline & Step Inspector) */}
+      {/* 02 / How ReFlow Works (n8n-style Node Pipeline & Step Inspector) */}
       <WorkflowNodePipeline />
 
       {/* 03 / Core Capabilities */}
@@ -302,7 +302,7 @@ export default function LandingPage() {
                 Ready to automate your browser routines?
               </h2>
               <p className="text-zinc-300 text-xs sm:text-sm mb-8 max-w-lg mx-auto leading-relaxed">
-                Launch the FlowMind operations console and create your first automated routine in minutes.
+                Launch the ReFlow operations console and create your first automated routine in minutes.
               </p>
 
               {currentUser ? (
@@ -338,7 +338,7 @@ export default function LandingPage() {
       <footer className="w-full max-w-7xl mx-auto px-6 lg:px-12 py-10 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between text-xs text-zinc-500 gap-4">
         <div className="flex items-center gap-2.5">
           <div className="w-2 h-2 rounded-full bg-white" />
-          <span className="font-extrabold text-white">FlowMind.</span>
+          <span className="font-extrabold text-white">ReFlow.</span>
           <span>&copy; 2026. All rights reserved.</span>
         </div>
 

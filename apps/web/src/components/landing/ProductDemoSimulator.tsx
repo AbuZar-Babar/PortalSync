@@ -12,7 +12,7 @@ export default function ProductDemoSimulator() {
           Show it once. <span className="text-zinc-500">Watch it execute autonomously.</span>
         </h2>
         <p className="text-xs sm:text-sm text-zinc-400 max-w-xl mx-auto leading-relaxed">
-          FlowMind maps DOM geometry, records keystrokes and Bézier mouse paths via Chrome DevTools Protocol, and transitions immediately to silent 24x replay.
+          ReFlow maps DOM geometry, records keystrokes and Bézier mouse paths via Chrome DevTools Protocol, and transitions immediately to silent 24x replay.
         </p>
       </div>
 
@@ -103,7 +103,7 @@ export default function ProductDemoSimulator() {
 
           <div className="bg-[#050508] text-zinc-400 text-xs px-4 py-1 rounded-full font-mono flex items-center gap-2 max-w-sm w-full justify-center border border-white/10">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            <span className="truncate text-zinc-300">https://engine.flowmind.ai/workspace/invoices</span>
+            <span className="truncate text-zinc-300">https://engine.reflow.ai/workspace/invoices</span>
           </div>
 
           <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-400">

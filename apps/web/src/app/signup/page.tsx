@@ -36,16 +36,16 @@ export default function SignupPage() {
         <Link
           href="/"
           className="inline-flex items-center gap-2 group mb-6 focus:outline-none"
-          aria-label="FlowMind Home"
+          aria-label="ReFlow Home"
         >
           <div className="w-2.5 h-2.5 rounded-full bg-white group-hover:scale-110 transition-transform" />
-          <span className="text-xl font-extrabold tracking-tight text-white">FlowMind.</span>
+          <span className="text-xl font-extrabold tracking-tight text-white">ReFlow.</span>
         </Link>
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-2">
           Create your account
         </h1>
         <p className="text-xs sm:text-sm text-zinc-400 max-w-sm mx-auto">
-          Record once in Google Chrome. FlowMind repeats your routine in seconds.
+          Record once in Google Chrome. ReFlow repeats your routine in seconds.
         </p>
       </div>
 

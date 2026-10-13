@@ -32,8 +32,8 @@ function minimizeToTray() {
       try {
         const balloonIcon = path.join(__dirname, '../../assets/icon.png');
         tray.displayBalloon({
-          title: 'FlowMind Local Worker',
-          content: 'FlowMind is running in the background. Click this tray icon anytime to restore the control window.',
+          title: 'ReFlow Local Worker',
+          content: 'ReFlow is running in the background. Click this tray icon anytime to restore the control window.',
           icon: fs.existsSync(balloonIcon) ? balloonIcon : undefined,
           iconType: 'info',
         });
@@ -125,7 +125,7 @@ function createWindow() {
 
 function setupApplicationMenu() {
   if (process.platform === 'darwin') {
-    const appName = app.name || 'FlowMind Worker';
+    const appName = app.name || 'ReFlow Worker';
     const template = [
       {
         label: appName,
@@ -181,7 +181,7 @@ function createTray() {
   }
 
   tray = new Tray(icon);
-  tray.setToolTip('FlowMind Local Worker');
+  tray.setToolTip('ReFlow Local Worker');
 
   // Single click toggles or restores the window
   tray.on('click', () => {
@@ -215,11 +215,11 @@ function updateTrayMenu() {
   const isRunning = state.status === 'active';
   const statusLabel = isRunning ? 'Active (Processing)' : 'Idle (Ready)';
 
-  tray.setToolTip(`FlowMind Local Worker - ${statusLabel}`);
+  tray.setToolTip(`ReFlow Local Worker - ${statusLabel}`);
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: `FlowMind Local Worker (${statusLabel})`,
+      label: `ReFlow Local Worker (${statusLabel})`,
       enabled: false,
     },
     { type: 'separator' },
@@ -259,7 +259,7 @@ function updateTrayMenu() {
     },
     { type: 'separator' },
     {
-      label: 'Quit FlowMind Worker',
+      label: 'Quit ReFlow Worker',
       click: () => {
         isQuitting = true;
         app.quit();

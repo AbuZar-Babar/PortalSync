@@ -32,7 +32,7 @@ const STAGES: StageConfig[] = [
     title: 'Natural Chrome Capture',
     badge: '1x Human Speed',
     shortDesc: 'Click and navigate naturally in Google Chrome.',
-    detail: 'FlowMind listens via Chrome DevTools Protocol, mapping click coordinates, hierarchy, and input fields without requiring extensions.',
+    detail: 'ReFlow listens via Chrome DevTools Protocol, mapping click coordinates, hierarchy, and input fields without requiring extensions.',
     url: 'app.vendorportal.com/invoices',
   },
   {
@@ -42,7 +42,7 @@ const STAGES: StageConfig[] = [
     badge: 'Auto-Compiled',
     shortDesc: 'Clicks convert automatically into an n8n-style workflow graph.',
     detail: 'Every interaction becomes a distinct, reorderable visual block with built-in parameters, delays, and condition checks.',
-    url: 'flowmind.internal/canvas/pipeline-902',
+    url: 'reflow.internal/canvas/pipeline-902',
   },
   {
     id: 'healing',
@@ -51,7 +51,7 @@ const STAGES: StageConfig[] = [
     badge: 'DOM Drift Shield',
     shortDesc: 'Survives website redesigns and shifted buttons automatically.',
     detail: 'When CSS classes or button coordinates change, our multi-attribute recovery engine matches the target by semantics and ARIA tags in 18ms.',
-    url: 'flowmind.internal/recovery-engine/live',
+    url: 'reflow.internal/recovery-engine/live',
   },
   {
     id: 'replay',
@@ -60,7 +60,7 @@ const STAGES: StageConfig[] = [
     badge: 'Headless Replay',
     shortDesc: 'Replays the entire process in 0.75s and exports clean data.',
     detail: 'Runs silently on your local machine or cloud runner, validates duplicate downloads with SHA-256 hashes, and outputs clean CSV/JSON.',
-    url: 'flowmind.internal/runner/headless-exec',
+    url: 'reflow.internal/runner/headless-exec',
   },
 ];
 

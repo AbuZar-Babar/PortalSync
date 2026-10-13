@@ -210,7 +210,7 @@ export async function authenticateRunnerOrUser(request: NextRequest): Promise<Ru
           .eq('id', orgId)
           .maybeSingle();
 
-        let currentMeta: Record<string, any> = {};
+        let currentMeta: Record<string, unknown> = {};
         if (existingOrg?.stripe_subscription_id) {
           try {
             currentMeta = JSON.parse(existingOrg.stripe_subscription_id);

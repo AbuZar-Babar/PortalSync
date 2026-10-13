@@ -25,6 +25,8 @@
    ======================================================== */
 
 /* 1. ReFlow Cyber (Default Neon) */
+[data-theme="reflow-cyber"],
+.theme-reflow-cyber,
 [data-theme="flowmind-cyber"],
 .theme-flowmind-cyber {
   --canvas-bg: #060913;
@@ -269,6 +271,7 @@ body {
    FlowMind Design Tokens & Ambient Theme Adaptation
    ======================================================== */
 
+.bg-reflow-canvas,
 .bg-flowmind-canvas {
   background-color: var(--canvas-bg);
   background-image: 

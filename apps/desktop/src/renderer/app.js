@@ -391,7 +391,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Disconnect & Unlink Worker
   btnDisconnectWorker.addEventListener('click', async () => {
-    if (confirm('Disconnect this local worker from your FlowMind workspace?')) {
+    if (confirm('Disconnect this local worker from your ReFlow workspace?')) {
       try {
         await window.portalsync.stopRunner();
       } catch {}

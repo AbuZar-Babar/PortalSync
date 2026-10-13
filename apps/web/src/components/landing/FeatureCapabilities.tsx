@@ -113,7 +113,7 @@ export default function FeatureCapabilities({ onActionClick }: FeatureCapabiliti
             </h2>
 
             <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed mb-6 max-w-md">
-              Most automation tools crash when websites change their buttons or popup layouts. FlowMind is built with smart resilience to keep your routines running without maintenance.
+              Most automation tools crash when websites change their buttons or popup layouts. ReFlow is built with smart resilience to keep your routines running without maintenance.
             </p>
 
             {/* Creative Animated Visual Demonstration Box */}

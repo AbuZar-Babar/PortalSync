@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { DrawerRunItem } from '@/components/dashboard/RunDetailsDrawer';
 
 export type ThemePaletteId =
+  | 'reflow-cyber'
   | 'flowmind-cyber'
   | 'charcoal-indigo'
   | 'emerald-matrix'
@@ -15,7 +16,14 @@ export type ThemePaletteId =
 
 export type InterfaceMode = 'dark' | 'light' | 'system';
 
+export const LEGACY_THEME_MAP: Record<string, ThemePaletteId> = {
+  'flowmind-cyber': 'reflow-cyber',
+  'theme-flowmind-cyber': 'reflow-cyber',
+  'theme-reflow-cyber': 'reflow-cyber',
+};
+
 export const VALID_THEME_PALETTES: ThemePaletteId[] = [
+  'reflow-cyber',
   'flowmind-cyber',
   'charcoal-indigo',
   'emerald-matrix',
@@ -40,7 +48,12 @@ export function applyThemeToDOM(palette: ThemePaletteId, mode: InterfaceMode): v
   root.setAttribute('data-theme-mode', mode);
 
   VALID_THEME_PALETTES.forEach((p) => root.classList.remove(`theme-${p}`));
+  root.classList.remove('theme-flowmind-cyber');
+  root.classList.remove('theme-reflow-cyber');
   root.classList.add(`theme-${palette}`);
+  if (palette === 'reflow-cyber') {
+    root.classList.add('theme-flowmind-cyber');
+  }
 
   if (resolvedMode === 'light') {
     root.classList.remove('dark');
@@ -51,6 +64,7 @@ export function applyThemeToDOM(palette: ThemePaletteId, mode: InterfaceMode): v
   }
 
   try {
+    localStorage.setItem('reflow_theme', palette);
     localStorage.setItem('wf_dashboard_theme', palette);
     localStorage.setItem('wf_dashboard_mode', mode);
     localStorage.setItem('workflow_capture_theme', palette);
@@ -102,7 +116,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Theme & Appearance State
-  const [theme, setThemeState] = useState<ThemePaletteId>('flowmind-cyber');
+  const [theme, setThemeState] = useState<ThemePaletteId>('reflow-cyber');
   const [mode, setModeState] = useState<InterfaceMode>('dark');
 
   // Global Run Details Drawer state
@@ -111,13 +125,16 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   // Synchronize initial theme & mode from localStorage and system preferences
   useEffect(() => {
-    let initialTheme: ThemePaletteId = 'flowmind-cyber';
+    let initialTheme: ThemePaletteId = 'reflow-cyber';
     let initialMode: InterfaceMode = 'dark';
     try {
-      const storedTheme = (localStorage.getItem('wf_dashboard_theme') ||
-        localStorage.getItem('workflow_capture_theme')) as ThemePaletteId | null;
-      if (storedTheme && VALID_THEME_PALETTES.includes(storedTheme)) {
-        initialTheme = storedTheme;
+      const rawStoredTheme = localStorage.getItem('reflow_theme') ||
+        localStorage.getItem('wf_dashboard_theme') ||
+        localStorage.getItem('workflow_capture_theme') ||
+        localStorage.getItem('flowmind_theme');
+      const resolved = rawStoredTheme ? (LEGACY_THEME_MAP[rawStoredTheme] || (rawStoredTheme as ThemePaletteId)) : null;
+      if (resolved && VALID_THEME_PALETTES.includes(resolved)) {
+        initialTheme = resolved;
       }
       const storedMode = (localStorage.getItem('wf_dashboard_mode') ||
         localStorage.getItem('workflow_capture_mode')) as InterfaceMode | null;
@@ -155,10 +172,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         }
       }
     };
+    window.addEventListener('reflow-theme-change', handleCustomChange);
     window.addEventListener('workflow-capture-theme-change', handleCustomChange);
 
     return () => {
       mql.removeEventListener('change', handleMql);
+      window.removeEventListener('reflow-theme-change', handleCustomChange);
       window.removeEventListener('workflow-capture-theme-change', handleCustomChange);
     };
   }, []);

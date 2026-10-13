@@ -12,7 +12,7 @@ export function EditorLoadingState() {
         <Loader2 className="absolute h-6 w-6 text-emerald-400 animate-pulse" />
       </div>
       <h2 className="mt-5 text-sm font-bold uppercase tracking-widest text-slate-300">
-        FlowMind Canvas
+        ReFlow Canvas
       </h2>
       <p className="mt-1 text-xs text-slate-500 font-medium">
         Initializing visual workflow graph…

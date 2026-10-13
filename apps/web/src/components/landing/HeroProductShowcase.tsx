@@ -81,7 +81,7 @@ export default function HeroProductShowcase({ onOpenVideoModal }: HeroProductSho
           {/* Browser Address Pill */}
           <div className="hidden md:flex items-center gap-2 bg-[#050508] text-zinc-400 text-xs px-3.5 py-1 rounded-full border border-white/10 font-mono">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            <span className="truncate max-w-[200px] text-zinc-300">app.flowmind.ai/invoices</span>
+            <span className="truncate max-w-[200px] text-zinc-300">app.reflow.ai/invoices</span>
           </div>
 
           {/* Quick Action Controls */}

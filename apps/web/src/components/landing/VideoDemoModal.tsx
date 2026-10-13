@@ -90,7 +90,7 @@ export default function VideoDemoModal({ isOpen, onClose }: VideoDemoModalProps)
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label="FlowMind Video Demo Modal"
+      aria-label="ReFlow Video Demo Modal"
     >
       <div
         className="relative w-full max-w-5xl rounded-2xl bg-[#0c0c10] border border-white/20 shadow-2xl overflow-hidden flex flex-col"
@@ -101,7 +101,7 @@ export default function VideoDemoModal({ isOpen, onClose }: VideoDemoModalProps)
           <div className="flex items-center gap-3">
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
             <span className="text-xs sm:text-sm font-bold text-white tracking-tight">
-              FlowMind Browser Replay Demonstration
+              ReFlow Browser Replay Demonstration
             </span>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/5 text-zinc-400 border border-white/10 hidden sm:inline-block">
               24x CDP Execution

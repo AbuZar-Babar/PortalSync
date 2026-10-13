@@ -29,7 +29,7 @@ const STEPS: StepCardData[] = [
     stepNumber: '01',
     title: 'Click & Record',
     badge: 'No Extensions Needed',
-    description: 'Do your task once in Google Chrome. FlowMind captures your clicks naturally.',
+    description: 'Do your task once in Google Chrome. ReFlow captures your clicks naturally.',
     icon: MousePointer,
     accentColor: 'text-cyan-400',
     dotColor: 'bg-cyan-400',
@@ -199,7 +199,7 @@ export default function WorkflowNodePipeline() {
           5 Simple Steps. <span className="text-zinc-500">Zero Manual Work.</span>
         </h2>
         <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-          Scroll down to see how FlowMind turns your repetitive daily clicks into an autonomous, self-healing routine.
+          Scroll down to see how ReFlow turns your repetitive daily clicks into an autonomous, self-healing routine.
         </p>
       </ScrollReveal>
 

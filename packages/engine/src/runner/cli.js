@@ -106,7 +106,7 @@ function parseCliArgs(argv) {
  */
 function showRootHelp() {
   console.log(`
-${colors.bold}${colors.cyan}PortalSync Desktop Runner CLI${colors.reset} v${PKG_VERSION}
+${colors.bold}${colors.cyan}ReFlow Desktop Runner CLI${colors.reset} v${PKG_VERSION}
 Connected Chrome Browser Automation & Cloud Replay Bridge
 
 ${colors.bold}USAGE:${colors.reset}
@@ -119,7 +119,7 @@ ${colors.bold}COMMANDS:${colors.reset}
 
 ${colors.bold}GLOBAL OPTIONS:${colors.reset}
   -p, --port <number>          Chrome remote debugging port (default: 9222)
-  -u, --cloud-url <url>        PortalSync Cloud API URL (default: http://localhost:3000)
+  -u, --cloud-url <url>        ReFlow Cloud API URL (default: http://localhost:3000)
   -t, --token <token>          Runner authentication token (ps_live_<org_id>)
   -d, --target-folder <path>   Directory for downloaded artifacts (default: ~/Downloads/PortalSync)
   -h, --help                   Show help information
@@ -143,7 +143,7 @@ ${colors.bold}USAGE:${colors.reset}
 
 ${colors.bold}DESCRIPTION:${colors.reset}
   Diagnose desktop runner environment health, Chrome DevTools Protocol (CDP)
-  port connectivity, and PortalSync Cloud API authentication status.
+  port connectivity, and ReFlow Cloud API authentication status.
 
 ${colors.bold}OPTIONS:${colors.reset}
   -p, --port <number>          Chrome CDP debugging port to probe (default: 9222)
@@ -194,7 +194,7 @@ ${colors.bold}USAGE:${colors.reset}
   node packages/engine/src/runner/cli.js run <workflow_id> [options]
 
 ${colors.bold}DESCRIPTION:${colors.reset}
-  Fetch a specific workflow definition from the PortalSync Cloud API and
+  Fetch a specific workflow definition from the ReFlow Cloud API and
   execute it immediately in the connected Chrome browser.
 
 ${colors.bold}ARGUMENTS:${colors.reset}
@@ -224,7 +224,7 @@ async function runDoctor(options) {
   const targetFolder = options.targetFolder || path.join(os.homedir(), 'Downloads', 'PortalSync');
 
   console.log(`\n${colors.bold}========================================${colors.reset}`);
-  console.log(`${colors.bold}${colors.cyan} PortalSync Desktop Runner Doctor${colors.reset}`);
+  console.log(`${colors.bold}${colors.cyan} ReFlow Desktop Runner Doctor${colors.reset}`);
   console.log(`${colors.bold}========================================${colors.reset}\n`);
 
   let allChecksPassed = true;
@@ -268,7 +268,7 @@ async function runDoctor(options) {
   }
 
   // 3. ReFlow Cloud API Connectivity Check
-  console.log(`\n${colors.bold}3. PortalSync Cloud Control Plane (${cloudUrl}):${colors.reset}`);
+  console.log(`\n${colors.bold}3. ReFlow Cloud Control Plane (${cloudUrl}):${colors.reset}`);
   const client = new CloudClient({
     baseUrl: cloudUrl,
     token: token,
@@ -419,7 +419,7 @@ async function main() {
 
   // Version flag
   if (parsed.options.version) {
-    console.log(`PortalSync Desktop Runner v${PKG_VERSION}`);
+    console.log(`ReFlow Desktop Runner v${PKG_VERSION}`);
     process.exit(0);
   }
 

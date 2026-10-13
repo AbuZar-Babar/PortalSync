@@ -32,7 +32,7 @@ const TABS: TabData[] = [
     title: 'Zero-Extension Chrome CDP Capture',
     subtitle: 'Demonstration-based capture with zero code and zero browser extensions.',
     description:
-      'Perform your workflow naturally in genuine Google Chrome. FlowMind communicates directly with the Chrome DevTools Protocol to capture keystrokes, smooth Bézier mouse paths, and multi-tab download popups without injecting intrusive extensions.',
+      'Perform your workflow naturally in genuine Google Chrome. ReFlow communicates directly with the Chrome DevTools Protocol to capture keystrokes, smooth Bézier mouse paths, and multi-tab download popups without injecting intrusive extensions.',
     capabilities: [
       {
         title: 'Native CDP Bridge',
@@ -60,7 +60,7 @@ const TABS: TabData[] = [
     title: 'Universal DOM & Table Extraction',
     subtitle: 'Autonomous element recognition across complex enterprise portals.',
     description:
-      'FlowMind penetrates nested cross-domain iframes, ShadowDOM boundaries, and legacy ExtJS/AgGrid web tables. Its universal date parsing and compound boolean engine filter rows accurately without brittle XPath reliance.',
+      'ReFlow penetrates nested cross-domain iframes, ShadowDOM boundaries, and legacy ExtJS/AgGrid web tables. Its universal date parsing and compound boolean engine filter rows accurately without brittle XPath reliance.',
     capabilities: [
       {
         title: 'Control-Column Alignment',
@@ -88,7 +88,7 @@ const TABS: TabData[] = [
     title: '24x High-Speed Self-Healing Execution',
     subtitle: 'Autonomous robotic replay that adapts when vendor websites change.',
     description:
-      'Replay workflows at 24x human speed (0.75s per step). FlowMind continuously heals broken selectors using multi-attribute fallback trees, preserves transparent backdrop overlays, and invokes 90-second HITL alerts if a 2FA challenge occurs.',
+      'Replay workflows at 24x human speed (0.75s per step). ReFlow continuously heals broken selectors using multi-attribute fallback trees, preserves transparent backdrop overlays, and invokes 90-second HITL alerts if a 2FA challenge occurs.',
     capabilities: [
       {
         title: 'State-Aware Checkbox Idempotency',
@@ -127,7 +127,7 @@ export default function FeatureTabSwitcher() {
           Engineered for Resilient Enterprise Automation
         </h2>
         <p className="text-xs sm:text-sm text-slate-400 mt-2.5 max-w-xl mx-auto leading-relaxed">
-          Switch through the three core phases that make FlowMind reliable on real-world business websites.
+          Switch through the three core phases that make ReFlow reliable on real-world business websites.
         </p>
 
         {/* 3-Way Tab Switcher Buttons */}
@@ -211,7 +211,7 @@ export default function FeatureTabSwitcher() {
                 <div className="flex items-center gap-2">
                   <Cpu className="w-4 h-4 text-cyan-400" />
                   <span className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                    FLOWMIND_CORE // {current.id.toUpperCase()}
+                    REFLOW_CORE // {current.id.toUpperCase()}
                   </span>
                 </div>
                 <span className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">

@@ -167,14 +167,14 @@ export function CreatePortalModal({
   // Tab: Visual Canvas Builder State
   const [canvasName, setCanvasName] = useState('');
   const [canvasUrl, setCanvasUrl] = useState('');
-  const [canvasTargetFolder, setCanvasTargetFolder] = useState('C:\\FlowMind\\Invoices');
+  const [canvasTargetFolder, setCanvasTargetFolder] = useState('~/Documents/ReFlow/Invoices');
   const [canvasUploadToCloud, setCanvasUploadToCloud] = useState(true);
 
   // Tab: Quick Setup State
   const [quickName, setQuickName] = useState('');
   const [quickUrl, setQuickUrl] = useState('');
   const [quickSchedule, setQuickSchedule] = useState<'manual' | 'hourly' | 'daily' | 'weekly'>('daily');
-  const [quickTargetFolder, setQuickTargetFolder] = useState('C:\\FlowMind\\Invoices');
+  const [quickTargetFolder, setQuickTargetFolder] = useState('~/Documents/ReFlow/Invoices');
   const [quickUploadToCloud, setQuickUploadToCloud] = useState(true);
 
   // Tab: JSON Import State
@@ -188,7 +188,7 @@ export function CreatePortalModal({
   const [recordName, setRecordName] = useState('');
   const [recordUrl, setRecordUrl] = useState('');
   const [recordSchedule, setRecordSchedule] = useState<'manual' | 'hourly' | 'daily' | 'weekly'>('daily');
-  const [recordTargetFolder, setRecordTargetFolder] = useState('C:\\FlowMind\\Invoices');
+  const [recordTargetFolder, setRecordTargetFolder] = useState('~/Documents/ReFlow/Invoices');
   const [recordUploadToCloud, setRecordUploadToCloud] = useState(true);
   
   const [recordingPhase, setRecordingPhase] = useState<RecordingPhase>('idle');
@@ -612,15 +612,15 @@ export function CreatePortalModal({
 
   const handleExportJson = () => {
     let exportData = jsonText.trim();
-    let exportFileName = `${(parsedMetadata?.name || 'flowmind-recipe').toLowerCase().replace(/\s+/g, '-')}.json`;
+    let exportFileName = `${(parsedMetadata?.name || 'reflow-recipe').toLowerCase().replace(/\s+/g, '-')}.json`;
 
     if (!exportData) {
       const sampleRecipe = {
-        name: 'Sample FlowMind Portal Recipe',
+        name: 'Sample ReFlow Portal Recipe',
         portal_url: 'https://example-portal.com',
         version: '1.0.0',
         metadata: {
-          name: 'Sample FlowMind Portal Recipe',
+          name: 'Sample ReFlow Portal Recipe',
           startUrl: 'https://example-portal.com',
           isLoop: false,
         },
@@ -645,7 +645,7 @@ export function CreatePortalModal({
         ],
       };
       exportData = JSON.stringify(sampleRecipe, null, 2);
-      exportFileName = 'flowmind-sample-recipe.json';
+      exportFileName = 'reflow-sample-recipe.json';
     }
 
     const blob = new Blob([exportData], { type: 'application/json' });
@@ -1164,7 +1164,7 @@ export function CreatePortalModal({
                     type="text"
                     value={canvasTargetFolder}
                     onChange={(e) => setCanvasTargetFolder(e.target.value)}
-                    placeholder="C:\FlowMind\Invoices or /Users/name/Invoices"
+                    placeholder="~/Documents/ReFlow/Invoices or C:\FlowMind\Invoices"
                     className="w-full rounded-xl border border-slate-700/80 bg-slate-950/70 pl-10 pr-3.5 py-2.5 text-sm font-mono text-slate-200 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
                   />
                 </div>
@@ -1287,7 +1287,7 @@ export function CreatePortalModal({
                     type="text"
                     value={quickTargetFolder}
                     onChange={(e) => setQuickTargetFolder(e.target.value)}
-                    placeholder="C:\FlowMind\Invoices or /Users/name/Invoices"
+                    placeholder="~/Documents/ReFlow/Invoices or C:\FlowMind\Invoices"
                     className="w-full rounded-xl border border-slate-700/80 bg-slate-950/70 pl-10 pr-3.5 py-2.5 text-sm font-mono text-slate-200 placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition"
                   />
                 </div>
@@ -1376,7 +1376,7 @@ export function CreatePortalModal({
                   <span className="text-blue-400 underline">browse</span>
                 </div>
                 <div className="text-[11px] text-slate-400 mt-1">
-                  Supports FlowMind &amp; Chrome recorder export schemas
+                  Supports ReFlow &amp; Chrome recorder export schemas
                 </div>
               </div>
 

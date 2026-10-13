@@ -28,7 +28,7 @@
       <div class="flowmind-card-head">
         <div class="flowmind-card-title">
           <span class="flowmind-card-dot"></span>
-          <span>FlowMind AI</span>
+          <span>ReFlow AI</span>
         </div>
         <button class="flowmind-card-close" id="flowmindBotToggleClose" title="Minimize Bot Assistant" aria-label="Minimize">&minus;</button>
       </div>
@@ -100,7 +100,7 @@
     </div>
 
     <!-- Friendly Hovering Robot Mascot Button -->
-    <button class="flowmind-floating-mascot-btn" id="flowmindBotMascotBtn" title="Toggle FlowMind Bot Assistant" aria-label="Toggle Bot Assistant">
+    <button class="flowmind-floating-mascot-btn" id="flowmindBotMascotBtn" title="Toggle ReFlow Bot Assistant" aria-label="Toggle Bot Assistant">
       <div class="flowmind-mascot-glow"></div>
       <div class="flowmind-orbital-ring"></div>
       <div class="flowmind-mascot-svg-wrap">
@@ -352,7 +352,7 @@
   setupSSEListener();
 
   // Expose global controller for testing or manual interactions
-  window.FlowMindBot = {
+  window.ReFlowBot = window.FlowMindBot = {
     showAlert: showDisturbanceAlert,
     clearAlert: clearDisturbanceAlert,
     toggle

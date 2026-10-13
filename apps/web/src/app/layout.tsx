@@ -30,8 +30,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             __html: `
 (function() {
   try {
-    var validPalettes = ['flowmind-cyber', 'charcoal-indigo', 'emerald-matrix', 'slate-dark', 'crimson-rose', 'forest'];
-    var theme = localStorage.getItem('wf_dashboard_theme') || localStorage.getItem('workflow_capture_theme') || localStorage.getItem('flowmind_theme');
+    var validPalettes = ['reflow-cyber', 'flowmind-cyber', 'charcoal-indigo', 'emerald-matrix', 'slate-dark', 'crimson-rose', 'forest'];
+    var theme = localStorage.getItem('reflow_theme') || localStorage.getItem('wf_dashboard_theme') || localStorage.getItem('workflow_capture_theme') || localStorage.getItem('flowmind_theme');
     if (!theme) {
       try {
         var cfg = JSON.parse(localStorage.getItem('wf_saas_automation_config') || '{}');
@@ -40,8 +40,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         }
       } catch (err) {}
     }
+    if (theme === 'theme-flowmind-cyber' || theme === 'flowmind-cyber') {
+      theme = 'reflow-cyber';
+    }
+    if (theme === 'theme-reflow-cyber') {
+      theme = 'reflow-cyber';
+    }
     if (!validPalettes.includes(theme)) {
-      theme = 'flowmind-cyber';
+      theme = 'reflow-cyber';
     }
     var rawMode = localStorage.getItem('wf_dashboard_mode') || localStorage.getItem('workflow_capture_mode') || 'dark';
     if (!['dark', 'light', 'system'].includes(rawMode)) {

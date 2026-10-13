@@ -33,7 +33,7 @@ export const Theme = {
   },
 
   init() {
-    const saved = localStorage.getItem('workflow_capture_theme') || localStorage.getItem('flowmind_theme');
+    const saved = localStorage.getItem('reflow_theme') || localStorage.getItem('workflow_capture_theme') || localStorage.getItem('flowmind_theme');
     let initial = 'dark';
 
     const validThemes = [
@@ -121,6 +121,7 @@ export const Theme = {
     if (save) {
       try {
         localStorage.setItem('workflow_capture_theme', theme);
+        localStorage.setItem('reflow_theme', theme);
         localStorage.setItem('flowmind_theme', theme);
         localStorage.setItem('workflow_capture_palette', palette);
         localStorage.setItem('workflow_capture_mode', mode);
@@ -133,6 +134,7 @@ export const Theme = {
 
     // Notify listeners (e.g. Drawflow canvas redraw if needed)
     window.dispatchEvent(new CustomEvent('workflow-capture-theme-change', { detail: { theme, palette, mode } }));
+    window.dispatchEvent(new CustomEvent('reflow-theme-change', { detail: { theme, palette, mode } }));
     window.dispatchEvent(new CustomEvent('flowmind-theme-change', { detail: { theme, palette, mode } }));
   },
 

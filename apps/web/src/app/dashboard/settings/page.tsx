@@ -58,6 +58,7 @@ export type SettingsTab =
   | 'security';
 
 export type ThemePaletteId =
+  | 'reflow-cyber'
   | 'flowmind-cyber'
   | 'charcoal-indigo'
   | 'emerald-matrix'
@@ -315,8 +316,8 @@ const THEME_PALETTES: {
   borderColor: string;
 }[] = [
   {
-    id: 'flowmind-cyber',
-    name: 'FlowMind Cyber',
+    id: 'reflow-cyber',
+    name: 'ReFlow Cyber',
     tag: 'DEFAULT NEON',
     desc: 'Deep space obsidian canvas with electric cyan glows and neon indigo aura.',
     previewBg: '#060913',
@@ -406,15 +407,15 @@ const TIMEZONES = [
 
 const DEFAULT_SETTINGS: UnifiedSettings = {
   general: {
-    orgName: 'FlowMind Automation',
-    orgSlug: 'flowmind-automation',
+    orgName: 'ReFlow Automation',
+    orgSlug: 'reflow-automation',
     timezone: 'UTC',
     downloadsPath: 'downloads/invoices/',
     autoSaveSteps: true,
     compactDensity: false
   },
   themes: {
-    palette: 'flowmind-cyber',
+    palette: 'reflow-cyber',
     mode: 'dark'
   },
   browser: {
@@ -645,11 +646,16 @@ export default function SettingsPage() {
 
       // Check individual theme overrides
       try {
-        const savedTheme = (localStorage.getItem('wf_dashboard_theme') ||
+        const rawTheme = localStorage.getItem('reflow_theme') ||
+          localStorage.getItem('wf_dashboard_theme') ||
           localStorage.getItem('workflow_capture_theme') ||
-          localStorage.getItem('flowmind_theme')) as ThemePaletteId | null;
+          localStorage.getItem('flowmind_theme');
+        let savedTheme: ThemePaletteId | null = (rawTheme === 'flowmind-cyber' || rawTheme === 'theme-flowmind-cyber' || rawTheme === 'theme-reflow-cyber')
+          ? 'reflow-cyber'
+          : (rawTheme as ThemePaletteId | null);
         if (savedTheme) {
           const validPalettes: ThemePaletteId[] = [
+            'reflow-cyber',
             'flowmind-cyber',
             'charcoal-indigo',
             'emerald-matrix',
@@ -658,7 +664,7 @@ export default function SettingsPage() {
             'forest'
           ];
           if (validPalettes.includes(savedTheme)) {
-            initial.themes.palette = savedTheme;
+            initial.themes.palette = savedTheme === 'flowmind-cyber' ? 'reflow-cyber' : savedTheme;
           }
         }
         const savedMode = (localStorage.getItem('wf_dashboard_mode') ||
@@ -856,6 +862,7 @@ export default function SettingsPage() {
       localStorage.setItem('wf_dashboard_mode', settings.themes.mode);
       localStorage.setItem('workflow_capture_theme', settings.themes.palette);
       localStorage.setItem('workflow_capture_mode', settings.themes.mode);
+      localStorage.setItem('reflow_theme', settings.themes.palette);
       localStorage.setItem('flowmind_theme', settings.themes.palette);
 
       // 2. Persist backwards-compatible runner configuration
@@ -968,7 +975,7 @@ export default function SettingsPage() {
   // ============================================================================
 
   const handleResetDefaults = () => {
-    if (confirm('Restore all configurations to FlowMind recommended defaults?')) {
+    if (confirm('Restore all configurations to ReFlow recommended defaults?')) {
       const reset = {
         ...DEFAULT_SETTINGS,
         general: {
@@ -1084,7 +1091,7 @@ export default function SettingsPage() {
     const secretValue = newCredSecret.trim();
     const newKey = slugify(newCredName).replace(/-/g, '_');
     const credId = `cred_${Date.now()}`;
-    const vaultSeed = orgId || 'flowmind_default_vault_seed';
+    const vaultSeed = orgId || 'reflow_default_vault_seed';
 
     let encryptedPayload = '';
     let ivString = '';
@@ -1225,7 +1232,7 @@ export default function SettingsPage() {
   // Inbound Webhook URL
   const inboundWebhookUrl = useMemo(() => {
     const orgPart = orgId ? orgId.replace(/-/g, '').slice(0, 12) : 'default';
-    return `https://api.flowmind.io/v1/hooks/${orgPart}`;
+    return `https://api.reflow.io/v1/hooks/${orgPart}`;
   }, [orgId]);
 
   // ============================================================================
@@ -2547,7 +2554,7 @@ export default function SettingsPage() {
                     </button>
                   </div>
                   <p className="text-[11px] text-slate-500">
-                    FlowMind will post payload updates to this endpoint whenever configured execution events trigger.
+                    ReFlow will post payload updates to this endpoint whenever configured execution events trigger.
                   </p>
                 </div>
 
@@ -2594,7 +2601,7 @@ export default function SettingsPage() {
                     className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-cyan-400/50 transition-colors"
                   />
                   <p className="text-[11px] text-slate-500">
-                    Used to sign requests with header <code className="text-cyan-400">x-flowmind-signature</code> for tamper-proof verification.
+                    Used to sign requests with header <code className="text-cyan-400">x-reflow-signature</code> (and legacy <code className="text-cyan-400">x-flowmind-signature</code>) for tamper-proof verification.
                   </p>
                 </div>
 
