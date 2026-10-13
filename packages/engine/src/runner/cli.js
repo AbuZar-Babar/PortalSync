@@ -17,6 +17,7 @@ const os = require('os');
 const http = require('http');
 const { CloudClient } = require('./cloud-client');
 const { RunnerDaemon, checkCdpResponding } = require('./runner-daemon');
+const { resolveDefaultDownloadFolder, resolvePortalStorageDir } = require('./dedup-helper');
 
 // CLI Version & Package Info
 
