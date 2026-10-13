@@ -151,28 +151,80 @@ class ItemExecutionHandler {
           }
         }
 
+        const EXPANDER_GLYPH_REGEX = /^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/i;
+        const DOCUMENT_ID_REGEX = /\b((?:SI|INV|DR|TX|CM|PO|SO|BILL|REC|ORD)-\d+(?:[-_]\w+)*|\b\d{4,10}\b)/i;
+
+        const cleanCellText = (val) => {
+          if (val == null) return '';
+          let s = String(val).trim().replace(/\s+/g, ' ');
+          if (EXPANDER_GLYPH_REGEX.test(s)) return '';
+          s = s.replace(/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+/, '').trim();
+          s = s.replace(/[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/, '').trim();
+          return s;
+        };
+
+        const isControlOrExpanderCell = (cellEl) => {
+          if (!cellEl || typeof cellEl !== 'object') return false;
+          if (
+            cellEl.classList?.contains('x-grid-cell-special') ||
+            cellEl.classList?.contains('x-grid-cell-row-checker') ||
+            cellEl.classList?.contains('x-selmodel-column') ||
+            cellEl.classList?.contains('ant-table-selection-column') ||
+            cellEl.classList?.contains('mat-column-select') ||
+            (typeof cellEl.querySelector === 'function' && cellEl.querySelector(
+              '.x-grid-row-checker, input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"], .mat-pseudo-checkbox'
+            ))
+          ) {
+            return true;
+          }
+          if (
+            cellEl.classList?.contains('x-grid-row-expander') ||
+            cellEl.classList?.contains('ant-table-row-expand-icon') ||
+            cellEl.classList?.contains('dt-control') ||
+            cellEl.classList?.contains('details-control') ||
+            cellEl.classList?.contains('tree-node-toggle') ||
+            cellEl.classList?.contains('expander') ||
+            cellEl.classList?.contains('expand-btn') ||
+            cellEl.classList?.contains('mat-expansion-indicator') ||
+            (typeof cellEl.querySelector === 'function' && cellEl.querySelector(
+              'button[aria-expanded], [aria-expanded], .expander, .expand-btn, [class*="chevron" i], [class*="expander" i], [class*="tree-toggle" i], [class*="dt-control" i]'
+            ))
+          ) {
+            return true;
+          }
+          const raw = (cellEl.innerText || cellEl.textContent || '').trim();
+          if (raw && EXPANDER_GLYPH_REGEX.test(raw) && raw.length <= 4) {
+            return true;
+          }
+          return false;
+        };
+
         function extractFieldsFromElement(el) {
           const fields = {};
           if (!el) return fields;
 
+          let rawHeaderLayout = [];
           let headers = Array.isArray(collection.headerColumns) && collection.headerColumns.length > 0
             ? collection.headerColumns
             : [];
 
-          if (!headers.length) {
-            const gridContainer = (typeof el.parentElement?.closest === 'function' ? el.parentElement.closest('.x-grid, [role="grid"], [role="treegrid"], .dxgvTable, table, .data-table, .grid-container') : null) ||
-              (typeof el.closest === 'function' ? el.closest('.x-grid, [role="grid"], [role="treegrid"], .dxgvTable, table') : null) ||
-              document.querySelector('.x-grid, table, [role="grid"]');
-            if (gridContainer) {
-              const headerCt = (typeof gridContainer.querySelector === 'function' ? gridContainer.querySelector('.x-grid-header-ct, thead, .x-grid-header-row, [role="rowgroup"], .ag-header, .mat-header-row') : null) || gridContainer;
-              const headerEls = Array.from(typeof headerCt.querySelectorAll === 'function' ? headerCt.querySelectorAll('.x-column-header-text, .x-column-header, th, [role="columnheader"], .dxgvHeader, .mat-header-cell, .ag-header-cell, .ant-table-thead th') : [])
-                .filter(visible);
-              headerEls.forEach(h => {
+          const gridContainer = (typeof el.parentElement?.closest === 'function' ? el.parentElement.closest('.x-grid, [role="grid"], [role="treegrid"], .dxgvTable, table, .data-table, .grid-container') : null) ||
+            (typeof el.closest === 'function' ? el.closest('.x-grid, [role="grid"], [role="treegrid"], .dxgvTable, table') : null) ||
+            document.querySelector('.x-grid, table, [role="grid"]');
+
+          if (gridContainer) {
+            const headerCt = (typeof gridContainer.querySelector === 'function' ? gridContainer.querySelector('.x-grid-header-ct, thead, .x-grid-header-row, [role="rowgroup"], .ag-header, .mat-header-row') : null) || gridContainer;
+            const headerEls = Array.from(typeof headerCt.querySelectorAll === 'function' ? headerCt.querySelectorAll('.x-column-header-text, .x-column-header, th, [role="columnheader"], .dxgvHeader, .mat-header-cell, .ag-header-cell, .ant-table-thead th') : [])
+              .filter(visible);
+            if (headerEls.length > 0) {
+              rawHeaderLayout = headerEls.map(h => {
                 const inner = (typeof h.querySelector === 'function' ? h.querySelector('.x-column-header-text, .ag-header-cell-text') : null) || h;
-                const t = (inner.innerText || inner.textContent || inner.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ');
-                if (t && t.length > 0 && t.length < 60) headers.push(t);
+                return cleanCellText(inner.innerText || inner.textContent || inner.getAttribute('aria-label') || '');
               });
-              headers = Array.from(new Set(headers));
+              const extractedCols = rawHeaderLayout.filter(t => t.length > 0 && t.length < 60 && !EXPANDER_GLYPH_REGEX.test(t));
+              if (extractedCols.length > 0 && !headers.length) {
+                headers = Array.from(new Set(extractedCols));
+              }
             }
           }
 
@@ -184,39 +236,55 @@ class ItemExecutionHandler {
             cellEls = Array.from(el.children);
           }
 
-          // Account for checkbox selection column offset
-          const isFirstCellChecker = cellEls.length > 0 && Boolean(
-            cellEls[0].classList?.contains('x-grid-cell-special') ||
-            cellEls[0].classList?.contains('x-grid-cell-row-checker') ||
-            cellEls[0].classList?.contains('x-selmodel-column') ||
-            (typeof cellEls[0].querySelector === 'function' && cellEls[0].querySelector('.x-grid-row-checker, input[type="checkbox"], [role="checkbox"], .mat-pseudo-checkbox')) ||
-            (((cellEls[0].innerText || cellEls[0].textContent || '').trim() === '') && cellEls.length > headers.length)
-          );
-          const dataCellEls = isFirstCellChecker ? cellEls.slice(1) : cellEls;
+          const nonControlCells = cellEls.filter(c => !isControlOrExpanderCell(c));
+          const dataCellEls = nonControlCells.length > 0 ? nonControlCells : cellEls;
 
-          const cells = dataCellEls.map(c => {
-            let val = (c.innerText || c.textContent || '').trim().replace(/\s+/g, ' ');
-            if (!val) {
-              const link = typeof c.querySelector === 'function' ? c.querySelector('a, button, input') : null;
-              if (link) {
-                val = (link.innerText || link.textContent || link.getAttribute('value') || '').trim();
-              }
-            }
-            return val;
-          });
-
-          if (headers.length > 0 && cells.length > 0) {
-            headers.forEach((hName, idx) => {
-              if (idx < cells.length && cells[idx] !== undefined && cells[idx] !== '') {
-                fields[hName] = cells[idx];
+          let mapped = false;
+          if (rawHeaderLayout.length > 0 && rawHeaderLayout.length === cellEls.length) {
+            rawHeaderLayout.forEach((hName, idx) => {
+              if (hName && !EXPANDER_GLYPH_REGEX.test(hName)) {
+                const c = cellEls[idx];
+                let val = cleanCellText(c?.innerText || c?.textContent || '');
+                if (!val) {
+                  const link = typeof c?.querySelector === 'function' ? c.querySelector('a, button, input') : null;
+                  if (link) {
+                    val = cleanCellText(link.innerText || link.textContent || link.getAttribute('value') || '');
+                  }
+                }
+                if (val && !EXPANDER_GLYPH_REGEX.test(val)) {
+                  fields[hName] = val;
+                  mapped = true;
+                }
               }
             });
           }
 
+          if (!mapped || Object.keys(fields).filter(k => !k.startsWith('_')).length === 0) {
+            if (headers.length > 0 && dataCellEls.length > 0) {
+              headers.forEach((hName, idx) => {
+                if (dataCellEls[idx] !== undefined) {
+                  const c = dataCellEls[idx];
+                  let val = cleanCellText(c?.innerText || c?.textContent || '');
+                  if (!val) {
+                    const link = typeof c?.querySelector === 'function' ? c.querySelector('a, button, input') : null;
+                    if (link) {
+                      val = cleanCellText(link.innerText || link.textContent || link.getAttribute('value') || '');
+                    }
+                  }
+                  if (val && !EXPANDER_GLYPH_REGEX.test(val)) {
+                    fields[hName] = val;
+                  }
+                }
+              });
+            }
+          }
+
+          fields._cells = dataCellEls.map(c => cleanCellText(c?.innerText || c?.textContent || ''));
+
           // Semantic alias for Due Date
           if (!fields['Due Date']) {
             const dueCol = headers.find(h => /\bdue\b/i.test(h));
-            if (dueCol && fields[dueCol]) {
+            if (dueCol && fields[dueCol] && !EXPANDER_GLYPH_REGEX.test(fields[dueCol])) {
               fields['Due Date'] = fields[dueCol];
             }
           }
@@ -226,7 +294,10 @@ class ItemExecutionHandler {
               if (typeof c.getAttribute === 'function') {
                 const attr = c.getAttribute('data-field') || c.getAttribute('data-column') || c.getAttribute('data-label') || c.getAttribute('data-name');
                 if (attr && attr.trim()) {
-                  fields[attr.trim()] = (c.innerText || c.textContent || '').trim().replace(/\s+/g, ' ');
+                  const val = cleanCellText(c.innerText || c.textContent || '');
+                  if (val && !EXPANDER_GLYPH_REGEX.test(val)) {
+                    fields[attr.trim()] = val;
+                  }
                 }
               }
             });
@@ -238,9 +309,35 @@ class ItemExecutionHandler {
             if (dts.length > 0 && dts.length === dds.length) {
               dts.forEach((dt, idx) => {
                 const k = (dt.innerText || dt.textContent || '').trim().replace(/:$/, '');
-                const v = (dds[idx].innerText || dds[idx].textContent || '').trim();
-                if (k) fields[k] = v;
+                const v = cleanCellText(dds[idx].innerText || dds[idx].textContent || '');
+                if (k && v && !EXPANDER_GLYPH_REGEX.test(v)) fields[k] = v;
               });
+            }
+          }
+
+          // Document ID self-healing
+          const fullText = (el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ');
+          const invColKey = ['Invoice No', 'Invoice Number', 'Invoice #', 'Invoice', 'Inv No', 'Voucher No', 'Doc No']
+            .find(k => fields[k] !== undefined) || headers.find(h => /invoice|voucher|doc\s*no/i.test(h));
+          if (invColKey) {
+            const currVal = fields[invColKey];
+            if (!currVal || EXPANDER_GLYPH_REGEX.test(currVal) || !/\d/.test(currVal)) {
+              const docMatch = fullText.match(DOCUMENT_ID_REGEX)?.[1] ||
+                dataCellEls.map(c => cleanCellText(c.innerText || c.textContent || '')).find(t => DOCUMENT_ID_REGEX.test(t));
+              if (docMatch) {
+                fields[invColKey] = docMatch;
+              }
+            }
+          }
+
+          // Strip expander glyphs from any field
+          for (const [k, v] of Object.entries(fields)) {
+            if (typeof v === 'string') {
+              if (EXPANDER_GLYPH_REGEX.test(v)) {
+                delete fields[k];
+              } else {
+                fields[k] = cleanCellText(v);
+              }
             }
           }
 
@@ -329,20 +426,63 @@ class ItemExecutionHandler {
       }
 
       const itemRecord = await itemEl.evaluate((el) => {
+        const EXPANDER_GLYPH_REGEX = /^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/i;
+        const DOCUMENT_ID_REGEX = /\b((?:SI|INV|DR|TX|CM|PO|SO|BILL|REC|ORD)-\d+(?:[-_]\w+)*|\b\d{4,10}\b)/i;
+
+        const cleanCellText = (val) => {
+          if (val == null) return '';
+          let s = String(val).trim().replace(/\s+/g, ' ');
+          if (EXPANDER_GLYPH_REGEX.test(s)) return '';
+          s = s.replace(/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+/, '').trim();
+          s = s.replace(/[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/, '').trim();
+          return s;
+        };
+
+        const isControlOrExpanderCell = (cellEl) => {
+          if (!cellEl || typeof cellEl !== 'object') return false;
+          if (
+            cellEl.classList?.contains('x-grid-cell-special') ||
+            cellEl.classList?.contains('x-grid-cell-row-checker') ||
+            cellEl.classList?.contains('x-selmodel-column') ||
+            cellEl.classList?.contains('ant-table-selection-column') ||
+            cellEl.classList?.contains('mat-column-select') ||
+            (typeof cellEl.querySelector === 'function' && cellEl.querySelector(
+              '.x-grid-row-checker, input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"], .mat-pseudo-checkbox'
+            ))
+          ) {
+            return true;
+          }
+          if (
+            cellEl.classList?.contains('x-grid-row-expander') ||
+            cellEl.classList?.contains('ant-table-row-expand-icon') ||
+            cellEl.classList?.contains('dt-control') ||
+            cellEl.classList?.contains('details-control') ||
+            cellEl.classList?.contains('tree-node-toggle') ||
+            cellEl.classList?.contains('expander') ||
+            cellEl.classList?.contains('expand-btn') ||
+            cellEl.classList?.contains('mat-expansion-indicator') ||
+            (typeof cellEl.querySelector === 'function' && cellEl.querySelector(
+              'button[aria-expanded], [aria-expanded], .expander, .expand-btn, [class*="chevron" i], [class*="expander" i], [class*="tree-toggle" i], [class*="dt-control" i]'
+            ))
+          ) {
+            return true;
+          }
+          const raw = (cellEl.innerText || cellEl.textContent || '').trim();
+          if (raw && EXPANDER_GLYPH_REGEX.test(raw) && raw.length <= 4) {
+            return true;
+          }
+          return false;
+        };
+
         const fullText = (el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ');
         let cellEls = Array.from(el.querySelectorAll('td, [role="gridcell"]'));
         if (cellEls.length === 0) {
           cellEls = Array.from(el.querySelectorAll('.x-grid-cell, .dxgv, .cell'));
         }
 
-        // Account for checkbox selection column
-        const isFirstCellChecker = cellEls.length > 0 && Boolean(
-          cellEls[0].classList?.contains('x-grid-cell-special') ||
-          cellEls[0].classList?.contains('x-grid-cell-row-checker') ||
-          cellEls[0].querySelector?.('.x-grid-row-checker, input[type="checkbox"]')
-        );
-        const dataCellEls = isFirstCellChecker ? cellEls.slice(1) : cellEls;
-        const cells = dataCellEls.map(c => (c.innerText || c.textContent || '').trim());
+        const nonControlCells = cellEls.filter(c => !isControlOrExpanderCell(c));
+        const dataCellEls = nonControlCells.length > 0 ? nonControlCells : cellEls;
+        const cells = dataCellEls.map(c => cleanCellText(c.innerText || c.textContent || ''));
 
         const gridContainer = el.parentElement?.closest('.x-grid, [role="grid"], [role="treegrid"], .dxgvTable, table, .data-table, .grid-container') ||
           el.closest('.x-grid, [role="grid"], .dxgvTable, table') ||
@@ -356,26 +496,45 @@ class ItemExecutionHandler {
           Text: fullText
         };
 
+        let rawHeaderLayout = [];
         if (gridContainer) {
           const headerCt = (typeof gridContainer.querySelector === 'function' ? gridContainer.querySelector('.x-grid-header-ct, thead, .x-grid-header-row') : null) || gridContainer;
           const headerEls = Array.from(typeof headerCt.querySelectorAll === 'function' ? headerCt.querySelectorAll('.x-column-header, th, [role="columnheader"]') : [])
             .filter(h => !h.parentElement?.closest?.('.x-column-header'));
-          const colTexts = headerEls.map(h => {
+          rawHeaderLayout = headerEls.map(h => {
             const inner = (typeof h.querySelector === 'function' ? h.querySelector('.x-column-header-text') : null) || h;
-            return (inner.innerText || inner.textContent || '').trim();
-          }).filter(t => t.length > 0);
-
-          colTexts.forEach((hText, idx) => {
-            if (hText && cells[idx] !== undefined) {
-              record[hText] = cells[idx];
-            }
+            return cleanCellText(inner.innerText || inner.textContent || '');
           });
+          const colTexts = rawHeaderLayout.filter(t => t.length > 0 && !EXPANDER_GLYPH_REGEX.test(t));
+
+          if (rawHeaderLayout.length === cellEls.length) {
+            rawHeaderLayout.forEach((hText, idx) => {
+              if (hText && !EXPANDER_GLYPH_REGEX.test(hText) && cellEls[idx]) {
+                const val = cleanCellText(cellEls[idx].innerText || cellEls[idx].textContent || '');
+                if (val && !EXPANDER_GLYPH_REGEX.test(val)) {
+                  record[hText] = val;
+                }
+              }
+            });
+          } else {
+            colTexts.forEach((hText, idx) => {
+              if (hText && cells[idx] !== undefined && !EXPANDER_GLYPH_REGEX.test(cells[idx])) {
+                record[hText] = cells[idx];
+              }
+            });
+          }
         }
 
-        // Invoice Number fallback
-        if (!record['Invoice Number']) {
-          const invMatch = fullText.match(/\b((?:SI|INV|DR|TX|CM)-\d+(?:[-_]\w+)*|\b\d{5,10}\b)/i);
-          if (invMatch) record['Invoice Number'] = invMatch[1];
+        // Invoice Number / No fallback
+        const currentInv = record['Invoice Number'] || record['Invoice No'] || record['Invoice'];
+        if (!currentInv || EXPANDER_GLYPH_REGEX.test(currentInv) || !/\d/.test(currentInv)) {
+          const invMatch = fullText.match(DOCUMENT_ID_REGEX)?.[1] ||
+            cells.find(c => DOCUMENT_ID_REGEX.test(c));
+          if (invMatch) {
+            if (record['Invoice No'] !== undefined) record['Invoice No'] = invMatch;
+            if (record['Invoice Number'] !== undefined) record['Invoice Number'] = invMatch;
+            if (!record['Invoice No'] && !record['Invoice Number']) record['Invoice Number'] = invMatch;
+          }
         }
 
         // Type fallback
@@ -383,6 +542,13 @@ class ItemExecutionHandler {
           if (/\bcredit\s*memo\b/i.test(fullText)) record['Type'] = 'Credit Memo';
           else if (/\binvoice\b/i.test(fullText)) record['Type'] = 'Invoice';
           else record['Type'] = fullText;
+        }
+
+        // Strip expander glyphs from any field
+        for (const [k, v] of Object.entries(record)) {
+          if (typeof v === 'string' && EXPANDER_GLYPH_REGEX.test(v)) {
+            delete record[k];
+          }
         }
 
         return record;

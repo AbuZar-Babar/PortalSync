@@ -853,7 +853,7 @@ export default function ArtifactsVaultPage() {
             });
           } else {
             // Include manifest fallback for failed download
-            const fallbackText = `FlowMind Artifact Archive\nFile: ${art.file_name}\nSHA-256: ${art.sha256_hash}\nSize: ${art.file_size_bytes || 0} bytes\nCaptured: ${art.created_at}\nStatus: Retrieved from registry\n`;
+            const fallbackText = `ReFlow Artifact Archive\nFile: ${art.file_name}\nSHA-256: ${art.sha256_hash}\nSize: ${art.file_size_bytes || 0} bytes\nCaptured: ${art.created_at}\nStatus: Retrieved from registry\n`;
             zipEntries.push({
               name: `${art.file_name}.txt`,
               data: encoder.encode(fallbackText),
@@ -861,7 +861,7 @@ export default function ArtifactsVaultPage() {
             });
           }
         } catch {
-          const errText = `FlowMind Artifact: ${art.file_name}\nHash: ${art.sha256_hash}\n`;
+          const errText = `ReFlow Artifact: ${art.file_name}\nHash: ${art.sha256_hash}\n`;
           zipEntries.push({
             name: `${art.file_name}.txt`,
             data: encoder.encode(errText),
@@ -871,7 +871,7 @@ export default function ArtifactsVaultPage() {
 
       // Add a root manifest file describing the exported batch
       const manifest = {
-        vault: 'FlowMind Cloud Outputs & Invoices Vault',
+        vault: 'ReFlow Cloud Outputs & Invoices Vault',
         organization_id: orgId,
         exported_at: new Date().toISOString(),
         total_artifacts: filteredArtifacts.length,
@@ -900,7 +900,7 @@ export default function ArtifactsVaultPage() {
       const tempLink = document.createElement('a');
       const dateTag = new Date().toISOString().slice(0, 10);
       tempLink.href = url;
-      tempLink.download = `flowmind-artifacts-${dateTag}.zip`;
+      tempLink.download = `reflow-artifacts-${dateTag}.zip`;
       document.body.appendChild(tempLink);
       tempLink.click();
       document.body.removeChild(tempLink);
@@ -1307,7 +1307,7 @@ export default function ArtifactsVaultPage() {
                                   {art.file_name}
                                 </span>
                                 {(art.cloud_storage_path || art.synced_to_drive) && (
-                                  <span title="Synced to FlowMind Cloud Storage">
+                                  <span title="Synced to ReFlow Cloud Storage">
                                     <Cloud className="h-3 w-3 text-cyan-400 shrink-0" />
                                   </span>
                                 )}

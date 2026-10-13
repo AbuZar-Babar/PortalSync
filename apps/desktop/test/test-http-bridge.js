@@ -21,8 +21,8 @@ const path = require('path');
 
 // Standard module resolution relative to workspace root
 const candidatePaths = [
-  path.resolve(__dirname, 'node_modules'),
-  path.resolve(__dirname, '../../node_modules')
+  path.resolve(__dirname, '../node_modules'),
+  path.resolve(__dirname, '../../../node_modules')
 ];
 for (const p of candidatePaths) {
   try {
@@ -35,7 +35,7 @@ for (const p of candidatePaths) {
 }
 require('module').Module._initPaths();
 
-const httpBridge = require('./src/main/http-bridge');
+const httpBridge = require('../src/main/http-bridge');
 
 function makeRequest(options, body = null) {
   return new Promise((resolve, reject) => {

@@ -15,11 +15,11 @@ const path = require('path');
 const os = require('os');
 const http = require('http');
 
-const { CloudClient, CloudClientError } = require('./cloud-client');
-const { computeSha256, getFileChecksum, ArtifactTracker, sanitizePortalName, resolvePortalStorageDir } = require('./dedup-helper');
-const { detect2FAChallenge, waitFor2FAResolution } = require('./hitl-detector');
-const { RunnerDaemon, checkCdpResponding } = require('./runner-daemon');
-const { parseCliArgs } = require('./cli');
+const { CloudClient, CloudClientError } = require('../src/runner/cloud-client');
+const { computeSha256, getFileChecksum, ArtifactTracker, sanitizePortalName, resolvePortalStorageDir } = require('../src/runner/dedup-helper');
+const { detect2FAChallenge, waitFor2FAResolution } = require('../src/runner/hitl-detector');
+const { RunnerDaemon, checkCdpResponding } = require('../src/runner/runner-daemon');
+const { parseCliArgs } = require('../src/runner/cli');
 
 // ==========================================
 // 1. CloudClient Tests

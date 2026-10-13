@@ -24,6 +24,7 @@ const logger = require('../utils/logger');
 const { detectLoginSequence, isSessionAuthenticated } = require('../shared/auth-detector');
 const InterruptionHandler = require('./interruption-handler');
 const TabManager = require('./tab-manager');
+const ActionDispatcher = require('./action-dispatcher');
 
 /**
  * Detect if an action targets an ephemeral, programmatic download anchor (<a href="blob:..." download>)
@@ -906,20 +907,7 @@ class ReplayEngine extends EventEmitter {
    * Ensure selector resolver is loaded inside a specific frame or page context
    */
   async _ensureSelectorResolverInFrame(frame) {
-    try {
-      const targetFrame = frame || this.page;
-      if (!targetFrame || (typeof targetFrame.isDetached === 'function' && targetFrame.isDetached())) return;
-      const isResolverLoaded = await targetFrame.evaluate(() => typeof window.SelectorResolver !== 'undefined').catch(() => false);
-
-      if (!isResolverLoaded) {
-        if (typeof targetFrame.isDetached === 'function' && targetFrame.isDetached()) return;
-        const resolverPath = path.resolve(__dirname, '../shared/selector-resolver.js');
-        const resolverCode = fs.readFileSync(resolverPath, 'utf8');
-        await targetFrame.evaluate(resolverCode).catch(() => {});
-      }
-    } catch {
-      // Ignore transient detached frame errors
-    }
+    return ActionDispatcher.ensureSelectorResolverInFrame(frame, this.page);
   }
 
   /**

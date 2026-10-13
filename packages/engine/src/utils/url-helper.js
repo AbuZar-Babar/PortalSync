@@ -62,12 +62,20 @@ function resolveTargetUrl(targetUrl) {
     try {
       const parsed = new URL(targetUrl);
       const baseName = path.basename(parsed.pathname);
+      const localFixturePath = path.resolve(process.cwd(), 'test', 'fixtures', baseName);
+      if (fs.existsSync(localFixturePath)) {
+        return `file:///${localFixturePath.replace(/\\/g, '/')}`;
+      }
       const localTestPath = path.resolve(process.cwd(), 'test', baseName);
       if (fs.existsSync(localTestPath)) {
         return `file:///${localTestPath.replace(/\\/g, '/')}`;
       }
     } catch {
       const baseName = path.basename(targetUrl.replace(/^file:\/\/\/?/, ''));
+      const localFixturePath = path.resolve(process.cwd(), 'test', 'fixtures', baseName);
+      if (fs.existsSync(localFixturePath)) {
+        return `file:///${localFixturePath.replace(/\\/g, '/')}`;
+      }
       const localTestPath = path.resolve(process.cwd(), 'test', baseName);
       if (fs.existsSync(localTestPath)) {
         return `file:///${localTestPath.replace(/\\/g, '/')}`;
@@ -81,6 +89,10 @@ function resolveTargetUrl(targetUrl) {
     const directPath = path.resolve(process.cwd(), targetUrl);
     if (fs.existsSync(directPath)) {
       return `file:///${directPath.replace(/\\/g, '/')}`;
+    }
+    const fixturePath = path.resolve(process.cwd(), 'test', 'fixtures', path.basename(targetUrl));
+    if (fs.existsSync(fixturePath)) {
+      return `file:///${fixturePath.replace(/\\/g, '/')}`;
     }
     const testPath = path.resolve(process.cwd(), 'test', path.basename(targetUrl));
     if (fs.existsSync(testPath)) {

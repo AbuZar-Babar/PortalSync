@@ -54,7 +54,10 @@ class StaticRoutes {
       filePath = path.join(process.cwd(), 'downloads', downloadFile);
     } else if (pathname.startsWith('/portal/')) {
       const portalFile = pathname.replace('/portal/', '');
-      filePath = path.join(process.cwd(), 'test', portalFile);
+      filePath = path.join(process.cwd(), 'test', 'fixtures', portalFile);
+      if (!fs.existsSync(filePath)) {
+        filePath = path.join(process.cwd(), 'test', portalFile);
+      }
     } else if (pathname.startsWith('/test/')) {
       const testFile = pathname.replace('/test/', '');
       filePath = path.join(process.cwd(), 'test', testFile);

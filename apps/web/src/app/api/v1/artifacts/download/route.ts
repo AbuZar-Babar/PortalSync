@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Fallback response for mock or simulated cloud environments
-  const fallbackText = `FlowMind Cloud Artifact Export\nFile: ${artifact.file_name}\nSHA-256: ${artifact.sha256_hash}\nSize: ${artifact.file_size_bytes || 0} bytes\nSynced Path: ${cloudPath}\n`;
+  const fallbackText = `ReFlow Cloud Artifact Export\nFile: ${artifact.file_name}\nSHA-256: ${artifact.sha256_hash}\nSize: ${artifact.file_size_bytes || 0} bytes\nSynced Path: ${cloudPath}\n`;
   const fallbackBuffer = Buffer.from(fallbackText, 'utf-8');
 
   return new Response(fallbackBuffer, {

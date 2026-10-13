@@ -13,6 +13,14 @@ const { resolveTargetUrl } = require('../utils/url-helper');
 const { ElementResolutionTimeoutError } = require('../utils/errors');
 const logger = require('../utils/logger');
 
+const RESOLVER_PATH = path.resolve(__dirname, '../shared/selector-resolver.js');
+let cachedResolverCode = null;
+try {
+  cachedResolverCode = fs.readFileSync(RESOLVER_PATH, 'utf8');
+} catch (err) {
+  logger.warn(`[ActionDispatcher] Failed to load selector-resolver at module init: ${err.message}`);
+}
+
 class ActionDispatcher {
   constructor(options = {}) {
     this.botConfig = options.botConfig || null;
@@ -244,9 +252,10 @@ class ActionDispatcher {
 
       if (!isResolverLoaded) {
         if (typeof targetFrame.isDetached === 'function' && targetFrame.isDetached()) return;
-        const resolverPath = path.resolve(__dirname, '../shared/selector-resolver.js');
-        const resolverCode = fs.readFileSync(resolverPath, 'utf8');
-        await targetFrame.evaluate(resolverCode).catch(() => {});
+        if (!cachedResolverCode) {
+          cachedResolverCode = fs.readFileSync(RESOLVER_PATH, 'utf8');
+        }
+        await targetFrame.evaluate(cachedResolverCode).catch(() => {});
       }
     } catch {
       // Ignore transient detached frame errors

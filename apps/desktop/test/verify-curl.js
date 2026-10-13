@@ -2,15 +2,16 @@ const { spawn, execSync } = require('child_process');
 const path = require('path');
 
 // 1. Spawn a separate Node process running http-bridge
+const bridgePath = path.resolve(__dirname, '../src/main/http-bridge').replace(/\\/g, '/');
 const serverScript = `
-  const b = require('./src/main/http-bridge');
+  const b = require('${bridgePath}');
   b.start().then(() => {
     console.log('READY');
   });
 `;
 
 const serverProc = spawn('node', ['-e', serverScript], {
-  cwd: path.resolve(__dirname),
+  cwd: path.resolve(__dirname, '..'),
   stdio: ['ignore', 'pipe', 'inherit']
 });
 

@@ -884,7 +884,7 @@ export default function RunsTelemetryPage() {
             <div className="flex items-center gap-3 text-slate-500 font-mono text-[11px]">
               <span className="flex items-center gap-1">
                 <Sparkles className="h-3 w-3 text-cyan-400" />
-                FlowMind CDP Engine
+                ReFlow CDP Engine
               </span>
               <span>•</span>
               <span>Supabase Realtime Live</span>
