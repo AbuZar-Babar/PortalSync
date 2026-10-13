@@ -125,7 +125,7 @@ class RunnerDaemon {
     if (this.isRunning) return;
     this.isRunning = true;
 
-    this.logger.info(`Starting PortalSync Runner Daemon (CDP port: ${this.cdpPort}, Poll interval: ${this.pollIntervalMs / 1000}s)`);
+    this.logger.info(`Starting ReFlow Runner Daemon (CDP port: ${this.cdpPort}, Poll interval: ${this.pollIntervalMs / 1000}s)`);
     this.logger.info(`Cloud API URL: ${this.cloudClient.baseUrl}`);
 
     // Initial CDP check
@@ -167,7 +167,7 @@ class RunnerDaemon {
    * Stop continuous polling loop
    */
   async stop() {
-    this.logger.info('Stopping PortalSync Runner Daemon...');
+    this.logger.info('Stopping ReFlow Runner Daemon...');
     this.isRunning = false;
 
     if (this._heartbeatTimer) {

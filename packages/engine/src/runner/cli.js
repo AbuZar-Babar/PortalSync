@@ -164,7 +164,7 @@ ${colors.bold}DESCRIPTION:${colors.reset}
 
 ${colors.bold}OPTIONS:${colors.reset}
   -p, --port <number>          Chrome CDP debugging port to probe (default: 9222)
-  -u, --cloud-url <url>        PortalSync Cloud API URL (default: http://localhost:3000)
+  -u, --cloud-url <url>        ReFlow Cloud API URL (default: http://localhost:3000)
   -t, --token <token>          Runner token ps_live_<org_id> to validate
   -d, --target-folder <path>   Directory to test for artifact write permissions
   -h, --help                   Show this help message
@@ -190,7 +190,7 @@ ${colors.bold}DESCRIPTION:${colors.reset}
 
 ${colors.bold}OPTIONS:${colors.reset}
   -p, --port <number>          Chrome CDP debugging port (default: 9222)
-  -u, --cloud-url <url>        PortalSync Cloud API URL (default: http://localhost:3000)
+  -u, --cloud-url <url>        ReFlow Cloud API URL (default: http://localhost:3000)
   -t, --token <token>          Runner token ps_live_<org_id> (required for cloud polling)
   -i, --poll-interval <s>      Polling interval in seconds (default: 10, range: 10-15)
   -d, --target-folder <path>   Destination directory for invoice artifacts (default: ~/Downloads/ReFlow)
@@ -219,7 +219,7 @@ ${colors.bold}ARGUMENTS:${colors.reset}
 
 ${colors.bold}OPTIONS:${colors.reset}
   -p, --port <number>          Chrome CDP debugging port (default: 9222)
-  -u, --cloud-url <url>        PortalSync Cloud API URL (default: http://localhost:3000)
+  -u, --cloud-url <url>        ReFlow Cloud API URL (default: http://localhost:3000)
   -t, --token <token>          Runner token ps_live_<org_id>
   -d, --target-folder <path>   Destination directory for invoice artifacts (default: ~/Downloads/ReFlow)
   -h, --help                   Show this help message
