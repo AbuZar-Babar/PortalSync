@@ -120,11 +120,20 @@ function extractWorkflowColumns(workflow: Workflow | null): string[] {
   const fr = (workflow.filter_rules || {}) as Record<string, unknown>;
   if (Array.isArray(fr.available_fields)) fr.available_fields.forEach(addCleanCol);
   if (Array.isArray(fr.columns)) fr.columns.forEach(addCleanCol);
+  if (fr.fieldValues && typeof fr.fieldValues === 'object') {
+    Object.keys(fr.fieldValues).forEach(addCleanCol);
+  }
 
   // 2. From workflow_definition
   const wd = (workflow.workflow_definition || {}) as Record<string, unknown>;
   if (Array.isArray(wd.available_fields)) wd.available_fields.forEach(addCleanCol);
   if (Array.isArray(wd.columns)) wd.columns.forEach(addCleanCol);
+  const wdFr = (wd.filter_rules || {}) as Record<string, unknown>;
+  if (Array.isArray(wdFr.available_fields)) wdFr.available_fields.forEach(addCleanCol);
+  if (Array.isArray(wdFr.columns)) wdFr.columns.forEach(addCleanCol);
+  if (wdFr.fieldValues && typeof wdFr.fieldValues === 'object') {
+    Object.keys(wdFr.fieldValues).forEach(addCleanCol);
+  }
 
   // 3. From steps or actions
   const steps = getWorkflowSteps(workflow);
@@ -135,6 +144,14 @@ function extractWorkflowColumns(workflow: Workflow | null): string[] {
     addCleanCol(step.field);
     addCleanCol(step.columnName);
     addCleanCol(step.headerName);
+
+    if (step.context) {
+      if (Array.isArray(step.context.columns)) step.context.columns.forEach(addCleanCol);
+      if (Array.isArray(step.context.table?.headers)) step.context.table.headers.forEach(addCleanCol);
+      if (step.context.fieldValues && typeof step.context.fieldValues === 'object') {
+        Object.keys(step.context.fieldValues).forEach(addCleanCol);
+      }
+    }
 
     // Target elements and friendly names
     const target = step.target || {};
@@ -226,6 +243,13 @@ function extractFieldValuesMap(workflow: Workflow | null): Record<string, string
         }
       });
     }
+    if (wd.filter_rules?.fieldValues && typeof wd.filter_rules.fieldValues === 'object') {
+      Object.entries(wd.filter_rules.fieldValues).forEach(([k, vals]) => {
+        if (Array.isArray(vals)) {
+          vals.forEach((v) => addValue(k, v));
+        }
+      });
+    }
   }
 
   const steps = getWorkflowSteps(workflow);
@@ -234,7 +258,21 @@ function extractFieldValuesMap(workflow: Workflow | null): Record<string, string
     const targetField = step.extract_column || step.column || step.field ||
       step.target?.fingerprint?.columnName || step.fingerprint?.columnName ||
       step.target?.fingerprint?.headerName || step.fingerprint?.headerName ||
+      step.context?.table?.activeColumn ||
       step.target?.friendlyName || step.target?.elementName || step.elementName;
+
+    if (step.context) {
+      if (step.context.fieldValues && typeof step.context.fieldValues === 'object') {
+        Object.entries(step.context.fieldValues).forEach(([k, vals]) => {
+          if (Array.isArray(vals)) vals.forEach((v) => addValue(k, v));
+        });
+      }
+      if (step.context.table?.rowValues && typeof step.context.table.rowValues === 'object') {
+        Object.entries(step.context.table.rowValues).forEach(([k, vals]) => {
+          if (Array.isArray(vals)) vals.forEach((v) => addValue(k, v));
+        });
+      }
+    }
 
     if (Array.isArray(step.options)) {
       step.options.forEach((opt: any) => {
@@ -357,9 +395,17 @@ export function ExecutionPreflightModal({
       const valMap = extractFieldValuesMap(workflow);
       setFieldValuesMap(valMap);
 
-      // Check if workflow has saved filter rules
-      const savedFilter = (workflow.filter_rules?.itemFilter || workflow.filter_rules) as any;
-      if (savedFilter && Array.isArray(savedFilter.conditions) && savedFilter.conditions.length > 0) {
+      // Check if workflow has saved filter rules or captured columns/values
+      const fr = (workflow.filter_rules && Object.keys(workflow.filter_rules).length > 0
+        ? workflow.filter_rules
+        : ((workflow.workflow_definition as any)?.filter_rules || {})) as any;
+      const savedFilter = (fr.itemFilter || fr) as any;
+      const hasConditions = Array.isArray(savedFilter.conditions) && savedFilter.conditions.length > 0;
+      const hasCapturedRules = (Array.isArray(fr.available_fields) && fr.available_fields.length > 0) ||
+        (Array.isArray(fr.columns) && fr.columns.length > 0) ||
+        (fr.fieldValues && Object.keys(fr.fieldValues).length > 0);
+
+      if (hasConditions) {
         setFilterEnabled(true);
         setMatchMode(savedFilter.matchMode === 'any' ? 'any' : 'all');
         const restored = savedFilter.conditions.map((c: any, i: number) => {
@@ -393,11 +439,7 @@ export function ExecutionPreflightModal({
             dateTo: '',
           }
         ]);
-        setFilterEnabled(false);
-      }
-
-      if (isOpen) {
-        void handleRefreshFields(workflow);
+        setFilterEnabled(hasCapturedRules);
       }
     }
   }, [workflow, isOpen]);

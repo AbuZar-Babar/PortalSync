@@ -38,6 +38,120 @@ interface CreatePortalModalProps {
 type TabType = 'record' | 'canvas' | 'import' | 'quick';
 type RecordingPhase = 'idle' | 'starting' | 'recording' | 'preview' | 'saving';
 
+const EXPANDER_GLYPH_REGEX = /^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/i;
+
+function consolidateFilterRulesFromRecipe(recipe: any, actions?: any[]): Record<string, unknown> {
+  const existing = recipe?.filter_rules || recipe?.metadata?.filter_rules;
+  if (
+    existing &&
+    typeof existing === 'object' &&
+    ((Array.isArray(existing.available_fields) && existing.available_fields.length > 0) ||
+      (Array.isArray(existing.columns) && existing.columns.length > 0) ||
+      (existing.fieldValues && Object.keys(existing.fieldValues).length > 0))
+  ) {
+    const fields = (Array.isArray(existing.available_fields) && existing.available_fields.length > 0)
+      ? existing.available_fields
+      : (Array.isArray(existing.columns) && existing.columns.length > 0 ? existing.columns : Object.keys(existing.fieldValues || {}));
+    return {
+      available_fields: fields,
+      columns: fields,
+      fieldValues: existing.fieldValues || {},
+      ...existing,
+    };
+  }
+
+  const actList = Array.isArray(actions) && actions.length > 0
+    ? actions
+    : (Array.isArray(recipe?.actions) ? recipe.actions : (Array.isArray(recipe?.steps) ? recipe.steps : []));
+
+  const fieldsSet = new Set<string>();
+  const fieldValuesMap: Record<string, Set<string>> = {};
+
+  const addField = (raw: unknown): string | null => {
+    if (typeof raw !== 'string') return null;
+    let str = raw.trim();
+    if (!str || str.length > 60 || str.startsWith('{') || str.startsWith('<') || EXPANDER_GLYPH_REGEX.test(str)) return null;
+    str = str.replace(/^(click|select|enter|type|open|download|view|press)\s+/i, '').trim();
+    if (!str || str.length > 60) return null;
+    fieldsSet.add(str);
+    return str;
+  };
+
+  const addVal = (f: string, v: unknown) => {
+    const cf = addField(f);
+    if (!cf || v == null) return;
+    let s = String(v).trim().replace(/\s+/g, ' ');
+    if (!s || s.length > 100 || EXPANDER_GLYPH_REGEX.test(s)) return;
+    s = s.replace(/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+/, '').trim();
+    s = s.replace(/[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/, '').trim();
+    if (!s) return;
+    if (!fieldValuesMap[cf]) fieldValuesMap[cf] = new Set();
+    fieldValuesMap[cf].add(s);
+  };
+
+  actList.forEach((act: any) => {
+    if (!act) return;
+    if (act.context) {
+      if (Array.isArray(act.context.columns)) act.context.columns.forEach(addField);
+      if (act.context.table) {
+        if (Array.isArray(act.context.table.headers)) act.context.table.headers.forEach(addField);
+        if (act.context.table.columns) act.context.table.columns.forEach(addField);
+        if (act.context.table.rowValues && typeof act.context.table.rowValues === 'object') {
+          Object.entries(act.context.table.rowValues).forEach(([k, vals]) => {
+            if (Array.isArray(vals)) vals.forEach((val) => addVal(k, val));
+          });
+        }
+        if (act.context.table.activeRowValues && typeof act.context.table.activeRowValues === 'object') {
+          Object.entries(act.context.table.activeRowValues).forEach(([k, val]) => addVal(k, val));
+        }
+      }
+      if (act.context.fieldValues && typeof act.context.fieldValues === 'object') {
+        Object.entries(act.context.fieldValues).forEach(([k, vals]) => {
+          if (Array.isArray(vals)) vals.forEach((val) => addVal(k, val));
+        });
+      }
+    }
+    if (Array.isArray(act.columns)) act.columns.forEach(addField);
+    if (act.table?.headers && Array.isArray(act.table.headers)) act.table.headers.forEach(addField);
+    if (act.fieldValues && typeof act.fieldValues === 'object') {
+      Object.entries(act.fieldValues).forEach(([k, vals]) => {
+        if (Array.isArray(vals)) vals.forEach((val) => addVal(k, val));
+      });
+    }
+
+    const targetCol = act.extract_column || act.column || act.field ||
+      act.target?.fingerprint?.columnName || act.fingerprint?.columnName ||
+      act.target?.fingerprint?.headerName || act.fingerprint?.headerName ||
+      act.context?.table?.activeColumn ||
+      (act.context?.fieldValues && Object.keys(act.context.fieldValues)[0]);
+
+    const opts = act.options || act.selectOptions || act.context?.options;
+    if (Array.isArray(opts)) {
+      const col = targetCol || act.name || act.elementName || 'Type';
+      opts.forEach((opt: any) => addVal(col, typeof opt === 'string' ? opt : (opt.text || opt.label || opt.value)));
+    }
+    if (act.value && typeof act.value === 'string' && !act.value.startsWith('{{')) {
+      if (targetCol) addVal(targetCol, act.value);
+      if (/SI-|INV-|DR-|TX-|CM-|\b\d{4,10}\b/i.test(act.value)) {
+        addVal('Invoice Number', act.value);
+      }
+    }
+  });
+
+  const finalValues: Record<string, string[]> = {};
+  Object.entries(fieldValuesMap).forEach(([k, vSet]) => {
+    finalValues[k] = Array.from(vSet);
+  });
+  const fields = Array.from(fieldsSet);
+
+  return {
+    available_fields: fields,
+    columns: fields,
+    fieldValues: finalValues,
+    ...(existing || {})
+  };
+}
+
 export function CreatePortalModal({
   isOpen,
   onClose,
@@ -646,15 +760,17 @@ export function CreatePortalModal({
     setSubmitting(true);
     try {
       const rawJson = JSON.parse(jsonText);
+      const importedFilterRules = consolidateFilterRulesFromRecipe(rawJson, rawJson.actions || rawJson.steps || []);
       const payload = {
         name: parsedMetadata.name,
         portal_url: parsedMetadata.portal_url,
         workflow_definition: {
           ...rawJson,
+          filter_rules: importedFilterRules,
           upload_to_cloud: quickUploadToCloud,
           target_folder: quickTargetFolder,
         },
-        filter_rules: {},
+        filter_rules: importedFilterRules,
         upload_to_cloud: quickUploadToCloud,
         target_folder: quickTargetFolder,
       };
@@ -682,7 +798,7 @@ export function CreatePortalModal({
           portal_url: parsedMetadata.portal_url,
           schema_version: parsedMetadata.version || '1.0.0',
           workflow_definition: payload.workflow_definition,
-          filter_rules: {},
+          filter_rules: importedFilterRules,
         })
         .select()
         .single();
@@ -810,11 +926,14 @@ export function CreatePortalModal({
       steps: recordedActions,
     };
 
+    const consolidatedFilterRules = consolidateFilterRulesFromRecipe(finalRecipe, recordedActions);
+
     const payload = {
       name: recordName.trim(),
       portal_url: normalizedUrl,
       workflow_definition: {
         ...finalRecipe,
+        filter_rules: consolidatedFilterRules,
         schedule: recordSchedule,
         target_folder: recordTargetFolder,
         upload_to_cloud: recordUploadToCloud,
@@ -822,7 +941,7 @@ export function CreatePortalModal({
           { type: 'navigate', url: normalizedUrl, description: 'Open vendor portal URL' },
         ],
       },
-      filter_rules: {},
+      filter_rules: consolidatedFilterRules,
       upload_to_cloud: recordUploadToCloud,
       target_folder: recordTargetFolder,
     };
@@ -852,7 +971,7 @@ export function CreatePortalModal({
           portal_url: normalizedUrl,
           schema_version: finalRecipe.metadata?.version || '1.0.0',
           workflow_definition: payload.workflow_definition,
-          filter_rules: {},
+          filter_rules: consolidatedFilterRules,
         })
         .select()
         .single();

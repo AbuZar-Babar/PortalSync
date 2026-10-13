@@ -8,7 +8,7 @@
  */
 
 (function () {
-  const CURRENT_RECORDER_VERSION = 7;
+  const CURRENT_RECORDER_VERSION = 8;
 
   // Clean up any listeners from a previous session
   if (typeof window.__workflowCaptureCleanup === 'function') {
@@ -250,6 +250,414 @@
     };
   }
 
+  const SNIFF_EXPANDER_GLYPH_REGEX = /^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/i;
+
+  function cleanSniffedText(val) {
+    if (val == null) return '';
+    let s = String(val).trim().replace(/\s+/g, ' ');
+    if (SNIFF_EXPANDER_GLYPH_REGEX.test(s)) return '';
+    s = s.replace(/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+/, '').trim();
+    s = s.replace(/[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/, '').trim();
+    return s;
+  }
+
+  function safeCssEscape(str) {
+    if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+      return CSS.escape(str);
+    }
+    return String(str || '').replace(/["\\]/g, '\\$&');
+  }
+
+  /**
+   * Fast in-page contextual sniffer (<5ms):
+   * Captures surrounding table headers, visible sibling rows, dropdown options,
+   * and radio/checkbox groups on interaction.
+   */
+  function sniffElementContext(element) {
+    if (!element || element.nodeType !== 1) return null;
+
+    const tStart = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const columns = [];
+    const fieldValues = {};
+    let tableContext = null;
+    let dropdownOptions = [];
+    let groupInfo = null;
+
+    try {
+      // 1. Surrounding Table & Nested Sub-table Sniffing
+      const tableSelector = 'table, [role="grid"], [role="table"], [role="treegrid"], .dxgvTable, .v-data-table';
+      const tableEl = element.closest ? element.closest(tableSelector) : null;
+
+      if (tableEl) {
+        const isSubTable = Boolean(tableEl.parentElement && tableEl.parentElement.closest && tableEl.parentElement.closest(tableSelector));
+
+        // Column headers for this specific table (excluding headers of nested sub-tables inside it and explicit row headers)
+        const allHeaderEls = Array.from(tableEl.querySelectorAll('th, [role="columnheader"], thead td, .dxgvHeader'))
+          .filter(h => {
+            if (h.closest ? h.closest(tableSelector) !== tableEl : false) return false;
+            // Exclude explicit row headers
+            if (h.getAttribute?.('scope') === 'row' || h.getAttribute?.('role') === 'rowheader') return false;
+            return true;
+          });
+
+        let directHeaderEls = allHeaderEls;
+        if (allHeaderEls.length > 0) {
+          const headerRowMap = new Map();
+          allHeaderEls.forEach(th => {
+            const row = th.closest ? th.closest('tr, [role="row"]') : null;
+            if (row && (row.tagName === 'TR' || row.getAttribute?.('role') === 'row')) {
+              if (!headerRowMap.has(row)) headerRowMap.set(row, []);
+              headerRowMap.get(row).push(th);
+            }
+          });
+
+          if (headerRowMap.size > 1) {
+            // Multiple header rows (grouped headers or filter rows): pick the primary row with most text headers
+            let bestRowHeaders = allHeaderEls;
+            let maxHeaders = 0;
+            for (const [r, ths] of headerRowMap.entries()) {
+              const textThs = ths.filter(th => {
+                const txt = cleanSniffedText(
+                  th.innerText || th.textContent ||
+                  th.getAttribute?.('data-field') || th.getAttribute?.('data-column') || th.getAttribute?.('col-id') ||
+                  th.getAttribute?.('aria-label') || th.getAttribute?.('title') || ''
+                );
+                return txt && !SNIFF_EXPANDER_GLYPH_REGEX.test(txt);
+              });
+              if (textThs.length >= maxHeaders) {
+                maxHeaders = textThs.length;
+                bestRowHeaders = ths;
+              }
+            }
+            directHeaderEls = bestRowHeaders;
+          }
+        }
+
+        const getHeaderText = (th) => {
+          if (!th) return '';
+          return cleanSniffedText(
+            th.innerText ||
+            th.textContent ||
+            th.getAttribute?.('data-field') ||
+            th.getAttribute?.('data-column') ||
+            th.getAttribute?.('col-id') ||
+            th.getAttribute?.('aria-label') ||
+            th.getAttribute?.('title') ||
+            th.querySelector?.('[title]')?.getAttribute?.('title') ||
+            th.querySelector?.('[aria-label]')?.getAttribute?.('aria-label') ||
+            ''
+          );
+        };
+
+        // Retain 1-to-1 raw header layout for exact positional column alignment
+        const rawHeaders = directHeaderEls.map(getHeaderText);
+        const headerNames = [];
+        for (let i = 0; i < Math.min(rawHeaders.length, 30); i++) {
+          const txt = rawHeaders[i];
+          if (txt && !headerNames.includes(txt) && txt.length <= 60 && !SNIFF_EXPANDER_GLYPH_REGEX.test(txt)) {
+            headerNames.push(txt);
+          }
+        }
+
+        // Active row and clicked column detection
+        const activeRow = element.closest('tr, [role="row"]');
+        const activeCell = element.closest('td, th, [role="gridcell"], [role="cell"]');
+        let activeColName = null;
+
+        if (activeCell) {
+          // Direct column header click (excluding row headers)
+          const isRowHeader = activeCell.getAttribute?.('scope') === 'row' || activeCell.getAttribute?.('role') === 'rowheader';
+          if (!isRowHeader && (activeCell.tagName === 'TH' || activeCell.getAttribute?.('role') === 'columnheader')) {
+            const hText = getHeaderText(activeCell);
+            if (hText && headerNames.includes(hText)) {
+              activeColName = hText;
+            }
+          }
+          // Grid cell with explicit field attribute
+          if (!activeColName) {
+            const cellField = cleanSniffedText(activeCell.getAttribute?.('data-field') || activeCell.getAttribute?.('data-column') || activeCell.getAttribute?.('col-id') || '');
+            if (cellField && headerNames.includes(cellField)) {
+              activeColName = cellField;
+            }
+          }
+          // Grid cell with ARIA column index
+          if (!activeColName && activeCell.getAttribute?.('aria-colindex')) {
+            const cIdx = parseInt(activeCell.getAttribute('aria-colindex'), 10) - 1;
+            if (cIdx >= 0 && rawHeaders[cIdx] && headerNames.includes(rawHeaders[cIdx])) {
+              activeColName = rawHeaders[cIdx];
+            }
+          }
+          // Row cell positional matching
+          if (!activeColName && activeRow) {
+            const rowCells = Array.from(activeRow.querySelectorAll('td, th, [role="gridcell"], [role="cell"]'))
+              .filter(c => c.closest(tableSelector) === tableEl);
+            const cellIdx = rowCells.indexOf(activeCell);
+            if (cellIdx >= 0) {
+              if (rawHeaders.length === rowCells.length && rawHeaders[cellIdx] && headerNames.includes(rawHeaders[cellIdx])) {
+                activeColName = rawHeaders[cellIdx];
+              } else if (headerNames[cellIdx]) {
+                activeColName = headerNames[cellIdx];
+              }
+            }
+          }
+        }
+
+        // Sibling rows & distinct column values
+        const allRows = Array.from(tableEl.querySelectorAll('tbody tr, tr, [role="row"]'))
+          .filter(r => {
+            if (r.closest ? r.closest(tableSelector) !== tableEl : false) return false;
+            // Exclude header rows in thead or rows that only contain header cells
+            const theadEl = r.closest ? r.closest('thead') : null;
+            if (theadEl && (theadEl.tagName === 'THEAD' || theadEl.getAttribute?.('role') === 'rowgroup')) return false;
+            // Exclude footer/summary rows
+            const tfootEl = r.closest ? r.closest('tfoot') : null;
+            if (tfootEl && (tfootEl.tagName === 'TFOOT' || tfootEl.getAttribute?.('role') === 'rowgroup')) return false;
+            // If row has th/columnheader AND has no data cells (td/gridcell), it's a header row
+            const hasHeader = Boolean(r.querySelector?.('th, [role="columnheader"]'));
+            const hasDataCell = Boolean(r.querySelector?.('td, [role="gridcell"], [role="cell"]'));
+            if (hasHeader && !hasDataCell) return false;
+            return true;
+          });
+
+        const rowValuesMap = {};
+        headerNames.forEach(h => { rowValuesMap[h] = new Set(); });
+        const activeRowValues = {};
+
+        const maxRowsToSniff = Math.min(allRows.length, 15);
+        for (let rIdx = 0; rIdx < maxRowsToSniff; rIdx++) {
+          const row = allRows[rIdx];
+          const cells = Array.from(row.querySelectorAll ? row.querySelectorAll('td, th, [role="gridcell"], [role="cell"]') : [])
+            .filter(c => c.closest ? c.closest(tableSelector) === tableEl : true);
+
+          // Skip details expander row (single cell spanning multiple columns)
+          if (cells.length === 1 && rawHeaders.length > 1 && (cells[0].getAttribute?.('colspan') || cells[0].classList?.contains('details') || (cells[0].className && typeof cells[0].className === 'string' && cells[0].className.includes('expand')))) {
+            continue;
+          }
+
+          const getCellVal = (cell) => {
+            if (!cell) return '';
+            let val = cleanSniffedText(cell.innerText || cell.textContent || '');
+            if (!val) {
+              const inputEl = cell.querySelector?.('input, textarea, select');
+              if (inputEl && inputEl.type !== 'checkbox' && inputEl.type !== 'radio') {
+                val = cleanSniffedText(inputEl.value || inputEl.getAttribute?.('value') || '');
+              }
+            }
+            return (val && val.length <= 100 && !SNIFF_EXPANDER_GLYPH_REGEX.test(val)) ? val : '';
+          };
+
+          // Positional alignment Strategy A: Exact 1-to-1 layout alignment
+          if (rawHeaders.length > 0 && rawHeaders.length === cells.length) {
+            for (let cIdx = 0; cIdx < cells.length; cIdx++) {
+              const h = rawHeaders[cIdx];
+              if (h && headerNames.includes(h)) {
+                const val = getCellVal(cells[cIdx]);
+                if (val) {
+                  rowValuesMap[h].add(val);
+                  if (row === activeRow) {
+                    activeRowValues[h] = val;
+                  }
+                }
+              }
+            }
+          } else {
+            // Positional alignment Strategy B: Fallback index alignment
+            for (let cIdx = 0; cIdx < Math.min(cells.length, headerNames.length); cIdx++) {
+              const h = headerNames[cIdx];
+              const val = getCellVal(cells[cIdx]);
+              if (val) {
+                rowValuesMap[h].add(val);
+                if (row === activeRow) {
+                  activeRowValues[h] = val;
+                }
+              }
+            }
+          }
+        }
+
+        const consolidatedRowValues = {};
+        for (const [col, valSet] of Object.entries(rowValuesMap)) {
+          if (valSet.size > 0) {
+            const vals = Array.from(valSet);
+            consolidatedRowValues[col] = vals;
+            fieldValues[col] = vals;
+          }
+        }
+
+        headerNames.forEach(h => {
+          if (!columns.includes(h)) columns.push(h);
+        });
+
+        tableContext = {
+          headers: headerNames,
+          columns: headerNames,
+          activeColumn: activeColName,
+          activeRowValues,
+          rowValues: consolidatedRowValues,
+          isSubTable,
+          rowCount: allRows.length
+        };
+      }
+
+      // 2. Dropdown & Options Sniffing (Native & Custom)
+      // 2a. Native <select>
+      const selectEl = element.tagName === 'SELECT' ? element : (element.closest?.('select') || element.querySelector?.('select'));
+      if (selectEl && selectEl.options) {
+        for (let i = 0; i < Math.min(selectEl.options.length, 50); i++) {
+          const opt = selectEl.options[i];
+          const val = cleanSniffedText(opt.text || opt.value || '');
+          if (val && !dropdownOptions.includes(val)) {
+            dropdownOptions.push(val);
+          }
+        }
+        let fieldName = cleanSniffedText(selectEl.getAttribute?.('aria-label') || '');
+        if (!fieldName && selectEl.labels && selectEl.labels[0]) {
+          fieldName = cleanSniffedText(selectEl.labels[0].innerText || selectEl.labels[0].textContent || '');
+        }
+        if (!fieldName && selectEl.id) {
+          try {
+            const lbl = document.querySelector(`label[for="${safeCssEscape(selectEl.id)}"]`);
+            if (lbl) fieldName = cleanSniffedText(lbl.innerText || lbl.textContent || '');
+          } catch {}
+        }
+        if (!fieldName) {
+          fieldName = cleanSniffedText(selectEl.closest?.('label')?.innerText || selectEl.name || selectEl.id || selectEl.getAttribute?.('placeholder') || '');
+        }
+        if (fieldName && dropdownOptions.length > 0) {
+          if (!columns.includes(fieldName)) columns.push(fieldName);
+          fieldValues[fieldName] = dropdownOptions.slice();
+        }
+      }
+
+      // 2b. Custom Dropdown Options (clicked on option or trigger)
+      const optionEl = element.closest?.('[role="option"], mat-option, .mat-mdc-option, .dropdown-item, [role="menuitem"], .select2-results__option, .ant-select-item-option, .dropdown-menu li, .dropdown-menu a, [role="listbox"] li, [role="menu"] li');
+      if (optionEl) {
+        const listbox = optionEl.closest?.('[role="listbox"], mat-select-panel, .mat-select-panel, .dropdown-menu, [role="menu"], ul, .select2-results__options, .ant-select-dropdown');
+        if (listbox && typeof listbox.querySelectorAll === 'function') {
+          const siblingOpts = Array.from(listbox.querySelectorAll('[role="option"], mat-option, .mat-mdc-option, .dropdown-item, [role="menuitem"], .select2-results__option, .ant-select-item-option, li, a'));
+          for (let i = 0; i < Math.min(siblingOpts.length, 50); i++) {
+            const opt = siblingOpts[i];
+            const val = cleanSniffedText(opt.innerText || opt.textContent || opt.getAttribute('value') || '');
+            if (val && !dropdownOptions.includes(val)) {
+              dropdownOptions.push(val);
+            }
+          }
+        }
+        let fieldCandidate = cleanSniffedText(listbox?.getAttribute?.('aria-label') || '');
+        if (!fieldCandidate && listbox?.getAttribute?.('aria-labelledby')) {
+          try {
+            const lbl = document.getElementById(listbox.getAttribute('aria-labelledby'));
+            if (lbl) fieldCandidate = cleanSniffedText(lbl.innerText || lbl.textContent || '');
+          } catch {}
+        }
+        if (!fieldCandidate && listbox?.id) {
+          try {
+            const trigger = document.querySelector(`[aria-controls="${safeCssEscape(listbox.id)}"], [aria-owns="${safeCssEscape(listbox.id)}"]`);
+            if (trigger) fieldCandidate = cleanSniffedText(trigger.getAttribute('aria-label') || trigger.innerText || trigger.textContent || '');
+          } catch {}
+        }
+        if (!fieldCandidate) {
+          fieldCandidate = cleanSniffedText(
+            element.closest?.('.dropdown, .select-container, .form-group')?.querySelector?.('label, button')?.innerText ||
+            element.closest?.('label')?.innerText ||
+            listbox?.getAttribute?.('id') ||
+            ''
+          );
+        }
+        if (fieldCandidate && dropdownOptions.length > 0) {
+          if (!columns.includes(fieldCandidate)) columns.push(fieldCandidate);
+          fieldValues[fieldCandidate] = dropdownOptions.slice();
+        }
+      } else {
+        const isCombobox = (typeof element.matches === 'function' && element.matches('[role="combobox"], [aria-haspopup="listbox"], [aria-haspopup="menu"], mat-select, .mat-mdc-select-trigger, .dropdown-toggle, .ant-select-selector'))
+          ? element
+          : (element.closest?.('[role="combobox"], [aria-haspopup="listbox"], [aria-haspopup="menu"], mat-select, .dropdown-toggle') || null);
+        if (isCombobox) {
+          let openMenu = null;
+          const ctrlId = isCombobox.getAttribute?.('aria-controls') || isCombobox.getAttribute?.('aria-owns');
+          if (ctrlId) {
+            try { openMenu = document.getElementById(ctrlId); } catch {}
+          }
+          if (!openMenu) {
+            openMenu = isCombobox.parentElement?.querySelector?.('.dropdown-menu, [role="listbox"], [role="menu"]') ||
+              isCombobox.closest?.('.dropdown, .dropdown-container, .select-container, .custom-select, [role="combobox"]')?.querySelector?.('.dropdown-menu, [role="listbox"], [role="menu"]') ||
+              document.querySelector?.('[role="listbox"], mat-select-panel, .mat-select-panel, .dropdown-menu.show, .dropdown-menu[style*="block"], .select2-dropdown, .ant-select-dropdown:not(.ant-select-dropdown-hidden)');
+          }
+          if (openMenu && typeof openMenu.querySelectorAll === 'function') {
+            const siblingOpts = Array.from(openMenu.querySelectorAll('[role="option"], mat-option, .mat-mdc-option, .dropdown-item, [role="menuitem"], li, a'));
+            for (let i = 0; i < Math.min(siblingOpts.length, 50); i++) {
+              const opt = siblingOpts[i];
+              const val = cleanSniffedText(opt.innerText || opt.textContent || '');
+              if (val && !dropdownOptions.includes(val)) {
+                dropdownOptions.push(val);
+              }
+            }
+          }
+          const fieldCandidate = cleanSniffedText(
+            isCombobox.getAttribute?.('aria-label') ||
+            isCombobox.getAttribute?.('name') ||
+            (isCombobox.labels && isCombobox.labels[0]?.innerText) ||
+            isCombobox.closest?.('label')?.innerText ||
+            isCombobox.getAttribute?.('placeholder') ||
+            isCombobox.getAttribute?.('id') ||
+            ''
+          );
+          if (fieldCandidate && dropdownOptions.length > 0) {
+            if (!columns.includes(fieldCandidate)) columns.push(fieldCandidate);
+            fieldValues[fieldCandidate] = dropdownOptions.slice();
+          }
+        }
+      }
+
+      // 2c. Radio & Checkbox Groups
+      const inputType = element.tagName === 'INPUT' ? (element.type || '').toLowerCase() : '';
+      if (inputType === 'radio' || inputType === 'checkbox' || element.getAttribute?.('role') === 'radio') {
+        const name = element.getAttribute?.('name');
+        let groupItems = [];
+        if (name) {
+          try { groupItems = Array.from(document.querySelectorAll(`input[name="${safeCssEscape(name)}"]`)); } catch {}
+        }
+        if (groupItems.length === 0) {
+          const fieldset = element.closest?.('fieldset, [role="radiogroup"], [role="group"]');
+          if (fieldset) {
+            groupItems = Array.from(fieldset.querySelectorAll('input[type="radio"], input[type="checkbox"], [role="radio"], [role="checkbox"]'));
+          }
+        }
+        if (groupItems.length > 1) {
+          const groupVals = [];
+          for (const item of groupItems) {
+            const parentLabel = item.closest?.('label');
+            const labelTxt = cleanSniffedText(parentLabel?.innerText || item.getAttribute?.('aria-label') || item.value || '');
+            if (labelTxt && !groupVals.includes(labelTxt)) {
+              groupVals.push(labelTxt);
+            }
+          }
+          if (groupVals.length > 0) {
+            const grpField = name || cleanSniffedText(element.closest?.('fieldset')?.querySelector?.('legend')?.textContent || '') || 'Group';
+            groupInfo = { name: grpField, values: groupVals };
+            if (!columns.includes(grpField)) columns.push(grpField);
+            fieldValues[grpField] = groupVals;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Workflow Capture] Sniffer notice:', err);
+    }
+
+    const elapsed = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - tStart;
+    if (elapsed > 5) {
+      console.debug(`[Workflow Capture] Sniff took ${elapsed.toFixed(1)}ms`);
+    }
+
+    return {
+      columns: Array.from(new Set(columns)),
+      fieldValues,
+      table: tableContext,
+      options: dropdownOptions.length > 0 ? dropdownOptions : undefined,
+      group: groupInfo || undefined
+    };
+  }
+
   /**
    * Safe helper to emit action to Node.js bridge across main frames and iframes
    */
@@ -267,6 +675,12 @@
     }
 
     try {
+      // Sniff contextual table columns, row values, dropdown options, and radio/checkbox groups
+      let sniffedContext = null;
+      try {
+        sniffedContext = sniffElementContext(targetElement);
+      } catch {}
+
       let target = null;
       if (window.SelectorResolver && typeof window.SelectorResolver.captureTarget === 'function') {
         try {
@@ -306,6 +720,8 @@
       const actionTimestamp = Date.now();
       const pageUrl = (typeof window !== 'undefined' && window.location && window.location.href) ? window.location.href : null;
 
+      const mergedOptions = extra.options || extra.selectOptions || sniffedContext?.options;
+
       const payload = {
         uid: actionUid,
         type,
@@ -316,6 +732,13 @@
         target,
         ...(pageUrl ? { url: pageUrl } : {}),
         ...(frameInfo ? { frame: frameInfo } : {}),
+        ...(sniffedContext ? {
+          context: sniffedContext,
+          ...(sniffedContext.columns && sniffedContext.columns.length > 0 ? { columns: sniffedContext.columns } : {}),
+          ...(sniffedContext.table ? { table: sniffedContext.table } : {}),
+          ...(sniffedContext.fieldValues && Object.keys(sniffedContext.fieldValues).length > 0 ? { fieldValues: sniffedContext.fieldValues } : {}),
+        } : {}),
+        ...(mergedOptions && mergedOptions.length > 0 ? { options: mergedOptions, selectOptions: mergedOptions } : {}),
         ...cleanExtra
       };
 
@@ -682,10 +1105,13 @@
       const selectedOption = target.options[target.selectedIndex];
       const selectedValue = selectedOption ? selectedOption.value : target.value;
       const selectedText = selectedOption ? selectedOption.text.trim() : '';
+      const allOptions = Array.from(target.options || []).map(o => (o.text || o.value || '').trim()).filter(Boolean);
 
       emitAction('SELECT', target, {
         value: selectedValue,
         captureTimestamp,
+        options: allOptions,
+        selectOptions: allOptions,
         meta: {
           text: selectedText,
           selectedIndex: target.selectedIndex

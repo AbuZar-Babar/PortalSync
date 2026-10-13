@@ -83,6 +83,7 @@ interface LoadedWorkflowRecord {
     steps?: LoadedStepRecord[];
     [key: string]: unknown;
   };
+  filter_rules?: Record<string, unknown>;
 }
 
 export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEditorProps) {
@@ -100,6 +101,7 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
   const [saveMessage, setSaveMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [runMessage, setRunMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
+  const [filterRules, setFilterRules] = useState<Record<string, unknown>>({});
 
   // Property Drawer State
   const [selectedNodeId, setSelectedNodeId] = useState<string | number | null>(null);
@@ -339,7 +341,9 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
           mode: hasLoop ? 'loop' : 'single',
           isLoop: hasLoop,
           loopStepIndex: hasLoop && loopStepIndex >= 0 ? loopStepIndex : null,
+          filter_rules: filterRules || {},
         },
+        filter_rules: filterRules || {},
       };
 
       const res = await fetch(`/api/v1/workflows/${workflowId}`, {
@@ -623,6 +627,7 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
         if (wfData) {
           setWorkflowName(wfData.name || 'Untitled Workflow');
           setPortalUrl(wfData.portal_url || '');
+          setFilterRules(wfData.filter_rules || (wfData.workflow_definition as any)?.filter_rules || {});
 
           const def = wfData.workflow_definition || {};
 
@@ -1064,7 +1069,7 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
                 isLoop: compileTopologicalSteps().hasLoop,
                 loopStepIndex: compileTopologicalSteps().loopStepIndex >= 0 ? compileTopologicalSteps().loopStepIndex : null,
               },
-              filter_rules: {},
+              filter_rules: filterRules || {},
             }}
             onRunDispatched={(run) => {
               setIsPreflightOpen(false);

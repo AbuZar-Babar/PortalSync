@@ -512,8 +512,8 @@ class RecorderBridge {
       const lastAction = this.actions[this.actions.length - 1];
       const isSameTarget = lastAction.target && rawAction.target &&
         ((lastAction.target.fingerprint?.id && lastAction.target.fingerprint.id === rawAction.target.fingerprint?.id) ||
-          (lastAction.target.candidates[0]?.value === rawAction.target.candidates[0]?.value) ||
-          (lastAction.target.fingerprint?.tagName === rawAction.target.fingerprint?.tagName));
+          (lastAction.target.candidates?.[0]?.value && lastAction.target.candidates[0].value === rawAction.target.candidates?.[0]?.value) ||
+          (lastAction.target.fingerprint?.tagName && lastAction.target.fingerprint.tagName === rawAction.target.fingerprint?.tagName));
 
       if (isSameTarget && timeDeltaMs < 450) {
         lastAction.type = 'DOUBLE_CLICK';
@@ -529,8 +529,8 @@ class RecorderBridge {
       if (lastAction.type === 'CLICK' && timeDeltaMs < 150) {
         const isSameTarget = lastAction.target && rawAction.target &&
           ((lastAction.target.fingerprint?.id && lastAction.target.fingerprint.id === rawAction.target.fingerprint?.id) ||
-            (lastAction.target.candidates[0]?.value === rawAction.target.candidates[0]?.value) ||
-            (lastAction.target.fingerprint?.tagName === rawAction.target.fingerprint?.tagName &&
+            (lastAction.target.candidates?.[0]?.value && lastAction.target.candidates[0].value === rawAction.target.candidates?.[0]?.value) ||
+            (lastAction.target.fingerprint?.tagName && lastAction.target.fingerprint.tagName === rawAction.target.fingerprint?.tagName &&
               lastAction.target.fingerprint?.text === rawAction.target.fingerprint?.text));
         if (isSameTarget) {
           logger.warn(`[Recorder] Discarded duplicate click event within ${timeDeltaMs}ms on <${lastAction.target.fingerprint?.tagName}>`);
@@ -621,20 +621,154 @@ class RecorderBridge {
       ...(isCheckbox ? { isCheckbox: true, desiredState: desiredState !== false, checked: desiredState !== false } : (desiredState !== undefined ? { desiredState: Boolean(desiredState), checked: Boolean(desiredState) } : {})),
       ...(rawAction.key ? { key: rawAction.key } : {}),
       ...(rawAction.value !== undefined ? { value: rawAction.value } : {}),
-      ...(rawAction.meta ? { meta: rawAction.meta } : {})
+      ...(rawAction.meta ? { meta: rawAction.meta } : {}),
+      ...(rawAction.context ? { context: rawAction.context } : {}),
+      ...(rawAction.columns ? { columns: rawAction.columns } : {}),
+      ...(rawAction.options ? { options: rawAction.options } : {}),
+      ...(rawAction.selectOptions ? { selectOptions: rawAction.selectOptions } : {}),
+      ...(rawAction.table ? { table: rawAction.table } : {}),
+      ...(rawAction.fieldValues ? { fieldValues: rawAction.fieldValues } : {})
     };
 
     this.actions.push(action);
     this._updateInjectedUi().catch(() => {});
 
     // Terminal log
-    const topCandidate = action.target && action.target.candidates[0] ? action.target.candidates[0].value : 'none';
+    const topCandidate = action.target?.candidates?.[0]?.value || 'none';
     let detail = action.key ? `key="${action.key}"` : (action.value ? `value="${action.value}"` : `target="${elementName}"`);
     if (isCheckbox && desiredState !== undefined) {
       detail = `checkbox state=${desiredState ? 'CHECKED' : 'UNCHECKED'}`;
     }
     logger.action(actionIndex + 1, action.type, `"${elementName}" (${topCandidate})`, detail);
     return true;
+  }
+
+  /**
+   * Consolidate all captured step contexts into a top-level filter_rules object
+   * containing available_fields (and columns) and fieldValues (distinct column values).
+   */
+  consolidateFilterRules() {
+    const fieldsSet = new Set();
+    const fieldValuesMap = {};
+
+    const EXPANDER_GLYPH_REGEX = /^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/i;
+
+    const addField = (raw) => {
+      if (typeof raw !== 'string') return null;
+      let str = raw.trim();
+      if (!str || str.length > 60 || str.startsWith('{') || str.startsWith('<') || EXPANDER_GLYPH_REGEX.test(str)) return null;
+      str = str.replace(/^(click|select|enter|type|open|download|view|press)\s+/i, '').trim();
+      if (!str || str.length > 60) return null;
+      fieldsSet.add(str);
+      return str;
+    };
+
+    const addFieldValue = (field, val) => {
+      const cleanField = addField(field);
+      if (!cleanField || val == null) return;
+      let str = String(val).trim().replace(/\s+/g, ' ');
+      if (!str || str.length > 100 || EXPANDER_GLYPH_REGEX.test(str)) return;
+      str = str.replace(/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+/, '').trim();
+      str = str.replace(/[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/, '').trim();
+      if (!str) return;
+
+      if (!fieldValuesMap[cleanField]) {
+        fieldValuesMap[cleanField] = new Set();
+      }
+      fieldValuesMap[cleanField].add(str);
+    };
+
+    const actionsList = Array.isArray(this.actions) ? this.actions : [];
+    for (const act of actionsList) {
+      if (!act) continue;
+
+      // 1. From action.context (in-page sniffing)
+      if (act.context) {
+        if (Array.isArray(act.context.columns)) {
+          act.context.columns.forEach(addField);
+        }
+        if (act.context.table) {
+          if (Array.isArray(act.context.table.headers)) {
+            act.context.table.headers.forEach(addField);
+          }
+          if (Array.isArray(act.context.table.columns)) {
+            act.context.table.columns.forEach(addField);
+          }
+          if (act.context.table.rowValues && typeof act.context.table.rowValues === 'object') {
+            for (const [col, vals] of Object.entries(act.context.table.rowValues)) {
+              if (Array.isArray(vals)) {
+                vals.forEach(v => addFieldValue(col, v));
+              }
+            }
+          }
+          if (act.context.table.activeRowValues && typeof act.context.table.activeRowValues === 'object') {
+            for (const [col, v] of Object.entries(act.context.table.activeRowValues)) {
+              addFieldValue(col, v);
+            }
+          }
+        }
+        if (act.context.fieldValues && typeof act.context.fieldValues === 'object') {
+          for (const [col, vals] of Object.entries(act.context.fieldValues)) {
+            if (Array.isArray(vals)) {
+              vals.forEach(v => addFieldValue(col, v));
+            }
+          }
+        }
+      }
+
+      // 2. From action.columns / action.table / action.fieldValues
+      if (Array.isArray(act.columns)) {
+        act.columns.forEach(addField);
+      }
+      if (act.table && Array.isArray(act.table.headers)) {
+        act.table.headers.forEach(addField);
+      }
+      if (act.fieldValues && typeof act.fieldValues === 'object') {
+        for (const [col, vals] of Object.entries(act.fieldValues)) {
+          if (Array.isArray(vals)) {
+            vals.forEach(v => addFieldValue(col, v));
+          }
+        }
+      }
+
+      // 3. Dropdown / options
+      const targetCol = act.extract_column || act.column || act.field ||
+        act.target?.fingerprint?.columnName || act.fingerprint?.columnName ||
+        act.target?.fingerprint?.headerName || act.fingerprint?.headerName ||
+        act.context?.table?.activeColumn ||
+        (act.context?.fieldValues && Object.keys(act.context.fieldValues)[0]);
+
+      const opts = act.options || act.selectOptions || act.context?.options;
+      if (Array.isArray(opts) && opts.length > 0) {
+        const optField = targetCol || act.name || act.elementName || 'Type';
+        opts.forEach(opt => {
+          const optText = typeof opt === 'string' ? opt : (opt.text || opt.label || opt.value);
+          addFieldValue(optField, optText);
+        });
+      }
+
+      // 4. Value
+      if (act.value && typeof act.value === 'string' && !act.value.startsWith('{{')) {
+        if (targetCol) {
+          addFieldValue(targetCol, act.value);
+        }
+        if (/SI-|INV-|DR-|TX-|CM-|\b\d{4,10}\b/i.test(act.value)) {
+          addFieldValue('Invoice Number', act.value);
+        }
+      }
+    }
+
+    const finalFieldValues = {};
+    for (const [k, valSet] of Object.entries(fieldValuesMap)) {
+      finalFieldValues[k] = Array.from(valSet).slice(0, 50);
+    }
+
+    const available_fields = Array.from(fieldsSet);
+    return {
+      available_fields,
+      columns: available_fields,
+      fieldValues: finalFieldValues
+    };
   }
 
   /**
@@ -746,6 +880,10 @@ class RecorderBridge {
       }
     }
 
+    // Consolidate all captured step contexts into top-level filter_rules
+    const filter_rules = this.consolidateFilterRules();
+    this.filter_rules = filter_rules;
+
     // Decouple heavy synchronous loop detection from the critical Save path:
     // Persist raw actions immediately with default mode ('STANDARD') keeping recording pure and instant (<200ms)
     const recording = {
@@ -764,11 +902,13 @@ class RecorderBridge {
         confidenceCategory: 'NONE',
         patternType: 'none',
         mode: 'STANDARD',
+        filter_rules,
         loopMetadata: {
           reasons: [],
           signals: []
         }
       },
+      filter_rules,
       actions: this.actions
     };
 
