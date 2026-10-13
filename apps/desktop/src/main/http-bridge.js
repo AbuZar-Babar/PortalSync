@@ -15,27 +15,10 @@ const chromeSpawner = require('./chrome-spawner');
 const configManager = require('./config-manager');
 const notifier = require('./notifier');
 
-// Initialize module resolution for puppeteer-core from worktree or root if missing
-try {
-  const candidateWorktreePaths = [
-    path.resolve(__dirname, '../../../../../Workflow-Capture-agent-worktrees/multi-agent-integration/node_modules'),
-    path.resolve(__dirname, '../../../../Workflow-Capture-agent-worktrees/multi-agent-integration/node_modules'),
-    path.resolve(__dirname, '../../../../../Workflow-Capture-agent-worktrees/main/node_modules'),
-    path.resolve(__dirname, '../../../../node_modules'),
-    path.resolve(__dirname, '../../node_modules'),
-    path.resolve('C:/Users/AbuZar/Desktop/Fyp/Workflow-Capture-agent-worktrees/multi-agent-integration/node_modules')
-  ];
-  for (const p of candidateWorktreePaths) {
-    if (fs.existsSync(p)) {
-      if (!process.env.NODE_PATH || !process.env.NODE_PATH.includes(p)) {
-        process.env.NODE_PATH = [p, process.env.NODE_PATH || ''].filter(Boolean).join(path.delimiter);
-      }
-    }
-  }
-  require('module').Module._initPaths();
-} catch (e) {
-  console.warn('[HTTPBridge] Module init fallback notice:', e.message);
-}
+// Engine and runtime module resolution strategy:
+// Standard npm workspace resolution handles dev dependencies. In packaged Electron
+// apps or monorepo development, engine-resolver.js configures module search paths
+// relative to process.resourcesPath or the monorepo root packages/engine directory.
 
 const engineResolver = require('./engine-resolver');
 const RecorderBridge = engineResolver.requireEngine('src/recorder/recorder-bridge');

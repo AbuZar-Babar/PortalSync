@@ -9,8 +9,7 @@ function findBinaryPath(fileName: string): string | null {
     path.resolve(process.cwd(), '../desktop/dist', fileName),
     path.resolve(process.cwd(), 'apps/desktop/dist', fileName),
     path.resolve(process.cwd(), 'dist', fileName),
-    path.resolve(process.cwd(), '../../apps/desktop/dist', fileName),
-    path.join('c:', 'Users', 'AbuZar', 'Desktop', 'Fyp', 'Workflow-Capture-SaaS', 'apps', 'desktop', 'dist', fileName),
+    path.resolve(process.cwd(), '../../apps/desktop/dist', fileName)
   ];
 
   for (const candidate of candidatePaths) {

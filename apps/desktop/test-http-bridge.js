@@ -19,16 +19,12 @@ const http = require('http');
 const assert = require('assert');
 const path = require('path');
 
-// Ensure module resolution paths for dependencies
-const candidateWorktreePaths = [
-  path.resolve(__dirname, '../../../Workflow-Capture-agent-worktrees/multi-agent-integration/node_modules'),
-  path.resolve(__dirname, '../../Workflow-Capture-agent-worktrees/multi-agent-integration/node_modules'),
-  path.resolve(__dirname, '../../../Workflow-Capture-agent-worktrees/main/node_modules'),
-  path.resolve(__dirname, '../../node_modules'),
-  path.resolve(__dirname, '../node_modules'),
-  path.resolve('C:/Users/AbuZar/Desktop/Fyp/Workflow-Capture-agent-worktrees/multi-agent-integration/node_modules')
+// Standard module resolution relative to workspace root
+const candidatePaths = [
+  path.resolve(__dirname, 'node_modules'),
+  path.resolve(__dirname, '../../node_modules')
 ];
-for (const p of candidateWorktreePaths) {
+for (const p of candidatePaths) {
   try {
     if (require('fs').existsSync(p)) {
       if (!process.env.NODE_PATH || !process.env.NODE_PATH.includes(p)) {
