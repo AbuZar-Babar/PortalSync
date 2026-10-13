@@ -61,7 +61,7 @@ function mockHttp(body = {}) {
 
 function createMockPage() {
   const page = {
-    url: () => 'https://citymart.i21web.com/portal',
+    url: () => 'https://portal.example.test/portal',
     bringToFront: async () => {},
     goto: async () => {},
     evaluate: async (fn, ...args) => {

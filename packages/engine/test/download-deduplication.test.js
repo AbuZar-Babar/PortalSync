@@ -34,15 +34,15 @@ function cleanup() {
   if (fs.existsSync(testGenericRunDir)) {
     fs.rmSync(testGenericRunDir, { recursive: true, force: true });
   }
-  const testGenericWf = path.resolve(process.cwd(), 'downloads', 'citymart-generic-flow');
+  const testGenericWf = path.resolve(process.cwd(), 'downloads', 'sample-generic-flow');
   if (fs.existsSync(testGenericWf)) {
     fs.rmSync(testGenericWf, { recursive: true, force: true });
   }
   if (db && db.state && Array.isArray(db.state.downloads)) {
     db.state.downloads = db.state.downloads.filter(d =>
-      d.workflowId !== 'wf_city_mart_999' &&
+      d.workflowId !== 'wf_sample_portal_999' &&
       d.workflowId !== 'wf_oil_portal_123' &&
-      d.workflowId !== 'wf_citymart_generic'
+      d.workflowId !== 'wf_sample_generic'
     );
     db.save();
   }
@@ -298,9 +298,9 @@ async function runTests() {
     console.log('🔹 Test 10: Generic filename differentiation (InvoiceMainReport.pdf)');
     const genericRunner = new LoopReplayRunner({
       runId: 'run_test_generic_diff',
-      workflowId: 'wf_citymart_generic',
-      workflowName: 'Citymart Generic Flow',
-      targetUrl: 'https://citymart.i21web.com/iRelyProd/login#home',
+      workflowId: 'wf_sample_generic',
+      workflowName: 'Sample Generic Flow',
+      targetUrl: 'https://portal.example.test/login#home',
       startedAt: '2026-10-02_09-99-99'
     });
     genericRunner.initDirectories();

@@ -122,7 +122,7 @@ const PRESETS = {
   },
   erp: {
     id: 'erp',
-    name: 'ERP / CityMart (Patient Polling & Async Grids)',
+    name: 'Enterprise ERP (Patient Polling & Async Grids)',
     description: 'Extended resolution timeouts (15s) and generous pacing delays (2s - 4.5s) for heavy enterprise ERP portals, Sencha ExtJS, and DevExpress data grids.',
     timing: {
       minActionDelayMs: 2000,

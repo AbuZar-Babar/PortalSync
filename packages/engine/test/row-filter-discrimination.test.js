@@ -86,7 +86,7 @@ async function runFilterTests() {
     name: 'iRely Invoices Only Flow',
     userId: 'test_user_filter',
     steps: [
-      { type: 'NAVIGATE', url: 'https://citymart.i21web.com/search-invoices' },
+      { type: 'NAVIGATE', url: 'https://portal.example.test/search-invoices' },
       { type: 'CLICK', role: 'LOOP_TARGET', fingerprint: { tagName: 'tr' } }
     ],
     loopStepIndex: 1,

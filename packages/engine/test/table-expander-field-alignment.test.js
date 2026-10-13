@@ -16,10 +16,10 @@ const { evaluateItemFilter } = require('../src/shared/item-filter');
 console.log('\n🧪 Starting Table Expander & Field Alignment Test Suite...\n');
 
 // -------------------------------------------------------------
-// Test 1: CityMart Complex Table with Checkbox + Expander Arrow
+// Test 1: Complex Table with Checkbox + Expander Arrow
 // Simulates the exact DOM structure seen in test-portal-complex.html
 // -------------------------------------------------------------
-console.log('🔹 Test 1: CityMart Complex Table (Checkbox + Expander Arrow + Invoice Columns)');
+console.log('🔹 Test 1: Complex Expandable Table (Checkbox + Expander Arrow + Invoice Columns)');
 
 // Simulate a table row DOM node with:
 // cell 0: checkbox
@@ -30,7 +30,7 @@ console.log('🔹 Test 1: CityMart Complex Table (Checkbox + Expander Arrow + In
 // cell 5: 12,500
 // cell 6: Overdue by 10d
 // cell 7: Download PDF
-function createCityMartComplexRow({ invNo, issued, due, amount, status, actionText = 'Download PDF' }) {
+function createComplexExpandableRow({ invNo, issued, due, amount, status, actionText = 'Download PDF' }) {
   const checkboxCell = {
     tagName: 'TD',
     innerText: '',
@@ -145,7 +145,7 @@ function createCityMartComplexRow({ invNo, issued, due, amount, status, actionTe
 
 (async () => {
   // Test 1a: evaluateItemFilter extracts correct invoice number (NOT arrow ▸)
-  const mockRowEl = createCityMartComplexRow({
+  const mockRowEl = createComplexExpandableRow({
     invNo: 'INV-1001',
     issued: '2026-08-29',
     due: '2026-09-28',

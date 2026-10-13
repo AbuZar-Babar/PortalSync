@@ -5,7 +5,7 @@
  * 
  * Usage:
  *   npm run record
- *   npm run record -- --name citymart-search
+ *   npm run record -- --name invoice-search
  *   npm run record -- --port 9222 --name test-run
  */
 

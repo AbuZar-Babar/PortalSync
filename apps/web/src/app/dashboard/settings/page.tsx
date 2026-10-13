@@ -272,7 +272,7 @@ const BOT_PRESETS: Record<
     }
   },
   erp: {
-    name: 'ERP / CityMart (Patient Polling & Async Grids)',
+    name: 'Enterprise ERP (Patient Polling & Async Grids)',
     tag: 'SLOW PORTALS',
     badgeColor: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
     description:
@@ -480,9 +480,9 @@ const DEFAULT_SETTINGS: UnifiedSettings = {
       },
       {
         id: 'cred_2',
-        name: 'CityMart Supplier Portal',
-        targetDomain: 'supplier.citymart.com',
-        placeholder: '{{secret:citymart_auth}}',
+        name: 'Vendor Invoice Portal',
+        targetDomain: 'portal.vendor.example.com',
+        placeholder: '{{secret:vendor_auth}}',
         maskedValue: '••••••••••••••••',
         status: 'synced',
         lastUpdated: '1 day ago'
