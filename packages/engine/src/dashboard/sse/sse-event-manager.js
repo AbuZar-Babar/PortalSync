@@ -13,6 +13,7 @@ class SSEEventManager {
     this.sseClients = this.clients;
     this.broadcast = this.broadcast.bind(this);
     this.handleConnection = this.handleConnection.bind(this);
+    global.__reflowBroadcast = this.broadcast;
     global.__flowmindBroadcast = this.broadcast;
   }
 

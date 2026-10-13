@@ -123,7 +123,9 @@ export async function POST(req: NextRequest) {
     // 4. Compute HMAC-SHA256 signature if secret is provided
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'User-Agent': 'FlowMind-Webhook-Verifier/1.0 (PortalSync Cloud Control Plane)',
+      'User-Agent': 'ReFlow-Webhook-Verifier/1.0 (ReFlow Cloud Control Plane)',
+      'X-ReFlow-Delivery': 'test-ping',
+      'X-ReFlow-Event': 'workflow.test_ping',
       'X-FlowMind-Delivery': 'test-ping',
       'X-FlowMind-Event': 'workflow.test_ping',
     };
@@ -132,6 +134,7 @@ export async function POST(req: NextRequest) {
       const hmac = crypto.createHmac('sha256', secret.trim());
       hmac.update(payloadString);
       const signature = hmac.digest('hex');
+      headers['X-ReFlow-Signature'] = `sha256=${signature}`;
       headers['X-FlowMind-Signature'] = `sha256=${signature}`;
       headers['X-Hub-Signature-256'] = `sha256=${signature}`;
     }

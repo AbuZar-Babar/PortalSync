@@ -153,6 +153,7 @@
     const isCollapsed = typeof force === 'boolean' ? force : !root.classList.contains('is-collapsed');
     root.classList.toggle('is-collapsed', isCollapsed);
     try {
+      sessionStorage.setItem('reflow_bot_collapsed', isCollapsed ? '1' : '0');
       sessionStorage.setItem('flowmind_bot_collapsed', isCollapsed ? '1' : '0');
     } catch {}
   };
@@ -178,7 +179,7 @@
 
   // Restore preferred state from session if user minimized it
   try {
-    if (sessionStorage.getItem('flowmind_bot_collapsed') === '1') {
+    if (sessionStorage.getItem('reflow_bot_collapsed') === '1' || sessionStorage.getItem('flowmind_bot_collapsed') === '1') {
       root.classList.add('is-collapsed');
     }
   } catch {}

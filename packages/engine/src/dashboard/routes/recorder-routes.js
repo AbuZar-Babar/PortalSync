@@ -58,6 +58,9 @@ class RecorderRoutes {
     if (typeof this.broadcastFn === 'function') {
       return this.broadcastFn(type, payload);
     }
+    if (typeof global.__reflowBroadcast === 'function') {
+      return global.__reflowBroadcast(type, payload);
+    }
     if (typeof global.__flowmindBroadcast === 'function') {
       return global.__flowmindBroadcast(type, payload);
     }

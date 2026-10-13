@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('portalsync', {
+const reflowBridge = {
   getConfig: () => ipcRenderer.invoke('get-config'),
   saveConfig: (config) => ipcRenderer.invoke('save-config', config),
   getStatus: () => ipcRenderer.invoke('get-status'),
@@ -25,4 +25,8 @@ contextBridge.exposeInMainWorld('portalsync', {
   onRecordingUpdate: (callback) => {
     ipcRenderer.on('recorder-update', (event, data) => callback(data));
   },
-});
+};
+
+// Expose canonical ReFlow API and legacy portalsync alias
+contextBridge.exposeInMainWorld('reflow', reflowBridge);
+contextBridge.exposeInMainWorld('portalsync', reflowBridge);

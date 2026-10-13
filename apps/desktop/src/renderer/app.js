@@ -1,3 +1,4 @@
+const clientBridge = window.reflow || window.portalsync;
 document.addEventListener('DOMContentLoaded', async () => {
   // -------------------------------------------------------------
   // SVG ICONS CONSTANTS
@@ -88,13 +89,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   // -------------------------------------------------------------
   // STATE INITIALIZATION
   // -------------------------------------------------------------
-  let currentConfig = await window.portalsync.getConfig();
-  let currentStatus = await window.portalsync.getStatus();
+  let currentConfig = await clientBridge.getConfig();
+  let currentStatus = await clientBridge.getStatus();
   let systemInfo = { hostname: 'Local Machine' };
 
   try {
-    if (typeof window.portalsync.getSystemInfo === 'function') {
-      systemInfo = await window.portalsync.getSystemInfo();
+    if (typeof clientBridge.getSystemInfo === 'function') {
+      systemInfo = await clientBridge.getSystemInfo();
     }
   } catch (err) {
     console.warn('System info probe:', err);
@@ -141,8 +142,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // -------------------------------------------------------------
   // WINDOW CONTROLS
   // -------------------------------------------------------------
-  btnMinimize.addEventListener('click', () => window.portalsync.minimizeWindow());
-  btnClose.addEventListener('click', () => window.portalsync.closeWindow());
+  btnMinimize.addEventListener('click', () => clientBridge.minimizeWindow());
+  btnClose.addEventListener('click', () => clientBridge.closeWindow());
 
   // -------------------------------------------------------------
   // SETUP SCREEN: LINK WORKSPACE
@@ -159,7 +160,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   btnGetTokenHelp.addEventListener('click', () => {
     const cloudUrl = currentConfig.cloudUrl || 'https://web-fawn-ten-55.vercel.app';
-    window.portalsync.openExternal(`${cloudUrl}/dashboard`);
+    clientBridge.openExternal(`${cloudUrl}/dashboard`);
   });
 
   setupForm.addEventListener('submit', async (e) => {
@@ -173,7 +174,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
       // 1. Test token connection
-      const testRes = await window.portalsync.testConnection({
+      const testRes = await clientBridge.testConnection({
         runnerToken: token,
         cloudUrl: currentConfig.cloudUrl || 'https://web-fawn-ten-55.vercel.app',
       });
@@ -184,7 +185,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       // 2. Save config & auto-start runner
-      currentConfig = await window.portalsync.saveConfig({
+      currentConfig = await clientBridge.saveConfig({
         runnerToken: token,
       });
 
@@ -193,7 +194,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // Start runner daemon
       try {
-        const nextStatus = await window.portalsync.startRunner();
+        const nextStatus = await clientBridge.startRunner();
         applyStatusToUI(nextStatus);
       } catch (err) {
         console.warn('Runner start notice:', err.message);
@@ -223,14 +224,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnToggleRunner.disabled = true;
     try {
       if (currentStatus.status === 'active' || currentStatus.status === 'starting') {
-        const next = await window.portalsync.stopRunner();
+        const next = await clientBridge.stopRunner();
         applyStatusToUI(next);
       } else {
         if (!currentConfig.runnerToken) {
           updateViewSwitch();
           return;
         }
-        const next = await window.portalsync.startRunner();
+        const next = await clientBridge.startRunner();
         applyStatusToUI(next);
       }
     } catch (err) {
@@ -245,7 +246,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       btnStopActiveTask.disabled = true;
       btnStopActiveTask.innerHTML = `<span>Stopping...</span>`;
       try {
-        await window.portalsync.stopActiveRun();
+        await clientBridge.stopActiveRun();
       } catch (err) {
         console.warn('Could not stop run:', err.message);
       } finally {
@@ -258,12 +259,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   btnOpenDownloads.addEventListener('click', () => {
-    window.portalsync.openFolder(currentConfig.targetFolder);
+    clientBridge.openFolder(currentConfig.targetFolder);
   });
 
   btnOpenWebDashboard.addEventListener('click', () => {
     const cloudUrl = currentConfig.cloudUrl || 'https://web-fawn-ten-55.vercel.app';
-    window.portalsync.openExternal(`${cloudUrl}/dashboard`);
+    clientBridge.openExternal(`${cloudUrl}/dashboard`);
   });
 
   // -------------------------------------------------------------
@@ -335,7 +336,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Folder Picker
   btnBrowseFolder.addEventListener('click', async () => {
     try {
-      const chosen = await window.portalsync.selectFolder();
+      const chosen = await clientBridge.selectFolder();
       if (chosen) {
         prefTargetFolder.value = chosen;
       }
@@ -374,7 +375,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           cloudUrl: prefCloudUrl.value.trim() || currentConfig.cloudUrl,
         };
 
-        currentConfig = await window.portalsync.saveConfig(payload);
+        currentConfig = await clientBridge.saveConfig(payload);
         applyConfigToUI(currentConfig);
         await checkChromeStatus();
 
@@ -393,10 +394,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   btnDisconnectWorker.addEventListener('click', async () => {
     if (confirm('Disconnect this local worker from your ReFlow workspace?')) {
       try {
-        await window.portalsync.stopRunner();
+        await clientBridge.stopRunner();
       } catch {}
 
-      currentConfig = await window.portalsync.saveConfig({
+      currentConfig = await clientBridge.saveConfig({
         runnerToken: '',
       });
 
@@ -430,7 +431,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnStartCapture.innerText = 'Booting Chrome...';
 
     try {
-      const res = await window.portalsync.startRecording({
+      const res = await clientBridge.startRecording({
         url,
         name: `portal-workflow-${Date.now()}`,
       });
@@ -448,7 +449,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnStopCapture.innerText = 'Saving...';
 
     try {
-      const res = await window.portalsync.stopRecording();
+      const res = await clientBridge.stopRecording();
       updateRecorderModalUI(res);
       recorderModalOverlay.classList.add('hidden');
     } catch (err) {
@@ -461,7 +462,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function checkRecordingState() {
     try {
-      const state = await window.portalsync.getRecordingStatus();
+      const state = await clientBridge.getRecordingStatus();
       updateRecorderModalUI(state);
     } catch {}
   }
@@ -481,8 +482,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  if (typeof window.portalsync.onRecordingUpdate === 'function') {
-    window.portalsync.onRecordingUpdate((state) => {
+  if (typeof clientBridge.onRecordingUpdate === 'function') {
+    clientBridge.onRecordingUpdate((state) => {
       updateRecorderModalUI(state);
     });
   }
@@ -490,7 +491,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // -------------------------------------------------------------
   // REAL-TIME STATUS UPDATES
   // -------------------------------------------------------------
-  window.portalsync.onStatusUpdate((state) => {
+  clientBridge.onStatusUpdate((state) => {
     currentStatus = state;
     applyStatusToUI(state);
     checkChromeStatus();
@@ -498,8 +499,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function checkChromeStatus() {
     try {
-      if (typeof window.portalsync.checkCdpStatus === 'function') {
-        const cdp = await window.portalsync.checkCdpStatus();
+      if (typeof clientBridge.checkCdpStatus === 'function') {
+        const cdp = await clientBridge.checkCdpStatus();
         if (cdp && cdp.open) {
           const modeStr = cdp.isHeadless ? 'Headless' : 'Visible (2FA)';
           browserStatusLabel.innerText = `Chrome: ${modeStr}`;

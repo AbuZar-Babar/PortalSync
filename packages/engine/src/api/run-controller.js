@@ -264,8 +264,9 @@ async function executeWorkflow(req, res, workflowId, body = {}) {
 
   if (runner.replayEngine && typeof runner.replayEngine.on === 'function') {
     runner.replayEngine.on('human_intervention', (intervention) => {
-      if (typeof global.__flowmindBroadcast === 'function') {
-        global.__flowmindBroadcast('human_intervention', {
+      const broadcastFn = global.__reflowBroadcast || global.__flowmindBroadcast;
+      if (typeof broadcastFn === 'function') {
+        broadcastFn('human_intervention', {
           workflowId: workflow.id,
           runId,
           stepIndex: intervention.stepIndex,
