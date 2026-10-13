@@ -32,10 +32,10 @@ jobs:
       - name: Upload Windows Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: flowmind-worker-windows-x64
+          name: reflow-worker-windows-x64
           path: |
-            apps/desktop/dist/FlowMind-Worker-Setup-*.exe
-            apps/desktop/dist/FlowMind-Worker-Portable-*.exe
+            apps/desktop/dist/ReFlow-Worker-Setup-*.exe
+            apps/desktop/dist/ReFlow-Worker-Portable-*.exe
 
   build-macos:
     name: Build macOS Intel x64 (.dmg & .zip)
@@ -59,7 +59,7 @@ jobs:
       - name: Upload macOS Intel Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: flowmind-worker-macos-intel-x64
+          name: reflow-worker-macos-intel-x64
           path: |
             apps/desktop/dist/*.dmg
             apps/desktop/dist/*.zip

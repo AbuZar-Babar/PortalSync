@@ -353,7 +353,7 @@ class HttpBridge {
 
     const config = configManager.get();
     const outputDir = path.join(
-      config.targetFolder || path.join(os.homedir(), 'Downloads', 'PortalSync'),
+      config.targetFolder || (fs.existsSync(path.join(os.homedir(), 'Downloads', 'PortalSync')) ? path.join(os.homedir(), 'Downloads', 'PortalSync') : path.join(os.homedir(), 'Downloads', 'ReFlow')),
       'Recordings'
     );
     if (!fs.existsSync(outputDir)) {

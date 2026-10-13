@@ -75,7 +75,9 @@ async function ensureChromeRunning(port = 9222, defaultUrl = 'about:blank') {
     return false;
   }
 
-  const profileDir = process.env.CHROME_PROFILE_DIR || path.join(os.homedir(), '.workflow-capture', 'chrome-profile');
+  const legacyProfile = path.join(os.homedir(), '.workflow-capture', 'chrome-profile');
+  const defaultProfile = fs.existsSync(legacyProfile) ? legacyProfile : path.join(os.homedir(), '.reflow', 'chrome-profile');
+  const profileDir = process.env.CHROME_PROFILE_DIR || defaultProfile;
   try {
     if (!fs.existsSync(profileDir)) fs.mkdirSync(profileDir, { recursive: true });
   } catch {}

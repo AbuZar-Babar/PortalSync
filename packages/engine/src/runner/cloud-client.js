@@ -30,6 +30,22 @@ class CloudClientError extends Error {
   }
 }
 
+
+const warnedEnvKeys = new Set();
+function getRunnerEnv(reflowKey, legacyKey, fallback = '') {
+  if (process.env[reflowKey] !== undefined) {
+    return process.env[reflowKey];
+  }
+  if (process.env[legacyKey] !== undefined) {
+    if (!warnedEnvKeys.has(legacyKey)) {
+      console.warn(`[Deprecation Warning] ${legacyKey} is deprecated. Please use ${reflowKey} instead.`);
+      warnedEnvKeys.add(legacyKey);
+    }
+    return process.env[legacyKey];
+  }
+  return fallback;
+}
+
 class CloudClient {
   /**
    * @param {Object} options
@@ -39,9 +55,9 @@ class CloudClient {
    * @param {Function} [options.fetch] - Custom fetch implementation (default: globalThis.fetch)
    */
   constructor(options = {}) {
-    const rawUrl = options.baseUrl || process.env.PORTALSYNC_CLOUD_URL || 'http://localhost:3000';
+    const rawUrl = options.baseUrl || getRunnerEnv('REFLOW_CLOUD_URL', 'PORTALSYNC_CLOUD_URL', 'http://localhost:3000');
     this.baseUrl = rawUrl.replace(/\/+$/, '');
-    const rawToken = options.token || process.env.PORTALSYNC_RUNNER_TOKEN || '';
+    const rawToken = options.token || getRunnerEnv('REFLOW_RUNNER_TOKEN', 'PORTALSYNC_RUNNER_TOKEN', '');
     this.token = rawToken.replace(/[\.\s]+$/, '').trim();
     this.timeoutMs = options.timeoutMs || 15000;
     this.fetchFn = options.fetch || (typeof fetch !== 'undefined' ? fetch : globalThis.fetch);

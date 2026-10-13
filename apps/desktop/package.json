@@ -1,10 +1,10 @@
 {
-  "name": "flowmind-worker",
-  "productName": "FlowMind Worker",
+  "name": "reflow-worker",
+  "productName": "ReFlow Worker",
   "version": "1.0.0",
-  "description": "FlowMind Desktop Local Worker & Chrome Automation Engine",
+  "description": "ReFlow Desktop Local Worker & Chrome Automation Engine",
   "main": "src/main/main.js",
-  "author": "FlowMind",
+  "author": "ReFlow",
   "private": true,
   "scripts": {
     "start": "electron .",
@@ -17,7 +17,7 @@
     "dist": "electron-builder --publish never"
   },
   "build": {
-    "appId": "com.flowmind.worker",
+    "appId": "com.reflow.worker",
     "productName": "FlowMind Worker",
     "electronVersion": "33.2.0",
     "directories": {
@@ -40,7 +40,7 @@
     ],
     "protocols": [
       {
-        "name": "FlowMind Worker Protocol",
+        "name": "ReFlow Worker Protocol",
         "schemes": [
           "flowmind",
           "portalsync"
@@ -70,11 +70,11 @@
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "FlowMind Worker",
-      "artifactName": "FlowMind-Worker-Setup-${version}.${ext}"
+      "shortcutName": "ReFlow Worker",
+      "artifactName": "ReFlow-Worker-Setup-${version}.${ext}"
     },
     "portable": {
-      "artifactName": "FlowMind-Worker-Portable-${version}.${ext}"
+      "artifactName": "ReFlow-Worker-Portable-${version}.${ext}"
     },
     "mac": {
       "icon": "assets/icon.icns",
@@ -96,11 +96,11 @@
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "darkModeSupport": true,
-      "artifactName": "FlowMind-Worker-${version}-mac-x64.${ext}"
+      "artifactName": "ReFlow-Worker-${version}-mac-x64.${ext}"
     },
     "dmg": {
       "title": "${productName} ${version} (Intel x64)",
-      "artifactName": "FlowMind-Worker-Setup-${version}-mac-x64.${ext}",
+      "artifactName": "ReFlow-Worker-Setup-${version}-mac-x64.${ext}",
       "contents": [
         {
           "x": 130,

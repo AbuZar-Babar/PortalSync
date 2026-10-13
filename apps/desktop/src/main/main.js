@@ -54,7 +54,7 @@ if (!gotTheLock) {
   app.on('second-instance', (event, commandLine) => {
     restoreMainWindow();
     // Parse protocol url on Windows if passed via command line
-    const urlArg = (commandLine || []).find((arg) => arg.startsWith('flowmind://') || arg.startsWith('portalsync://'));
+    const urlArg = (commandLine || []).find((arg) => arg.startsWith('reflow://') || arg.startsWith('flowmind://') || arg.startsWith('portalsync://'));
     if (urlArg) {
       console.log('[Main] Received protocol URL from second-instance:', urlArg);
     }
@@ -65,10 +65,12 @@ if (!gotTheLock) {
 try {
   if (process.defaultApp) {
     if (process.argv.length >= 2) {
+      app.setAsDefaultProtocolClient('reflow', process.execPath, [path.resolve(process.argv[1])]);
       app.setAsDefaultProtocolClient('flowmind', process.execPath, [path.resolve(process.argv[1])]);
       app.setAsDefaultProtocolClient('portalsync', process.execPath, [path.resolve(process.argv[1])]);
     }
   } else {
+    app.setAsDefaultProtocolClient('reflow');
     app.setAsDefaultProtocolClient('flowmind');
     app.setAsDefaultProtocolClient('portalsync');
   }
@@ -270,8 +272,25 @@ function updateTrayMenu() {
   tray.setContextMenu(contextMenu);
 }
 
+
+function migrateElectronUserData() {
+  try {
+    const appData = app.getPath('appData');
+    const oldUserData = path.join(appData, 'FlowMind Worker');
+    const newUserData = app.getPath('userData');
+    if (fs.existsSync(oldUserData) && !fs.existsSync(newUserData)) {
+      fs.mkdirSync(newUserData, { recursive: true });
+      fs.cpSync(oldUserData, newUserData, { recursive: true });
+      console.log(`[Migration] Migrated Electron userData from "${oldUserData}" to "${newUserData}"`);
+    }
+  } catch (err) {
+    console.warn('[Migration] Could not migrate Electron userData:', err.message);
+  }
+}
+
 // App lifecycle
 app.whenReady().then(async () => {
+  migrateElectronUserData();
   setupApplicationMenu();
   createWindow();
   createTray();

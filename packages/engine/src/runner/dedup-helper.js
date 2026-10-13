@@ -262,8 +262,33 @@ function sanitizePortalName(rawName) {
  * @param {string} [portalName] - Workflow / portal name
  * @returns {string} Resolved absolute directory path
  */
+
+function resolveDefaultDownloadFolder() {
+  const legacyDownloads = path.join(os.homedir(), 'Downloads', 'PortalSync');
+  if (fs.existsSync(legacyDownloads)) {
+    return legacyDownloads;
+  }
+  if (process.platform === 'win32') {
+    const legacyWinDownloads = 'C:\\FlowMind\\Downloads';
+    if (fs.existsSync(legacyWinDownloads)) {
+      return legacyWinDownloads;
+    }
+  }
+  return path.join(os.homedir(), 'Downloads', 'ReFlow');
+}
+
+function resolveDefaultInvoiceFolder() {
+  if (process.platform === 'win32') {
+    const legacyWinInvoices = 'C:\\FlowMind\\Invoices';
+    if (fs.existsSync(legacyWinInvoices)) {
+      return legacyWinInvoices;
+    }
+  }
+  return path.join(os.homedir(), 'Documents', 'ReFlow', 'Invoices');
+}
+
 function resolvePortalStorageDir(baseDir = null, portalName = 'DefaultPortal') {
-  const base = baseDir || path.join(os.homedir(), 'Downloads', 'PortalSync');
+  const base = baseDir || resolveDefaultDownloadFolder();
   const sanitized = sanitizePortalName(portalName);
 
   // If base already ends with the sanitized portal name, avoid duplicating it
@@ -280,4 +305,6 @@ module.exports = {
   ArtifactTracker,
   sanitizePortalName,
   resolvePortalStorageDir,
+  resolveDefaultDownloadFolder,
+  resolveDefaultInvoiceFolder,
 };

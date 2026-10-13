@@ -9,7 +9,8 @@ class ChromeSpawner {
     this.port = 9222;
     this.host = '127.0.0.1';
     this.spawnedProcess = null;
-    this.profileDir = path.join(os.homedir(), '.chrome-portalsync');
+    const legacyChromeProfile = path.join(os.homedir(), '.chrome-portalsync');
+    this.profileDir = fs.existsSync(legacyChromeProfile) ? legacyChromeProfile : path.join(os.homedir(), '.chrome-reflow');
   }
 
   /**

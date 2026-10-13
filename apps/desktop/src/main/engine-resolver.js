@@ -71,7 +71,7 @@ function getEnginePath() {
   const devEngine = path.resolve(__dirname, '../../../../packages/engine');
   if (fs.existsSync(devEngine)) return devEngine;
 
-  throw new Error(`Could not resolve FlowMind engine path. Checked: ${path.resolve(__dirname, '../../../../packages/engine')}`);
+  throw new Error(`Could not resolve ReFlow engine path. Checked: ${path.resolve(__dirname, '../../../../packages/engine')}`);
 }
 
 function requireEngine(subpath) {

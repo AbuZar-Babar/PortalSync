@@ -415,7 +415,10 @@ test('sanitizePortalName - strips illegal characters, traversals, and reserved n
 
 test('resolvePortalStorageDir - resolves path with sanitized portal subdirectory', () => {
   const defaultDir = resolvePortalStorageDir();
-  const expectedDefaultBase = path.join(os.homedir(), 'Downloads', 'PortalSync', 'DefaultPortal');
+  const legacyBase = path.join(os.homedir(), 'Downloads', 'PortalSync');
+  const expectedDefaultBase = fs.existsSync(legacyBase)
+    ? path.join(legacyBase, 'DefaultPortal')
+    : path.join(os.homedir(), 'Downloads', 'ReFlow', 'DefaultPortal');
   assert.strictEqual(defaultDir, expectedDefaultBase);
 
   // Custom baseDir and portalName

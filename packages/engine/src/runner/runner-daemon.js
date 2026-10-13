@@ -23,7 +23,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { CloudClient } = require('./cloud-client');
-const { ArtifactTracker, computeSha256, sanitizePortalName, resolvePortalStorageDir } = require('./dedup-helper');
+const { ArtifactTracker, computeSha256, sanitizePortalName, resolvePortalStorageDir, resolveDefaultDownloadFolder } = require('./dedup-helper');
 const { detect2FAChallenge, waitFor2FAResolution } = require('./hitl-detector');
 const LoopDetector = require('../shared/loop-detector');
 
@@ -91,7 +91,7 @@ class RunnerDaemon {
     this.cdpPort = options.cdpPort || 9222;
     this.cdpHost = options.cdpHost || '127.0.0.1';
     this.pollIntervalMs = options.pollIntervalMs || 3000;
-    this.targetFolder = options.targetFolder || path.join(os.homedir(), 'Downloads', 'PortalSync');
+    this.targetFolder = options.targetFolder || process.env.REFLOW_TARGET_FOLDER || process.env.PORTALSYNC_TARGET_FOLDER || resolveDefaultDownloadFolder();
     this.hitlTimeoutMs = options.hitlTimeoutMs || 90000;
 
     this.logger = options.logger || {
@@ -384,7 +384,7 @@ class RunnerDaemon {
         try {
           fs.mkdirSync(runTargetDir, { recursive: true });
         } catch (fallbackErr) {
-          runTargetDir = path.join(os.tmpdir(), 'PortalSync', sanitizedPortalName);
+          runTargetDir = path.join(os.tmpdir(), 'ReFlow', sanitizedPortalName);
           fs.mkdirSync(runTargetDir, { recursive: true });
         }
       }

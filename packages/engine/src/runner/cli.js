@@ -19,6 +19,22 @@ const { CloudClient } = require('./cloud-client');
 const { RunnerDaemon, checkCdpResponding } = require('./runner-daemon');
 
 // CLI Version & Package Info
+
+const warnedCliEnvKeys = new Set();
+function getCliEnv(reflowKey, legacyKey, fallback = '') {
+  if (process.env[reflowKey] !== undefined) {
+    return process.env[reflowKey];
+  }
+  if (process.env[legacyKey] !== undefined) {
+    if (!warnedCliEnvKeys.has(legacyKey)) {
+      console.warn(`[Deprecation Warning] ${legacyKey} is deprecated. Please use ${reflowKey} instead.`);
+      warnedCliEnvKeys.add(legacyKey);
+    }
+    return process.env[legacyKey];
+  }
+  return fallback;
+}
+
 const PKG_VERSION = '1.0.0';
 
 /**
@@ -121,7 +137,7 @@ ${colors.bold}GLOBAL OPTIONS:${colors.reset}
   -p, --port <number>          Chrome remote debugging port (default: 9222)
   -u, --cloud-url <url>        ReFlow Cloud API URL (default: http://localhost:3000)
   -t, --token <token>          Runner authentication token (ps_live_<org_id>)
-  -d, --target-folder <path>   Directory for downloaded artifacts (default: ~/Downloads/PortalSync)
+  -d, --target-folder <path>   Directory for downloaded artifacts (default: ~/Downloads/ReFlow)
   -h, --help                   Show help information
   -v, --version                Show version information
 
@@ -176,7 +192,7 @@ ${colors.bold}OPTIONS:${colors.reset}
   -u, --cloud-url <url>        PortalSync Cloud API URL (default: http://localhost:3000)
   -t, --token <token>          Runner token ps_live_<org_id> (required for cloud polling)
   -i, --poll-interval <s>      Polling interval in seconds (default: 10, range: 10-15)
-  -d, --target-folder <path>   Destination directory for invoice artifacts (default: ~/Downloads/PortalSync)
+  -d, --target-folder <path>   Destination directory for invoice artifacts (default: ~/Downloads/ReFlow)
   -h, --help                   Show this help message
 
 ${colors.bold}EXAMPLES:${colors.reset}
@@ -204,7 +220,7 @@ ${colors.bold}OPTIONS:${colors.reset}
   -p, --port <number>          Chrome CDP debugging port (default: 9222)
   -u, --cloud-url <url>        PortalSync Cloud API URL (default: http://localhost:3000)
   -t, --token <token>          Runner token ps_live_<org_id>
-  -d, --target-folder <path>   Destination directory for invoice artifacts (default: ~/Downloads/PortalSync)
+  -d, --target-folder <path>   Destination directory for invoice artifacts (default: ~/Downloads/ReFlow)
   -h, --help                   Show this help message
 
 ${colors.bold}EXAMPLES:${colors.reset}
@@ -219,9 +235,9 @@ ${colors.bold}EXAMPLES:${colors.reset}
  */
 async function runDoctor(options) {
   const port = options.port || 9222;
-  const cloudUrl = options.cloudUrl || process.env.PORTALSYNC_CLOUD_URL || 'http://localhost:3000';
-  const token = options.token || process.env.PORTALSYNC_RUNNER_TOKEN || '';
-  const targetFolder = options.targetFolder || path.join(os.homedir(), 'Downloads', 'PortalSync');
+  const cloudUrl = options.cloudUrl || getCliEnv('REFLOW_CLOUD_URL', 'PORTALSYNC_CLOUD_URL', 'http://localhost:3000');
+  const token = options.token || getCliEnv('REFLOW_RUNNER_TOKEN', 'PORTALSYNC_RUNNER_TOKEN', '');
+  const targetFolder = options.targetFolder || getCliEnv('REFLOW_TARGET_FOLDER', 'PORTALSYNC_TARGET_FOLDER') || resolveDefaultDownloadFolder();
 
   console.log(`\n${colors.bold}========================================${colors.reset}`);
   console.log(`${colors.bold}${colors.cyan} ReFlow Desktop Runner Doctor${colors.reset}`);
@@ -276,7 +292,7 @@ async function runDoctor(options) {
   });
 
   if (!token) {
-    log.info(`No runner token provided. (Specify via --token or PORTALSYNC_RUNNER_TOKEN)`);
+    log.info(`No runner token provided. (Specify via --token or REFLOW_RUNNER_TOKEN)`);
   } else {
     log.info(`Using Runner Token: ${token.substring(0, 10)}... (length: ${token.length})`);
   }
@@ -342,13 +358,13 @@ async function runDoctor(options) {
  */
 async function runListen(options) {
   const port = options.port || 9222;
-  const cloudUrl = options.cloudUrl || process.env.PORTALSYNC_CLOUD_URL || 'http://localhost:3000';
-  const token = options.token || process.env.PORTALSYNC_RUNNER_TOKEN || '';
+  const cloudUrl = options.cloudUrl || getCliEnv('REFLOW_CLOUD_URL', 'PORTALSYNC_CLOUD_URL', 'http://localhost:3000');
+  const token = options.token || getCliEnv('REFLOW_RUNNER_TOKEN', 'PORTALSYNC_RUNNER_TOKEN', '');
   const pollIntervalSeconds = options.pollInterval || 10;
-  const targetFolder = options.targetFolder || path.join(os.homedir(), 'Downloads', 'PortalSync');
+  const targetFolder = options.targetFolder || getCliEnv('REFLOW_TARGET_FOLDER', 'PORTALSYNC_TARGET_FOLDER') || resolveDefaultDownloadFolder();
 
   if (!token) {
-    log.warn('No runner token provided. Set --token or PORTALSYNC_RUNNER_TOKEN to claim organization runs.');
+    log.warn('No runner token provided. Set --token or REFLOW_RUNNER_TOKEN to claim organization runs.');
   }
 
   const daemon = new RunnerDaemon({
@@ -387,9 +403,9 @@ async function runWorkflow(workflowId, options) {
   }
 
   const port = options.port || 9222;
-  const cloudUrl = options.cloudUrl || process.env.PORTALSYNC_CLOUD_URL || 'http://localhost:3000';
-  const token = options.token || process.env.PORTALSYNC_RUNNER_TOKEN || '';
-  const targetFolder = options.targetFolder || path.join(os.homedir(), 'Downloads', 'PortalSync');
+  const cloudUrl = options.cloudUrl || getCliEnv('REFLOW_CLOUD_URL', 'PORTALSYNC_CLOUD_URL', 'http://localhost:3000');
+  const token = options.token || getCliEnv('REFLOW_RUNNER_TOKEN', 'PORTALSYNC_RUNNER_TOKEN', '');
+  const targetFolder = options.targetFolder || getCliEnv('REFLOW_TARGET_FOLDER', 'PORTALSYNC_TARGET_FOLDER') || resolveDefaultDownloadFolder();
 
   const daemon = new RunnerDaemon({
     cdpPort: port,

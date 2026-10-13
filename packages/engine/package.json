@@ -1,7 +1,7 @@
 {
-  "name": "@workflow-capture/engine",
+  "name": "@reflow/engine",
   "version": "1.0.0",
-  "description": "Standalone Core Browser Automation & Replay Engine for Workflow-Capture",
+  "description": "Standalone Core Browser Automation & Replay Engine for ReFlow",
   "main": "src/replay/loop-replay-runner.js",
   "license": "MIT",
   "scripts": {
