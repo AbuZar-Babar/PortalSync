@@ -1,5 +1,5 @@
 /**
- * Custom structured errors for Workflow Capture & Replay
+ * Custom structured errors for ReFlow & Replay
  */
 
 class AutomationError extends Error {

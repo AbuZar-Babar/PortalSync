@@ -1,8 +1,8 @@
 /**
- * PortalSync Cloud Client
+ * ReFlow Cloud Client
  * 
  * Authenticated HTTP communication layer connecting the desktop runner
- * to the PortalSync Next.js Cloud Control Plane (/api/v1/).
+ * to the ReFlow Next.js Cloud Control Plane (/api/v1/).
  * 
  * Zero external dependencies — uses Node.js global fetch and native primitives.
  */
@@ -33,7 +33,7 @@ class CloudClientError extends Error {
 class CloudClient {
   /**
    * @param {Object} options
-   * @param {string} [options.baseUrl] - Base URL of PortalSync Cloud API (default: PORTALSYNC_CLOUD_URL or http://localhost:3000)
+   * @param {string} [options.baseUrl] - Base URL of ReFlow Cloud API (default: PORTALSYNC_CLOUD_URL or http://localhost:3000)
    * @param {string} [options.token] - Runner Token ps_live_<org_id> (default: PORTALSYNC_RUNNER_TOKEN)
    * @param {number} [options.timeoutMs] - Request timeout in ms (default: 15000)
    * @param {Function} [options.fetch] - Custom fetch implementation (default: globalThis.fetch)

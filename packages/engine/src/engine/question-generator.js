@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Intelligent Question Generator
+ * ReFlow — Intelligent Question Generator
  * 
  * Generates runtime clarifying questions dynamically from:
  * USER INTENT + LIVE PORTAL DATA + AVAILABLE FIELDS + WORKFLOW CAPABILITIES

@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Robust Pagination & Duplicate Protection Manager
+ * ReFlow — Robust Pagination & Duplicate Protection Manager
  * 
  * Manages pagination discovery, multi-page traversal, dynamic content loading,
  * and duplicate item protection across:

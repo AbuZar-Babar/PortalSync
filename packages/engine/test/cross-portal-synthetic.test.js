@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Universal Cross-Portal Synthetic Test Suite
+ * ReFlow — Universal Cross-Portal Synthetic Test Suite
  * 
  * Validates the Universal Engine across 12 distinct scenarios conforming to Part 31:
  * - Test 1: Table (rows -> action -> download)

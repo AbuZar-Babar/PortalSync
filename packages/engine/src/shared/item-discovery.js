@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Deterministic Item Discovery
+ * ReFlow — Deterministic Item Discovery
  *
  * Finds repeated records on the current page from the element the user
  * interacted with during recording. This module is intentionally independent

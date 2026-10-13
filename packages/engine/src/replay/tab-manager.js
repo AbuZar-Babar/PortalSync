@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Intelligent Tab & Window Manager
+ * ReFlow — Intelligent Tab & Window Manager
  * 
  * Objectives:
  * 1. Maintain clear ownership of the Primary Workflow Tab (the portal page).

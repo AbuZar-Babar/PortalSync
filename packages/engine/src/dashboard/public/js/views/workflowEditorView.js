@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Modernized Workflow Editor View
+ * ReFlow — Modernized Workflow Editor View
  * Human-friendly visual editor built on Drawflow with clear setup vs repeated distinction,
  * progressive disclosure for technical selectors, accessible node actions,
  * and robust Task 10 lifecycle safeguards.

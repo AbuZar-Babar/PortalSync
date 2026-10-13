@@ -1,5 +1,5 @@
 /**
- * Shared constants for Workflow Capture & Replay Engine
+ * Shared constants for ReFlow & Replay Engine
  */
 
 const ACTION_TYPES = Object.freeze({

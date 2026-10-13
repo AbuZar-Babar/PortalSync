@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Universal Exception & Interruption Handler
+ * ReFlow — Universal Exception & Interruption Handler
  * 
  * Objectives:
  * 1. Proactively and reactively handle unexpected browser interruptions

@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Normalized Runtime Data Contract
+ * ReFlow — Normalized Runtime Data Contract
  * 
  * Formalizes normalized data models separating:
  * 1. WorkflowDefinition (recorded navigation knowledge & intent)

@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Human-like Mouse Movement & Keystroke Dynamics
+ * ReFlow — Human-like Mouse Movement & Keystroke Dynamics
  * 
  * Generates natural, stochastic cubic Bezier curve coordinates, dynamic acceleration,
  * micro-wobble offsets, and human typing cadence to defeat bot detection and captchas.

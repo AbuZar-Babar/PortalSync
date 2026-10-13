@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Loop Confidence Engine
+ * ReFlow — Loop Confidence Engine
  *
  * Evaluates candidate repeated workflows using multiple independent signals:
  * 1. DOM Repetition (table rows, list items, cards, grid items, repeated containers)

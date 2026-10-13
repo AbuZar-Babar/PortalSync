@@ -1,5 +1,5 @@
 /**
- * FlowMind Floating Bot Assistant Component
+ * ReFlow Floating Bot Assistant Component
  * Lightweight, zero dependencies, GPU-accelerated.
  * Includes Real-Time Human Disturbance Detection & Visual Alert Display.
  */

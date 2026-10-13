@@ -1,5 +1,5 @@
 /**
- * FlowMind / Workflow Agent — Lightweight Robotic Assistant Avatar
+ * ReFlow / Workflow Agent — Lightweight Robotic Assistant Avatar
  * Pure SVG, zero-dependency, highly scalable robotic visual component.
  * Supports sizes: 'hero', 'card', 'badge', 'mini'
  * Supports states: 'idle', 'waving', 'analyzing', 'running', 'success', 'error', 'warning'

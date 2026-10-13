@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Server-Sent Events (SSE) Bus
+ * ReFlow — Server-Sent Events (SSE) Bus
  */
 
 class SSEManager {

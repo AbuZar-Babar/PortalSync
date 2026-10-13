@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Semantic Field Detector
+ * ReFlow — Semantic Field Detector
  * 
  * Inspects item structures (table rows, cards, lists, grids) and extracts
  * semantic fields (identifier, date, status, amount, name, type, description)

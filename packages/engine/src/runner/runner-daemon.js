@@ -1,5 +1,5 @@
 /**
- * PortalSync Runner Daemon
+ * ReFlow Runner Daemon
  * 
  * Continuous desktop automation daemon that:
  * 1. Verifies local Chrome CDP connection on port 9222

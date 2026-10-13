@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Interactive Web Dashboard Server Bootstrap
+ * ReFlow — Interactive Web Dashboard Server Bootstrap
  *
  * Zero-dependency native Node.js HTTP & SSE Server providing a visual control room
  * for recording workflows, replaying actions, inspecting selector candidates,

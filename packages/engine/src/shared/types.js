@@ -1,5 +1,5 @@
 /**
- * JSDoc Type Definitions for Workflow Capture & Replay
+ * JSDoc Type Definitions for ReFlow & Replay
  * 
  * @typedef {'CLICK' | 'DOUBLE_CLICK' | 'TYPE' | 'SELECT'} ActionType
  * 

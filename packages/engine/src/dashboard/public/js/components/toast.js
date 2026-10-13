@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Toast Notifications Component
+ * ReFlow — Toast Notifications Component
  */
 
 export const Toast = {

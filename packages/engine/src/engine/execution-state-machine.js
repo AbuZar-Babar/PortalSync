@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Execution State Machine
+ * ReFlow — Execution State Machine
  * 
  * Formal state machine managing the end-to-end autonomous execution lifecycle
  * defined in Part 24:

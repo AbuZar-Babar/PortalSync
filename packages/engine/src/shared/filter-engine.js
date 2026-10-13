@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Universal Filter Engine
+ * ReFlow — Universal Filter Engine
  * 
  * Evaluates structured item records against user intent, mapped concepts,
  * and multi-operator conditions without relying on fragile raw-string scraping.

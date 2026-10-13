@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Workflow Execution & Loop Review Modal
+ * ReFlow — Workflow Execution & Loop Review Modal
  * 
  * Unifies execution preflight, item discovery, record filtering, and launch review.
  * Conforms to the Shared Filter Contract from MULTI-AGENT-WORK-PLAN.md:

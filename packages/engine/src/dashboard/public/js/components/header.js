@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Header Component
+ * ReFlow — Header Component
  * Manages topbar presentation, real-time browser status, and global recording banner.
  */
 

@@ -1,5 +1,5 @@
 /**
- * Adversarial Stress & Edge Case Test Suite for FlowMind Engine
+ * Adversarial Stress & Edge Case Test Suite for ReFlow Engine
  * 
  * Empirically tests:
  * 1. State-Aware Checkbox Idempotency (replay idempotency, default ON, programmatic clicks, multi-select, uncheck)

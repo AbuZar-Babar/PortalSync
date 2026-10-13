@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Dedicated Download Manager & Validation Engine
+ * ReFlow — Dedicated Download Manager & Validation Engine
  * 
  * Enforces strict per-execution folder isolation:
  * downloads/<workflow-name>/<execution-id>/

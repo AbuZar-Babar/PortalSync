@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Persistent JSON Database Store
+ * ReFlow — Persistent JSON Database Store
  * 
  * Lightweight, zero-dependency, transactional file-based storage engine.
  * Supports collections for users, workflows, runs, and secrets with

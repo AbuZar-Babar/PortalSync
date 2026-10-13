@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — JWT Token Service
+ * ReFlow — JWT Token Service
  * 
  * Zero-dependency RFC 7519 compliant JSON Web Token (JWT) generator and validator
  * using Node.js crypto HMAC-SHA256.

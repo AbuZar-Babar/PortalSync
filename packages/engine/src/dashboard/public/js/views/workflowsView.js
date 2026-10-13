@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Modern Workflows Library View
+ * ReFlow — Modern Workflows Library View
  * Polished, high-performance SaaS library with Grid/List views,
  * streamlined [Run] [•••] actions, instant search/sort/filter,
  * and seamless execution/editor integration.

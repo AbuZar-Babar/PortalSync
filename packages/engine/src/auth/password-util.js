@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Password Hashing & Verification
+ * ReFlow — Password Hashing & Verification
  * 
  * Uses Node.js native crypto.scrypt with cryptographically random 16-byte salts.
  * Provides protection against timing attacks via crypto.timingSafeEqual.

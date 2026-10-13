@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Intelligent Loop & Repeating Pattern Detector
+ * ReFlow — Intelligent Loop & Repeating Pattern Detector
  * 
  * Inspects recorded element fingerprints, tag hierarchies, ARIA roles, and CSS selector paths
  * to detect if an action was performed on a repeating collection item (e.g. table row <tr>,

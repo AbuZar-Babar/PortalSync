@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Client-Side Hash Router
+ * ReFlow — Client-Side Hash Router
  */
 
 import { OverviewView } from './views/overviewView.js?v=8';

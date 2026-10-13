@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * PortalSync Desktop Runner CLI
+ * ReFlow Desktop Runner CLI
  * 
- * Command-line interface for the PortalSync desktop browser automation runner.
+ * Command-line interface for the ReFlow desktop browser automation runner.
  * Provides diagnostics (`doctor`), cloud polling daemon (`listen`), and single workflow execution (`run`).
  * 
  * Zero external dependencies — pure Node.js CommonJS.
@@ -267,7 +267,7 @@ async function runDoctor(options) {
     allChecksPassed = false;
   }
 
-  // 3. PortalSync Cloud API Connectivity Check
+  // 3. ReFlow Cloud API Connectivity Check
   console.log(`\n${colors.bold}3. PortalSync Cloud Control Plane (${cloudUrl}):${colors.reset}`);
   const client = new CloudClient({
     baseUrl: cloudUrl,

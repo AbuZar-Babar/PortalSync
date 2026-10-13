@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Recorded Action Generalizer
+ * ReFlow — Recorded Action Generalizer
  *
  * Converts a recorder target that points at one concrete collection item into
  * an item-relative target that can be replayed for every discovered item.

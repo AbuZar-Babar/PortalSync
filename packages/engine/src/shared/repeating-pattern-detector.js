@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Universal Repeating Pattern Detector
+ * ReFlow — Universal Repeating Pattern Detector
  * 
  * Detects repeating structures on any website purely through structural,
  * layout, and behavioral analysis with ZERO hardcoded site assumptions.

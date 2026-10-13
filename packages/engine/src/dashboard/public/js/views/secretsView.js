@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Modernized Secrets View
+ * ReFlow — Modernized Secrets View
  * Secure credential vault for credentials injected into workflows with {{secret:name}}.
  * Features:
  * - Secret name

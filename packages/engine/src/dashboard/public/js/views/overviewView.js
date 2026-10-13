@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Modernized Dashboard (Overview View)
+ * ReFlow — Modernized Dashboard (Overview View)
  * Clean, fast, Linear-style automation command center.
  * Features:
  * - Primary CTA: + Create Workflow

@@ -27,7 +27,7 @@ function isInternalBrowserUrl(url) {
 }
 
 /**
- * Checks if a given URL belongs to the Workflow Capture dashboard itself
+ * Checks if a given URL belongs to the ReFlow dashboard itself
  * @param {string} url
  * @returns {boolean}
  */

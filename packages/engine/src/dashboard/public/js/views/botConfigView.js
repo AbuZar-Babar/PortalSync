@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Modernized Settings View
+ * ReFlow — Modernized Settings View
  * Comprehensive multi-section configuration:
  * 1. General
  * 2. Appearance

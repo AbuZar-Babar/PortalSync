@@ -258,7 +258,7 @@ function sanitizePortalName(rawName) {
 /**
  * Resolve target storage directory organized by portal name
  * Structure: <baseDir>/<SanitizedPortalName>/
- * @param {string} [baseDir] - Defaults to ~/Downloads/PortalSync
+ * @param {string} [baseDir] - Defaults to ~/Downloads/ReFlow
  * @param {string} [portalName] - Workflow / portal name
  * @returns {string} Resolved absolute directory path
  */

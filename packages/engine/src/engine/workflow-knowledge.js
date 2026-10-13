@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Generalized Workflow Knowledge Model
+ * ReFlow — Generalized Workflow Knowledge Model
  * 
  * Compiles a raw recording into a structured, semantic, and reusable
  * Workflow Knowledge representation as required by Part 25.

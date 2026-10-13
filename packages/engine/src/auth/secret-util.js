@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Secret Utility
+ * ReFlow — Secret Utility
  * 
  * Uses aes-256-gcm for authenticated symmetric encryption of secrets (passwords).
  */

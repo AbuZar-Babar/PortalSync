@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Result Validator & Execution Reporting Engine
+ * ReFlow — Result Validator & Execution Reporting Engine
  * 
  * Validates the outcome of workflow executions, distinguishes successes from
  * isolated failures, validates downloaded files, and generates a structured

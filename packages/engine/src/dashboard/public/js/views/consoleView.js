@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Modernized Activity View
+ * ReFlow — Modernized Activity View
  * Polished, high-performance activity timeline and streaming execution terminal.
  * Features:
  * - Timeline: ✓ Completed, ● Running, ✕ Failed

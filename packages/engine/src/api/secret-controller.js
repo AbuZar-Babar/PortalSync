@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Secret API Controller
+ * ReFlow — Secret API Controller
  * 
  * Manages CRUD operations for the Credential Vault.
  */

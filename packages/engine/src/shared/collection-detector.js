@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Universal Collection Detector
+ * ReFlow — Universal Collection Detector
  * 
  * Automatically identifies repeated collections across modern web applications:
  * - HTML Tables (table / tbody / tr)

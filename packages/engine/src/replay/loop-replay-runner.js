@@ -1,5 +1,5 @@
 /**
- * Workflow Capture - Intelligent Replay & Batch Execution Runner
+ * ReFlow - Intelligent Replay & Batch Execution Runner
  * 
  * Executes standard sequential workflows and generalized loops over table rows,
  * list items, or grids. Manages auto-navigation to target URLs, CDP file download

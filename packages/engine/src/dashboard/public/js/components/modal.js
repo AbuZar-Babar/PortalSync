@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Step Inspector Modal Component
+ * ReFlow — Step Inspector Modal Component
  */
 
 import { escapeHtml } from '../utils/dom.js';

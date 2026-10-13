@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Runtime User Intent Resolver
+ * ReFlow — Runtime User Intent Resolver
  * 
  * Understands user purpose from natural language prompts or structured intent
  * and deterministically maps intent concepts to live portal fields and conditions.

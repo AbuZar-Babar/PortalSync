@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Modernized Files View (Artifacts / Downloads Vault)
+ * ReFlow — Modernized Files View (Artifacts / Downloads Vault)
  * Clean, fast, SaaS-grade file management interface.
  * Shows: File, Type, Size, Created, Workflow, Actions
  * Features:

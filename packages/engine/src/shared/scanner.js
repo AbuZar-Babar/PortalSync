@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Universal Deep Page Scanner
+ * ReFlow — Universal Deep Page Scanner
  * 
  * Scans web pages across main DOM, nested iframes, and open Shadow DOM trees.
  * Produces a comprehensive, structured map of every interactive element with

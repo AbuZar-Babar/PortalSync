@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Global Theme Manager (Light / Dark Mode & Palette Support)
+ * ReFlow — Global Theme Manager (Light / Dark Mode & Palette Support)
  */
 
 export const Theme = {

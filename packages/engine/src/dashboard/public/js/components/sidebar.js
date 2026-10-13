@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Sidebar Component
+ * ReFlow — Sidebar Component
  * Manages primary navigation, active state mapping, collapse state, and execution control.
  */
 

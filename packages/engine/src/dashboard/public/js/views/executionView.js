@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Live Execution View with Embedded Console & Step Progression
+ * ReFlow — Live Execution View with Embedded Console & Step Progression
  * Modernized for UI-5: SaaS-grade clarity, accessible progress, real-time activity,
  * human intervention handling, and seamless terminal transition to Results & Files.
  */

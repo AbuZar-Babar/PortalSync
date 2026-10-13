@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Session Authentication & Login Sequence Detector
+ * ReFlow — Session Authentication & Login Sequence Detector
  * 
  * Inspects recorded workflow steps to identify initial authentication/login sequences,
  * and probes the active browser tab to detect whether an authenticated session is already active.

@@ -82,7 +82,7 @@ The runner daemon (`packages/engine/src/runner/runner-daemon.js`) connects local
    - Listens for user completion in the local browser; resumes workflow upon resolution or marks the run as failed on timeout.
 5. **Deduplication & Storage**:
    - Calculates cryptographic SHA-256 hashes of downloaded artifacts.
-   - Saves files to organized local directories (`~/Downloads/PortalSync/` or custom folders).
+   - Saves files to organized local directories (`~/Downloads/ReFlow/` or custom folders).
    - If `upload_to_cloud: true` is configured, syncs artifacts to Supabase Storage for direct web access.
    - Registers artifacts with the cloud catalog via `POST /api/v1/artifacts`.
 

@@ -34,11 +34,11 @@ The packaging configuration in [`apps/desktop/package.json`](./package.json) is 
   "hardenedRuntime": false,
   "gatekeeperAssess": false,
   "darkModeSupport": true,
-  "artifactName": "FlowMind-Worker-${version}-mac-x64.${ext}"
+  "artifactName": "ReFlow-Worker-${version}-mac-x64.${ext}"
 },
 "dmg": {
-  "title": "FlowMind Worker 1.0.0 (Intel x64)",
-  "artifactName": "FlowMind-Worker-Setup-${version}-mac-x64.${ext}",
+  "title": "ReFlow Worker 1.0.0 (Intel x64)",
+  "artifactName": "ReFlow-Worker-Setup-${version}-mac-x64.${ext}",
   "contents": [
     { "x": 130, "y": 220 },
     { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
@@ -85,20 +85,20 @@ npm run desktop:build:mac
 ## 4. Expected Output Artifacts
 
 Upon running `npm run build:mac` on macOS:
-- `dist/FlowMind-Worker-Setup-1.0.0-mac-x64.dmg` (~90 MB) — Drag-to-Applications installer
-- `dist/FlowMind-Worker-1.0.0-mac-x64.zip` (~80 MB) — Portable standalone zip archive
-- `dist/mac/FlowMind Worker.app` — Raw application bundle
+- `dist/ReFlow-Worker-Setup-1.0.0-mac-x64.dmg` (~90 MB) — Drag-to-Applications installer
+- `dist/ReFlow-Worker-1.0.0-mac-x64.zip` (~80 MB) — Portable standalone zip archive
+- `dist/mac/ReFlow Worker.app` — Raw application bundle
 
 ---
 
 ## 5. Gatekeeper & Unsigned App Execution on macOS
 
 If distributing without an Apple Developer Team ID and notarization certificate:
-1. When double-clicking on macOS, Gatekeeper may flag: *"FlowMind Worker cannot be opened because Apple cannot check it for malicious software."*
-2. **User Solution 1**: Right-click (or Control-click) `FlowMind Worker.app` in `/Applications` and click **Open**, then confirm **Open**.
+1. When double-clicking on macOS, Gatekeeper may flag: *"ReFlow Worker cannot be opened because Apple cannot check it for malicious software."*
+2. **User Solution 1**: Right-click (or Control-click) `ReFlow Worker.app` in `/Applications` and click **Open**, then confirm **Open**.
 3. **User Solution 2 (Terminal)**: Strip quarantine attribute:
    ```bash
-   xattr -cr "/Applications/FlowMind Worker.app"
+   xattr -cr "/Applications/ReFlow Worker.app"
    ```
 
 ---

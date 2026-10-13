@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Client-Side Authentication Manager
+ * ReFlow — Client-Side Authentication Manager
  */
 
 export const Auth = {

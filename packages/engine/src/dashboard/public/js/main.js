@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Application Entry Point (Main SPA Initializer)
+ * ReFlow — Application Entry Point (Main SPA Initializer)
  */
 
 import { SSE } from './sse.js';

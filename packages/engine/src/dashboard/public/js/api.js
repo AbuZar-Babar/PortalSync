@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Centralized API Client
+ * ReFlow — Centralized API Client
  */
 
 import { Auth } from './auth.js';

@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Authentication Controller
+ * ReFlow — Authentication Controller
  *
  * Handles registration, login, profile queries, and token management.
  */

@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Authentication & Security Middleware
+ * ReFlow — Authentication & Security Middleware
  *
  * Extracts Bearer tokens from the Authorization header or HttpOnly cookies,
  * verifies tokens against the JWT service and database, and attaches req.user.

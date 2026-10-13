@@ -1,5 +1,5 @@
 /**
- * Workflow Capture — Bot Configuration & Stealth API Controller
+ * ReFlow — Bot Configuration & Stealth API Controller
  * 
  * Manages humanization parameters: click delays, mouse movement dynamics,
  * keystroke cadence, and anti-captcha stealth evasion flags.
