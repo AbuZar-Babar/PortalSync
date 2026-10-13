@@ -1,6 +1,6 @@
-# Building FlowMind Worker for macOS (Intel x64)
+# Building ReFlow Worker for macOS (Intel x64)
 
-This guide documents how to package **FlowMind Worker** for macOS Intel machines (`x64` / `darwin-x64`).
+This guide documents how to package **ReFlow Worker** for macOS Intel machines (`x64` / `darwin-x64`).
 
 ---
 
@@ -8,7 +8,7 @@ This guide documents how to package **FlowMind Worker** for macOS Intel machines
 
 - **Environment**: macOS (Intel or Apple Silicon) or macOS CI runner (e.g. GitHub Actions `macos-13` Intel).
   *Note*: Modern `electron-builder` requires macOS to build `.dmg` and `.app` bundles because of macOS-specific HFS+/APFS filesystem tools and symlink preservation.
-- **Node.js**: Version 18.x or 20.x+
+- **Node.js**: Version 20.x or higher
 - **npm**: Version 9.x or 10.x+
 
 ---

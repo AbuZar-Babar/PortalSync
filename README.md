@@ -1,6 +1,6 @@
-# FlowMind (PortalSync)
+# ReFlow
 
-Autonomous enterprise browser automation and RPA platform. FlowMind bridges a modern cloud control plane with a local desktop automation daemon and Chrome DevTools Protocol (CDP) engine for resilient web workflow capture, intelligent element discovery, and reliable replay without breaking on 2FA, popups, or anti-bot protections.
+Autonomous enterprise browser automation and RPA platform. ReFlow bridges a modern cloud control plane with a local desktop automation daemon and Chrome DevTools Protocol (CDP) engine for resilient web workflow capture, intelligent element discovery, and reliable replay without breaking on 2FA, popups, or anti-bot protections.
 
 ---
 
@@ -19,15 +19,16 @@ Autonomous enterprise browser automation and RPA platform. FlowMind bridges a mo
 ## Monorepo Architecture
 
 ```text
-Workflow-Capture-SaaS/
+reflow-saas/
 ├── apps/
 │   ├── web/               # Next.js 16 Web Control Plane & Customer Dashboard
 │   └── desktop/           # Electron Desktop Client & Local HTTP Bridge (:49152)
 ├── packages/
 │   └── engine/            # Core Browser Automation Engine & Runner Daemon
-├── tests/                 # 4-Tier Zero-Dependency E2E Test Suite
+├── supabase/              # PostgreSQL DDL Schema & Row-Level Security Policies
 ├── docs/                  # System Architecture & Technical Specifications
-└── DESIGN.md              # FlowMind Design System Tokens & Editorial Guidelines
+├── DESIGN.md              # ReFlow Design System Tokens & Editorial Guidelines
+└── .env.example           # Monorepo Environment Configuration Template
 ```
 
 For an in-depth breakdown of the technical design, data flows, and state machines, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). For design tokens and typography hierarchy, refer to [DESIGN.md](DESIGN.md).
@@ -40,7 +41,7 @@ For an in-depth breakdown of the technical design, data flows, and state machine
 - **Database & Auth**: Supabase (PostgreSQL with Row-Level Security, Storage Buckets)
 - **Desktop Application**: Electron, Node.js, Localhost HTTP Bridge (`127.0.0.1:49152`)
 - **Automation Engine**: Node.js, Puppeteer-core, Chrome DevTools Protocol (`127.0.0.1:9222`)
-- **Test Suite**: Native Node.js test harness (Zero external dependencies)
+- **Engine Tests**: Native Node.js test runner (`node --test`)
 
 ---
 
@@ -50,14 +51,30 @@ For an in-depth breakdown of the technical design, data flows, and state machine
 
 - **Node.js**: `20.x` or higher (tested on Node 20+ and Node 25)
 - **Google Chrome**: Launched with remote debugging enabled (`--remote-debugging-port=9222`)
-- **Supabase**: Account with configured schema (`wf_organizations`, `wf_workflows`, `wf_execution_runs`, `wf_run_artifacts`)
+- **Supabase**: Account with initialized schema (run `supabase/schema.sql` in your Supabase SQL Editor)
 
 ---
 
-### 1. Web Control Plane (`apps/web`)
+### 1. Database Initialization
+
+Execute the complete DDL script in your Supabase SQL editor:
 
 ```bash
-# From repository root:
+# File located at:
+supabase/schema.sql
+```
+
+This creates the core `wf_organizations`, `wf_organization_members`, `wf_workflows`, `wf_execution_runs`, and `wf_run_artifacts` tables with indexes and Row-Level Security (RLS) policies.
+
+---
+
+### 2. Web Control Plane (`apps/web`)
+
+```bash
+# Configure environment:
+cp apps/web/.env.example apps/web/.env.local
+
+# Run development server:
 npm run dev
 
 # Or directly in apps/web:
@@ -70,7 +87,7 @@ Open [http://localhost:3000](http://localhost:3000) to view the marketing landin
 
 ---
 
-### 2. Desktop Application (`apps/desktop`)
+### 3. Desktop Application (`apps/desktop`)
 
 The desktop app runs in the system tray, automatically coordinates Chrome instances on port 9222, and provides the local HTTP bridge on port 49152 for web-to-desktop workflow recording.
 
@@ -86,7 +103,7 @@ npm run desktop:build:all    # Multi-platform build
 
 ---
 
-### 3. Headless Runner Daemon (`packages/engine`)
+### 4. Headless Runner Daemon (`packages/engine`)
 
 The headless runner daemon polls the cloud control plane for pending execution runs and executes workflows locally:
 
@@ -105,17 +122,14 @@ node packages/engine/src/runner/cli.js run <workflow_id_or_file>
 
 ## Testing & Verification
 
-The repository includes a comprehensive 4-tier integration test suite built with zero external npm dependencies:
+The core browser automation engine includes unit and integration test suites validating interruption handling, date inputs, table alignment, and replay consistency:
 
 ```bash
-# Run the complete test suite:
+# Run engine test suite:
 npm test
 
-# Run individual test tiers:
-node tests/tier1-features/test-r1-cloud-api.js
-node tests/tier1-features/test-r2-dashboard.js
-node tests/tier1-features/test-r3-desktop-runner.js
-node tests/tier2-boundaries/test-status-transitions.js
-node tests/tier3-interactions/test-cross-feature-lifecycle.js
-node tests/tier4-realworld/test-invoice-capture-scenario.js
+# Run individual engine test files:
+node --test packages/engine/test/exception-tab-management.test.js
+node --test packages/engine/test/universal-date-handler.test.js
+node --test packages/engine/test/table-expander-field-alignment.test.js
 ```

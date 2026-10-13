@@ -1,8 +1,8 @@
-# FlowMind Platform Architecture
+# ReFlow Platform Architecture
 
 ## 1. System Overview
 
-FlowMind (PortalSync) is a hybrid enterprise browser automation and RPA platform designed for resilient web workflow capture, intelligent element discovery, and autonomous replay.
+ReFlow is a hybrid enterprise browser automation and RPA platform designed for resilient web workflow capture, intelligent element discovery, and autonomous replay.
 
 The platform bridges a modern cloud control plane with a local desktop automation daemon and Chrome DevTools Protocol (CDP) engine. This architecture ensures high-speed execution, complete bypass of remote cloud IP bans/bot detection, and native support for 2FA / Human-in-the-Loop (HITL) authentication.
 
@@ -43,8 +43,8 @@ The project is structured as an npm workspaces monorepo:
 |---|---|---|---|
 | `apps/web` | Cloud Web Plane | Next.js 16, React 19, Tailwind CSS v4, Lucide | Marketing landing page, Supabase auth, customer dashboard, visual workflow editor (Drawflow), and telemetry API (`/api/v1/*`). |
 | `apps/desktop` | Desktop Client & Tray | Electron, Node.js | Desktop tray application, Chrome spawner, local HTTP bridge (`127.0.0.1:49152`), desktop runner controller, and packaging. |
-| `packages/engine` | Core Automation Engine | Node.js, Puppeteer-core, CDP | Browser automation engine, workflow recorder bridge, action executors, interruption recovery, and headless runner daemon. |
-| `tests/` | E2E & Integration Suite | Native Node.js test harness | 4-tier opaque-box test suite verifying API contracts, state transitions, artifact tracking, CLI diagnostics, and lifecycles. |
+| `packages/engine` | Core Automation Engine | Node.js, Puppeteer-core, CDP | Standalone browser automation engine, workflow recorder bridge, action executors, interruption recovery, and headless runner daemon. |
+| `supabase/` | Database DDL & RLS | PostgreSQL, Supabase SQL | Database schema definitions, relational constraints, foreign keys, and Row-Level Security (RLS) policies. |
 | `docs/` | Documentation | Markdown | Architectural specifications, API contracts, and integration guides. |
 
 ---
@@ -73,7 +73,7 @@ The engine operates over native Chrome DevTools Protocol (port 9222) using `pupp
 
 The runner daemon (`packages/engine/src/runner/runner-daemon.js`) connects local browser execution with cloud-scheduled jobs:
 
-1. **Authentication**: Uses organization tokens (`Authorization: Bearer ps_live_<org_id>` or `x-runner-token: ps_live_<org_id>`).
+1. **Authentication**: Uses organization runner tokens (`Authorization: Bearer ps_live_<org_id>` or `x-runner-token: ps_live_<org_id>`).
 2. **Polling Loop**: Continuously queries `GET /api/v1/runs?status=pending` every 10–15 seconds.
 3. **Atomic Claiming**: Transitions runs via `PATCH /api/v1/runs` (`status: 'running'`) with conflict handling to avoid double-execution across multiple daemon instances.
 4. **90-Second Human-in-the-Loop (HITL) 2FA Intervention**:
@@ -103,9 +103,9 @@ The runner daemon (`packages/engine/src/runner/runner-daemon.js`) connects local
 
 ## 6. Testing & Quality Verification
 
-Testing uses a lightweight native Node.js test harness (`tests/helpers/test-harness.js`) requiring zero external dependencies:
+Engine unit and integration testing is executed via Node's native test runner (`packages/engine/test/`):
 
-- **Tier 1 (Feature Coverage)**: Cloud API contracts, dashboard component schemas, desktop runner CLI, and localhost HTTP bridge.
-- **Tier 2 (Boundary & Corner Cases)**: Authentication failures, illegal state transitions, malformed payloads, SHA-256 collision handling, and 90s HITL clock edges.
-- **Tier 3 (Cross-Feature Lifecycles)**: Multi-component end-to-end orchestration, concurrency arbitration, and hybrid storage routing.
-- **Tier 4 (Real-World Scenarios)**: High-volume invoice batch extraction and network interruption simulation.
+- **Interruption Recovery**: Nested modal form preservation, backdrop escape suppression, and dismissive button targeting.
+- **Dynamic Elements & Dates**: Universal date input formatting, HTML5 calendar interactions, and flatpickr hooks.
+- **Table Alignments**: Complex table structure detection, expander arrow stripping, and column alignment.
+- **Replay Consistency**: Replay speed, checkpoint verification, and secret vault encryption/injection.

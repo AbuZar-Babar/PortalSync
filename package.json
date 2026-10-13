@@ -1,8 +1,8 @@
 {
-  "name": "portalsync-saas",
+  "name": "reflow-saas",
   "version": "1.0.0",
   "private": true,
-  "description": "PortalSync Enterprise B2B SaaS Monorepo",
+  "description": "ReFlow Enterprise Autonomous Browser Automation & RPA Platform",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -18,7 +18,7 @@
     "desktop:build": "npm run build:win --prefix apps/desktop",
     "desktop:build:mac": "npm run build:mac --prefix apps/desktop",
     "desktop:build:all": "npm run build:all --prefix apps/desktop",
-    "test": "node tests/run-all-tests.js"
+    "test": "npm test --prefix packages/engine"
   },
   "dependencies": {
     "puppeteer-core": "^25.12.0"

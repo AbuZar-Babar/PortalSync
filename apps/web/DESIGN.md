@@ -1,4 +1,4 @@
-# FlowMind Design System (DESIGN.md)
+# ReFlow Design System (DESIGN.md)
 
 See repository root `DESIGN.md` for the full design specification.
 

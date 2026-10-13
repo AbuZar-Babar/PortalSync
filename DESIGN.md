@@ -1,7 +1,7 @@
-# FlowMind Design System (DESIGN.md)
+# ReFlow Design System (DESIGN.md)
 
 ## Brand Identity & Direction
-- **Product:** FlowMind (Autonomous Browser Automation & Workflow Capture Engine)
+- **Product:** ReFlow (Autonomous Browser Automation & Workflow Capture Engine)
 - **Aesthetic:** Dark Architectural Precision & Editorial Minimalism
 - **Visual References:** BZ DesignX / Modern Swiss Digital Architecture
 - **Core Mood:** Serious, high-performance, calm, razor-sharp software instrument. No cartoon mascots, no rainbow glow soup, no fake hype.
