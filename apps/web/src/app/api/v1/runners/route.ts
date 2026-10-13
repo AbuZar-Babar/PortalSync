@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
 
     const defaultToken = `ps_live_${effectiveOrgId.replace(/-/g, '').slice(0, 16)}`;
     const pairedToken = runnerMeta.token || defaultToken;
-    const resolvedHostname = runnerMeta.hostname || (isOnline ? 'Active Desktop Runner' : 'FlowMind Desktop Worker');
+    const resolvedHostname = runnerMeta.hostname || (isOnline ? 'Active Desktop Runner' : 'unknown');
 
     const runners = [
       {
@@ -60,8 +60,8 @@ export async function GET(request: NextRequest) {
         hostname: resolvedHostname,
         label: 'Primary Desktop Runner',
         token: pairedToken,
-        platform: runnerMeta.platform || 'Windows 11 x64',
-        engineVersion: runnerMeta.version || 'v1.4.0 (Enterprise Engine)',
+        platform: runnerMeta.platform || 'unknown',
+        engineVersion: runnerMeta.version || 'unknown',
         status: isOnline ? 'ONLINE' : 'OFFLINE',
         lastPingAt: runnerMeta.last_ping_at || null,
         cdpActive: runnerMeta.cdp_active !== false,
@@ -119,9 +119,9 @@ export async function POST(request: NextRequest) {
   const payload: RunnerMetadata = {
     ...existingMeta,
     last_ping_at: new Date().toISOString(),
-    hostname: body.hostname || request.headers.get('x-runner-hostname') || existingMeta.hostname || 'FlowMind Desktop Worker',
-    platform: body.platform || request.headers.get('x-runner-platform') || existingMeta.platform || 'Windows 11 x64',
-    version: body.version || request.headers.get('x-runner-version') || existingMeta.version || 'v1.4.0 (Enterprise Engine)',
+    hostname: body.hostname || request.headers.get('x-runner-hostname') || existingMeta.hostname || 'unknown',
+    platform: body.platform || request.headers.get('x-runner-platform') || existingMeta.platform || 'unknown',
+    version: body.version || request.headers.get('x-runner-version') || existingMeta.version || 'unknown',
     token: token || body.token || existingMeta.token || `ps_live_${orgId.replace(/-/g, '').slice(0, 16)}`,
     cdp_active: body.cdp_active !== undefined ? body.cdp_active : (existingMeta.cdp_active ?? true),
   };

@@ -12,6 +12,14 @@
 const fs = require('fs');
 const path = require('path');
 
+const PKG_VERSION = (() => {
+  try {
+    return require('../../package.json').version || '1.0.0';
+  } catch {
+    return '1.0.0';
+  }
+})();
+
 class CloudClientError extends Error {
   constructor(message, status = 500, data = null, endpoint = '') {
     super(message);
@@ -67,7 +75,7 @@ class CloudClient {
         const os = require('os');
         headers['x-runner-hostname'] = os.hostname();
         headers['x-runner-platform'] = `${process.platform} ${process.arch}`;
-        headers['x-runner-version'] = 'v1.4.0 (Enterprise Engine)';
+        headers['x-runner-version'] = `v${PKG_VERSION}`;
         headers['x-runner-cdp'] = 'true';
       } catch {}
     }
@@ -400,7 +408,7 @@ class CloudClient {
         body: JSON.stringify({
           hostname: os.hostname(),
           platform: `${process.platform} ${process.arch}`,
-          version: 'v1.4.0 (Enterprise Engine)',
+          version: `v${PKG_VERSION}`,
           cdp_active: extra.cdp_active !== false,
           ...extra,
         }),

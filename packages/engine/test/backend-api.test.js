@@ -46,8 +46,8 @@ async function runApiTests() {
   // 1. User Registration
   console.log('🔹 Test 1: POST /api/auth/register');
   const uniqueSuffix = Date.now();
-  const testEmail = `abuzar_${uniqueSuffix}@workflowcapture.io`;
-  const testUsername = `abuzar_${uniqueSuffix}`;
+  const testEmail = `testuser_${uniqueSuffix}@workflowcapture.io`;
+  const testUsername = `testuser_${uniqueSuffix}`;
   const regHttp = mockHttp('POST');
   await authController.register(regHttp.req, regHttp.res, {
     username: testUsername,

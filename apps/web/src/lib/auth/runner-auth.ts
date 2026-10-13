@@ -220,9 +220,9 @@ export async function authenticateRunnerOrUser(request: NextRequest): Promise<Ru
         const mergedPayload = {
           ...currentMeta,
           last_ping_at: new Date().toISOString(),
-          hostname: incomingHostname || currentMeta.hostname || 'AbuZar-Laptop',
-          platform: incomingPlatform || currentMeta.platform || 'Windows 11 x64',
-          version: incomingVersion || currentMeta.version || 'v1.4.0 (Enterprise Engine)',
+          hostname: incomingHostname || currentMeta.hostname || 'unknown',
+          platform: incomingPlatform || currentMeta.platform || 'unknown',
+          version: incomingVersion || currentMeta.version || 'unknown',
           token: runnerToken,
           cdp_active: incomingCdp !== null ? incomingCdp === 'true' : (currentMeta.cdp_active ?? true),
         };

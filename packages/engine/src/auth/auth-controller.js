@@ -147,18 +147,29 @@ async function dummyLogin(req, res) {
       return sendJson(res, 403, { error: 'Forbidden: Developer dummy login is disabled in secure mode' });
     }
 
-    let user = db.findOne('users', u => u.email === 'abuzarbabar53@gmail.com');
+    const adminEmail = (process.env.REFLOW_ADMIN_EMAIL || process.env.PORTALSYNC_ADMIN_EMAIL || '').trim().toLowerCase();
+    const adminPassword = process.env.REFLOW_ADMIN_PASSWORD || process.env.PORTALSYNC_ADMIN_PASSWORD || '';
+
+    let user = adminEmail ? db.findOne('users', u => u.email === adminEmail) : null;
     if (!user) {
       const allUsers = db.findAll('users');
       user = allUsers && allUsers.length > 0 ? allUsers[0] : null;
     }
 
     if (!user) {
-      user = db.insert('users', {
-        username: 'Abuzar Babar',
-        email: 'abuzarbabar53@gmail.com',
-        passwordHash: 'dummy'
-      });
+      if (adminEmail && adminPassword) {
+        user = db.insert('users', {
+          username: adminEmail.split('@')[0],
+          email: adminEmail,
+          passwordHash: await hashPassword(adminPassword)
+        });
+      } else {
+        console.log('[Auth] REFLOW_ADMIN_EMAIL and REFLOW_ADMIN_PASSWORD not set; skipping automatic admin seeding.');
+      }
+    }
+
+    if (!user) {
+      return sendJson(res, 404, { error: 'No user account found. Set REFLOW_ADMIN_EMAIL and REFLOW_ADMIN_PASSWORD to seed an admin user.' });
     }
 
     const token = signToken({

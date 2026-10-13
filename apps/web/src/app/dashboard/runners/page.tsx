@@ -243,11 +243,11 @@ export default function RunnersPage() {
 
               return {
                 id: r.id || `runner-${idx}`,
-                hostname: r.hostname || 'AbuZar-Laptop',
+                hostname: r.hostname || 'unknown',
                 label: r.label || 'Primary Desktop Runner',
                 token: r.token || resolvedToken,
-                platform: r.platform || 'Windows 11 x64',
-                engineVersion: r.engineVersion || 'v1.4.0 (Enterprise Engine)',
+                platform: r.platform || 'unknown',
+                engineVersion: r.engineVersion || 'unknown',
                 claimsCount: Math.max(0, claimsCount),
                 status,
                 lastPingAt: r.lastPingAt || (isOnline ? new Date().toISOString() : null),
@@ -289,11 +289,11 @@ export default function RunnersPage() {
               apiRunners = [
                 {
                   id: 'runner_primary',
-                  hostname: meta.hostname || (isOnline ? 'AbuZar-Laptop' : 'FlowMind Desktop Worker'),
+                  hostname: meta.hostname || (isOnline ? 'Active Desktop Runner' : 'unknown'),
                   label: 'Primary Desktop Runner',
                   token: meta.token || resolvedToken,
-                  platform: meta.platform || 'Windows 11 x64',
-                  engineVersion: meta.version || 'v1.4.0 (Enterprise Engine)',
+                  platform: meta.platform || 'unknown',
+                  engineVersion: meta.version || 'unknown',
                   claimsCount: Math.max(0, claimsCount),
                   status,
                   lastPingAt: meta.last_ping_at || (isOnline ? new Date().toISOString() : null),
@@ -326,11 +326,11 @@ export default function RunnersPage() {
         setWorkers([
           {
             id: `runner-primary-${orgId.slice(0, 8)}`,
-            hostname: 'FlowMind Desktop Worker',
+            hostname: 'Desktop Runner',
             label: 'Local Desktop Runner',
             token: resolvedToken,
-            platform: 'Windows 11 x64',
-            engineVersion: 'v1.4.0 (Enterprise Engine)',
+            platform: 'unknown',
+            engineVersion: 'unknown',
             claimsCount: Math.max(0, claimsCount),
             status: workerStatus,
             lastPingAt: lastPing,
