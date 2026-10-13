@@ -47,4 +47,6 @@ yarn-error.log*
 recordings/
 downloads/
 data/
+Run/
+**/Run/
 
