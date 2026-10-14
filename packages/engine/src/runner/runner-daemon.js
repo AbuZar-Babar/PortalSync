@@ -427,9 +427,11 @@ class RunnerDaemon {
       let itemsDownloaded = 0;
       // Progress handler
       const onProgress = async (progress) => {
-        if (progress.manifest) {
-          itemsProcessed = progress.manifest.itemsProcessed || progress.manifest.itemsSucceeded || itemsProcessed;
-          itemsDownloaded = progress.manifest.itemsDownloaded || itemsDownloaded;
+        if (progress && progress.manifest) {
+          const m = progress.manifest;
+          const computedProcessed = (m.itemsSucceeded || 0) + (m.itemsFailed || 0) + (m.itemsSkipped || 0);
+          itemsProcessed = m.itemsProcessed ?? (computedProcessed > 0 ? computedProcessed : itemsProcessed);
+          itemsDownloaded = m.itemsDownloaded ?? (Array.isArray(m.downloadedFiles) ? m.downloadedFiles.length : itemsDownloaded);
         }
         await this.cloudClient.updateRunProgress(run.id, {
           items_processed: itemsProcessed,
@@ -522,7 +524,8 @@ class RunnerDaemon {
         runTargetDir,
         runner,
         sanitizedPortalName,
-        uploadToCloud
+        uploadToCloud,
+        result?.downloadedFiles || []
       );
       itemsDownloaded = Math.max(itemsDownloaded, newArtifacts.length);
 
@@ -703,13 +706,91 @@ class RunnerDaemon {
    * @param {string} [portalName]
    * @returns {Promise<Array<any>>} List of registered artifacts
    */
-  async collectAndRegisterArtifacts(runId, targetDir, runner, portalName = null, uploadToCloud = false) {
+  async collectAndRegisterArtifacts(runId, targetDir, runner, portalName = null, uploadToCloud = false, manifestDownloads = []) {
+    const registeredHashesInRun = new Set();
+    const registered = [];
+
+    // 1. Process files explicitly recorded in manifestDownloads
+    if (Array.isArray(manifestDownloads) && manifestDownloads.length > 0) {
+      for (const dl of manifestDownloads) {
+        const filePath = dl.path;
+        if (!filePath || !fs.existsSync(filePath)) continue;
+
+        const hash = dl.fileHash || computeSha256(filePath);
+        if (registeredHashesInRun.has(hash)) continue;
+
+        let finalPath = filePath;
+        // Ensure file is copied to targetDir if not already in targetDir
+        if (targetDir && !filePath.startsWith(targetDir)) {
+          if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+          }
+          const destName = dl.filename || path.basename(filePath);
+          const destPath = path.join(targetDir, destName);
+          if (filePath !== destPath && !fs.existsSync(destPath)) {
+            try {
+              fs.copyFileSync(filePath, destPath);
+              finalPath = destPath;
+            } catch (copyErr) {
+              this.logger.warn(`Could not copy artifact to targetDir: ${copyErr.message}`);
+            }
+          } else if (fs.existsSync(destPath)) {
+            finalPath = destPath;
+          }
+        }
+
+        const sizeBytes = dl.sizeBytes || (fs.existsSync(finalPath) ? fs.statSync(finalPath).size : 0);
+        const fileName = dl.filename || path.basename(finalPath);
+
+        this.artifactTracker.recordHash(hash);
+        registeredHashesInRun.add(hash);
+
+        let cloudStoragePath = null;
+        if (uploadToCloud) {
+          try {
+            this.logger.info(`[Hybrid Storage] Uploading artifact to cloud: ${fileName}`);
+            const uploadRes = await this.cloudClient.uploadArtifact(runId, finalPath, {
+              file_name: fileName,
+              file_size_bytes: sizeBytes,
+              sha256_hash: hash,
+            });
+            cloudStoragePath = uploadRes?.cloud_storage_path || uploadRes?.path || `wf_artifacts/${runId}/${fileName}`;
+            this.logger.success(`[Hybrid Storage] Uploaded to cloud storage: ${cloudStoragePath}`);
+          } catch (uploadErr) {
+            this.logger.warn(`[Hybrid Storage] Cloud upload failed: ${uploadErr.message}. Registering as local artifact.`);
+          }
+        }
+
+        try {
+          const registeredArtifact = await this.cloudClient.registerArtifact(runId, {
+            file_name: fileName,
+            file_size_bytes: sizeBytes,
+            sha256_hash: hash,
+            storage_path: finalPath,
+            cloud_storage_path: cloudStoragePath,
+            item_metadata: {
+              source: 'desktop-runner',
+              run_id: runId,
+              portal: portalName || 'DefaultPortal',
+              discovered_at: new Date().toISOString(),
+              uploaded_to_cloud: Boolean(cloudStoragePath),
+              item_key: dl.itemKey || null,
+              category: dl.category || null,
+            },
+          });
+          this.logger.success(`Registered artifact: ${fileName} [SHA-256: ${hash.substring(0, 10)}...] (Storage: ${cloudStoragePath ? 'Cloud' : 'Local'})`);
+          registered.push(registeredArtifact);
+        } catch (err) {
+          this.logger.warn(`Failed to register artifact in cloud: ${err.message}`);
+        }
+      }
+    }
+
+    // 2. Scan directoriesToScan as fallback for any newly created files whose hash is not yet in registeredHashesInRun
     const directoriesToScan = new Set();
     if (fs.existsSync(targetDir)) directoriesToScan.add(targetDir);
     if (runner?.runsDir && fs.existsSync(runner.runsDir)) directoriesToScan.add(runner.runsDir);
     if (runner?.downloadsDir && fs.existsSync(runner.downloadsDir)) directoriesToScan.add(runner.downloadsDir);
-
-    const registered = [];
 
     for (const dir of directoriesToScan) {
       const files = this.artifactTracker.scanDirectory(dir);
@@ -719,16 +800,23 @@ class RunnerDaemon {
           continue;
         }
 
+        const fileHash = computeSha256(fileRecord.filePath);
+        if (registeredHashesInRun.has(fileHash)) {
+          continue;
+        }
+
         const artifactResult = this.artifactTracker.processAndSaveArtifact(
           fileRecord.filePath,
           targetDir,
           fileRecord.fileName
         );
 
-        if (artifactResult.isDuplicate) {
+        if (artifactResult.isDuplicate || registeredHashesInRun.has(artifactResult.hash)) {
           this.logger.info(`[Deduplication] Skipping duplicate file: ${artifactResult.fileName} (SHA-256: ${artifactResult.hash.substring(0, 12)}...)`);
           continue;
         }
+
+        registeredHashesInRun.add(artifactResult.hash);
 
         let cloudStoragePath = null;
         if (uploadToCloud) {

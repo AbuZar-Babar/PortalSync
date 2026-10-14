@@ -529,7 +529,10 @@ class ArtifactDownloadManager {
     try {
       const files = fs.readdirSync(this.downloadsDir)
         .filter(f => !f.endsWith('.crdownload') && !f.endsWith('.tmp'));
-      manifest.downloadedFiles = files.map(f => {
+      if (!Array.isArray(manifest.downloadedFiles)) {
+        manifest.downloadedFiles = [];
+      }
+      for (const f of files) {
         const raw = path.join(this.downloadsDir, f);
         const stored = this.processAndStoreDownload(
           raw,
@@ -538,8 +541,11 @@ class ArtifactDownloadManager {
           activeItemContext?.fields || {}
         );
         try { fs.unlinkSync(raw); } catch {}
-        return stored || { filename: f, path: raw, sizeBytes: fs.existsSync(raw) ? fs.statSync(raw).size : 0 };
-      });
+        const itemToAdd = stored || { filename: f, path: raw, sizeBytes: fs.existsSync(raw) ? fs.statSync(raw).size : 0 };
+        if (!manifest.downloadedFiles.some(existing => (existing.fileHash && existing.fileHash === itemToAdd.fileHash) || existing.path === itemToAdd.path)) {
+          manifest.downloadedFiles.push(itemToAdd);
+        }
+      }
     } catch {}
   }
 }

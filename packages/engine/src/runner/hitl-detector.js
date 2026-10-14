@@ -207,7 +207,13 @@ async function waitFor2FAResolution(page, options = {}, maybePollMs) {
     // Wait poll interval
     await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
 
-    // Check if user authenticated
+    // Evaluate 2FA challenge FIRST; continue waiting if still present
+    const challenge = await detect2FAChallenge(page);
+    if (challenge.detected) {
+      continue;
+    }
+
+    // If 2FA challenge is no longer present, verify checkAuth or resolve
     if (checkAuth) {
       try {
         const isAuth = await checkAuth(page);
@@ -219,11 +225,7 @@ async function waitFor2FAResolution(page, options = {}, maybePollMs) {
           };
         }
       } catch {}
-    }
-
-    // Check if 2FA challenge is no longer present
-    const challenge = await detect2FAChallenge(page);
-    if (!challenge.detected) {
+    } else {
       return {
         resolved: true,
         timedOut: false,

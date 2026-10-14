@@ -968,15 +968,19 @@ class ItemExecutionHandler {
         // Close only auxiliary tabs opened by item actions (e.g. target="_blank" download links)
         // NEVER close the dashboard tab or pre-existing tabs
         try {
-          const browserPages = await page.browser().pages();
-          for (const p of browserPages) {
-            if (p !== page && !p.isClosed()) {
-              const pUrl = p.url() || '';
-              const isDashboard = pUrl.includes('127.0.0.1:3000') || pUrl.includes('localhost:3000') || pUrl.includes('/app#');
-              const wasInitial = initialPageUrls && initialPageUrls.has(pUrl);
-              if (!isDashboard && !wasInitial) {
-                logger.info('[Loop Runner] Closing auxiliary tab opened during item replay: ' + pUrl);
-                await p.close().catch(() => { });
+          const activeReplayEngine = runner?.replayEngine || this.replayEngine;
+          if (activeReplayEngine?.tabManager) {
+            await activeReplayEngine.tabManager.cleanupAuxiliaryTabs();
+          } else {
+            const browserPages = await page.browser().pages();
+            for (const p of browserPages) {
+              if (p !== page && !p.isClosed()) {
+                const pUrl = p.url() || '';
+                const isDashboard = pUrl.includes('127.0.0.1:3000') || pUrl.includes('localhost:3000') || pUrl.includes('/app#') || pUrl.includes('/dashboard');
+                const wasInitial = initialPageUrls && initialPageUrls.has(pUrl);
+                if (!isDashboard && !wasInitial) {
+                  await p.close().catch(() => {});
+                }
               }
             }
           }
@@ -1184,10 +1188,20 @@ class ItemExecutionHandler {
 
       // Attempt recovery
       try {
-        const browserPages = await page.browser().pages();
-        for (const p of browserPages) {
-          if (p !== page && !p.isClosed()) {
-            await p.close().catch(() => { });
+        const activeReplayEngine = runner?.replayEngine || this.replayEngine;
+        if (activeReplayEngine?.tabManager) {
+          await activeReplayEngine.tabManager.cleanupAuxiliaryTabs();
+        } else {
+          const browserPages = await page.browser().pages();
+          for (const p of browserPages) {
+            if (p !== page && !p.isClosed()) {
+              const pUrl = p.url() || '';
+              const isDashboard = pUrl.includes('127.0.0.1:3000') || pUrl.includes('localhost:3000') || pUrl.includes('/app#') || pUrl.includes('/dashboard');
+              const wasInitial = initialPageUrls && initialPageUrls.has(pUrl);
+              if (!isDashboard && !wasInitial) {
+                await p.close().catch(() => {});
+              }
+            }
           }
         }
         await page.bringToFront().catch(() => { });

@@ -114,6 +114,7 @@ class LoopReplayRunner {
     this.workflowSlug = rawSlug.replace(/[^a-z0-9_-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'workflow';
     this.dateStr = new Date().toISOString().split('T')[0];
     this.workflowDownloadsBaseDir = path.resolve(process.cwd(), 'downloads', this.workflowSlug);
+    this._hasCustomStructuredDir = Boolean(options.structuredDownloadsDir);
     this.structuredDownloadsDir = options.structuredDownloadsDir ? path.resolve(options.structuredDownloadsDir) : path.resolve(this.workflowDownloadsBaseDir, this.dateStr);
 
     // Primary Run/ hierarchy: Run/<YYYY-MM-DD_HH-mm-ss>/<portalDomain>/<Category>/
@@ -269,6 +270,8 @@ class LoopReplayRunner {
       this.loopStateCoordinator.rowFilter = this.rowFilter;
       this.loopStateCoordinator.loopLimit = this.loopLimit;
       this.loopStateCoordinator.itemMode = this.itemMode;
+      this.loopStateCoordinator.maxItems = this.maxItems;
+      this.loopStateCoordinator.maxItemRetries = this.maxItemRetries;
     }
   }
   initDirectories() {
@@ -347,7 +350,9 @@ class LoopReplayRunner {
 
   writeLoopCheckpoint(manifest, currentItemIndex = null, currentActionOffset = null, currentPage = 1, currentPageItemIndex = null, activeItem = null) {
     this._syncSubManagers();
-    return this.loopStateCoordinator.writeLoopCheckpoint(manifest, currentItemIndex, currentActionOffset, currentPage, currentPageItemIndex, activeItem);
+    const result = this.loopStateCoordinator.writeLoopCheckpoint(manifest, currentItemIndex, currentActionOffset, currentPage, currentPageItemIndex, activeItem);
+    this._lastCursor = this.loopStateCoordinator._lastCursor;
+    return result;
   }
 
   loadLoopCheckpoint(workflow) {
@@ -703,7 +708,11 @@ class LoopReplayRunner {
             const downloaded = await this.waitForDownload(beforeStepFiles, downloadWaitMs);
             if (downloaded.length) {
               stepResult.downloadedFiles = downloaded.map(dl => {
-                return this.processAndStoreDownload(dl.path, step.selector || `step_${i + 1}`, `Step #${i + 1}`) || dl;
+                const stored = this.processAndStoreDownload(dl.path, step.selector || `step_${i + 1}`, `Step #${i + 1}`) || dl;
+                if (!manifest.downloadedFiles.some(existing => (existing.fileHash && existing.fileHash === stored.fileHash) || existing.path === stored.path)) {
+                  manifest.downloadedFiles.push(stored);
+                }
+                return stored;
               });
             }
           }
@@ -740,15 +749,25 @@ class LoopReplayRunner {
       if (fs.existsSync(this.downloadsDir)) {
         const files = fs.readdirSync(this.downloadsDir)
           .filter(file => !file.endsWith('.crdownload') && !file.endsWith('.tmp'));
-        manifest.downloadedFiles = files.map(file => {
+        for (const file of files) {
           const rawPath = path.join(this.downloadsDir, file);
-          const stored = this.processAndStoreDownload(rawPath, file, file);
-          return stored || {
+          const fallbackContext = this._activeItemContext || null;
+          const stored = this.processAndStoreDownload(
+            rawPath,
+            fallbackContext?.itemKey || file,
+            fallbackContext?.itemLabel || file,
+            fallbackContext?.fields || {}
+          );
+          try { fs.unlinkSync(rawPath); } catch {}
+          const itemToAdd = stored || {
             filename: file,
             path: rawPath,
-            sizeBytes: fs.statSync(rawPath).size
+            sizeBytes: fs.existsSync(rawPath) ? fs.statSync(rawPath).size : 0
           };
-        });
+          if (!manifest.downloadedFiles.some(existing => (existing.fileHash && existing.fileHash === itemToAdd.fileHash) || existing.path === itemToAdd.path)) {
+            manifest.downloadedFiles.push(itemToAdd);
+          }
+        }
       }
 
       manifest.status = this.isAborted ? 'STOPPED' : 'COMPLETED';
@@ -778,6 +797,9 @@ class LoopReplayRunner {
         } catch { }
         this._replayTargetCreatedListener = null;
       }
+      if (this.artifactDownloadManager) {
+        this.artifactDownloadManager.teardownDownloadInterception(this.replayEngine?.browser);
+      }
       if (this.replayEngine) {
         await this.replayEngine.disconnect().catch(() => { });
       }
@@ -801,7 +823,9 @@ class LoopReplayRunner {
       const rawSlug = (this.workflowName || this.workflowId || 'workflow').toLowerCase();
       this.workflowSlug = rawSlug.replace(/[^a-z0-9_-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'workflow';
       this.workflowDownloadsBaseDir = path.resolve(process.cwd(), 'downloads', this.workflowSlug);
-      this.structuredDownloadsDir = path.resolve(this.workflowDownloadsBaseDir, this.dateStr);
+      if (!this._hasCustomStructuredDir) {
+        this.structuredDownloadsDir = path.resolve(this.workflowDownloadsBaseDir, this.dateStr);
+      }
 
       const targetUrl = workflow.targetUrl || workflow.startUrl || (workflow.steps && workflow.steps[0] && workflow.steps[0].url) || '';
       if (targetUrl && (!this.portalDomain || this.portalDomain === 'customerportal.usoil.com')) {
@@ -1653,22 +1677,25 @@ class LoopReplayRunner {
       if (fs.existsSync(this.downloadsDir)) {
         const files = fs.readdirSync(this.downloadsDir)
           .filter(file => !file.endsWith('.crdownload') && !file.endsWith('.tmp'));
-        manifest.downloadedFiles = files.map(file => {
+        for (const file of files) {
           const rawPath = path.join(this.downloadsDir, file);
           const fallbackContext = this._activeItemContext || null;
           const stored = this.processAndStoreDownload(
             rawPath,
-            fallbackContext?.itemKey || null,
-            fallbackContext?.itemLabel || null,
+            fallbackContext?.itemKey || file,
+            fallbackContext?.itemLabel || file,
             fallbackContext?.fields || {}
           );
           try { fs.unlinkSync(rawPath); } catch {}
-          return stored || {
+          const itemToAdd = stored || {
             filename: file,
             path: rawPath,
             sizeBytes: fs.existsSync(rawPath) ? fs.statSync(rawPath).size : 0
           };
-        });
+          if (!manifest.downloadedFiles.some(existing => (existing.fileHash && existing.fileHash === itemToAdd.fileHash) || existing.path === itemToAdd.path)) {
+            manifest.downloadedFiles.push(itemToAdd);
+          }
+        }
       }
 
       manifest.status = this.isAborted ? 'STOPPED' : (manifest.itemsFailed > 0 ? 'COMPLETED_WITH_ERRORS' : 'COMPLETED');
@@ -1723,6 +1750,9 @@ class LoopReplayRunner {
         this._replayTargetCreatedListener = null;
       }
 
+      if (this.artifactDownloadManager) {
+        this.artifactDownloadManager.teardownDownloadInterception(this.replayEngine?.browser);
+      }
       if (this.replayEngine) {
         await this.replayEngine.disconnect().catch(() => { });
       }

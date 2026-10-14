@@ -172,6 +172,24 @@ async function isSessionAuthenticated(page, loginSeq = {}, options = {}) {
       return false;
     }
 
+    const is2faUrl = /\/(2fa|mfa|two-factor|two-step|challenge|otp|verify|verification|security-code)\b/i.test(currentUrl);
+    if (is2faUrl) return false;
+    const hasVisibleOtpInput = await page.evaluate(() => {
+      const otpSelectors = [
+        'input[autocomplete="one-time-code"]',
+        'input[name*="otp" i]', 'input[id*="otp" i]',
+        'input[name*="2fa" i]', 'input[id*="2fa" i]',
+        'input[name*="mfa" i]', 'input[id*="mfa" i]',
+        'input[name*="verification" i]', 'input[id*="verification" i]',
+        'iframe#duo_iframe', 'iframe[src*="duosecurity.com"]'
+      ];
+      return otpSelectors.some(sel => {
+        const el = document.querySelector(sel);
+        return el && (el.offsetParent !== null || el.tagName === 'IFRAME');
+      });
+    }).catch(() => false);
+    if (hasVisibleOtpInput) return false;
+
     // 2. Check URL: if the current URL clearly is on an authenticated route vs login route
     const isLoginUrl = /\/(login|signin|auth)\b/i.test(currentUrl) || /#(.*)\/(login|signin)/i.test(currentUrl);
     const isAuthenticatedUrl = /\/(home|dashboard|my-reports|reports|invoices|portal|app|workspace|overview)\b/i.test(currentUrl) ||

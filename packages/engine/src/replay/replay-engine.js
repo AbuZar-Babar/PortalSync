@@ -220,7 +220,50 @@ class ReplayEngine extends EventEmitter {
     if (!this.page || !this.botConfig?.stealth) return;
     const stealth = this.botConfig.stealth;
 
+    if (!this._stealthPages) {
+      this._stealthPages = new WeakSet();
+    }
+
     try {
+      if (!this._stealthPages.has(this.page)) {
+        if (typeof this.page.evaluateOnNewDocument === 'function') {
+          await this.page.evaluateOnNewDocument((cfg) => {
+            if (cfg.maskWebdriver) {
+              Object.defineProperty(navigator, 'webdriver', {
+                get: () => undefined,
+                configurable: true
+              });
+            }
+
+            if (cfg.emulateChromeRuntime) {
+              if (!window.chrome) {
+                window.chrome = {
+                  runtime: {},
+                  app: {},
+                  csi: () => {},
+                  loadTimes: () => {}
+                };
+              }
+            }
+
+            if (cfg.emulatePlugins) {
+              if (navigator.plugins.length === 0) {
+                const mockPlugins = [
+                  { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+                  { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
+                  { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' }
+                ];
+                Object.defineProperty(navigator, 'plugins', {
+                  get: () => mockPlugins,
+                  configurable: true
+                });
+              }
+            }
+          }, stealth).catch(() => {});
+        }
+        this._stealthPages.add(this.page);
+      }
+
       await this.page.evaluate((cfg) => {
         if (cfg.maskWebdriver) {
           // Remove navigator.webdriver flag
@@ -765,114 +808,17 @@ class ReplayEngine extends EventEmitter {
         return { success: true, type: 'CLICK', skipped: true };
       }
 
-      const targetHandle = await itemHandle.evaluateHandle((item, target) => {
-        if (!item) return null;
+      const targetHandle = await ActionDispatcher.resolveTargetWithinItem(itemHandle, action.target || action.fingerprint);
 
-        const visible = (el) => {
-          if (!el || !(el instanceof Element)) return false;
-          const style = getComputedStyle(el);
-          const rect = el.getBoundingClientRect();
-          return style.display !== 'none' && style.visibility !== 'hidden' &&
-            rect.width > 0 && rect.height > 0;
-        };
-
-        const normalize = (value) => String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
-        const fingerprint = target?.fingerprint || {};
-        const candidates = Array.isArray(target?.candidates) ? target.candidates : [];
-
-        const score = (el) => {
-          if (!visible(el)) return -1;
-          let value = 0;
-          if (fingerprint.tagName && el.tagName.toLowerCase() === String(fingerprint.tagName).toLowerCase()) value += 0.25;
-          if (fingerprint.role && el.getAttribute('role') === fingerprint.role) value += 0.2;
-          if (fingerprint.ariaLabel && el.getAttribute('aria-label') === fingerprint.ariaLabel) value += 0.2;
-          const targetText = normalize(fingerprint.text);
-          const elementText = normalize(el.textContent);
-          if (targetText && elementText === targetText) value += 0.35;
-          else if (targetText && elementText.includes(targetText)) value += 0.25;
-          if (fingerprint.id && el.id === fingerprint.id) value += 0.2;
-          return value;
-        };
-
-        // Prefer recorded CSS selectors, but only within this item.
-        for (const candidate of candidates) {
-          if (!candidate?.value) continue;
-          const value = candidate.value;
-          const looksXPath = value.startsWith('//') || value.startsWith('(');
-          if (looksXPath) continue;
-
-          // :scope represents the discovered item itself. querySelectorAll(':scope')
-          // is not a reliable way to return the context element across browser
-          // implementations, so handle it explicitly.
-          if (value === ':scope') return visible(item) ? item : null;
-
-          try {
-            const matches = Array.from(item.querySelectorAll(value)).filter(visible);
-            if (matches.length === 1) return matches[0];
-            if (matches.length > 1) {
-              return matches.sort((a, b) => score(b) - score(a))[0];
-            }
-          } catch {}
-        }
-
-        // Fingerprint fallback scoped to the item.
-        const tag = fingerprint.tagName && fingerprint.tagName !== 'unknown'
-          ? fingerprint.tagName.toLowerCase()
-          : '*';
-        let pool = Array.from(item.querySelectorAll(tag)).filter(visible);
-        if (!pool.length) pool = Array.from(item.querySelectorAll('*')).filter(visible);
-
-        // A generalized target may intentionally point at the item itself.
-        // Include the context item in fingerprint fallback when it matches.
-        if (tag === '*' || item.tagName.toLowerCase() === tag) {
-          if (visible(item) && score(item) >= 0) pool.unshift(item);
-        }
-
-        if (fingerprint.ariaLabel) {
-          const ariaMatches = pool.filter(el => el.getAttribute('aria-label') === fingerprint.ariaLabel);
-          if (ariaMatches.length) pool = ariaMatches;
-        }
-
-        const targetText = normalize(fingerprint.text);
-        if (targetText && !target?.scope) {
-          const textMatches = pool.filter(el => normalize(el.textContent) === targetText);
-          if (textMatches.length) pool = textMatches;
-        }
-
-        pool.sort((a, b) => score(b) - score(a));
-        if (pool[0]) return pool[0];
-
-        // Fallback: If no candidate matched, find the primary clickable link/button or return item
-        const fallbackClickable = item.querySelector('a[href], button, [role="button"]');
-        if (fallbackClickable && visible(fallbackClickable)) return fallbackClickable;
-
-        return visible(item) ? item : null;
-      }, action.target || action.fingerprint);
-
-      const elementHandle = targetHandle.asElement();
+      const elementHandle = targetHandle ? (typeof targetHandle.asElement === 'function' ? targetHandle.asElement() : targetHandle) : null;
       if (!elementHandle) {
-        await targetHandle.dispose().catch(() => {});
+        if (targetHandle) await targetHandle.dispose().catch(() => {});
         throw new Error(`Could not resolve action target inside collection item #${index + 1}`);
       }
 
       try {
-        const actionToDispatch = { ...action };
-        if (actionToDispatch.type === 'TYPE' && typeof actionToDispatch.value === 'string') {
-          const match = actionToDispatch.value.match(/^{{secret:([^}]+)}}$/);
-          if (match && this.secretResolver) {
-            actionToDispatch.value = await this.secretResolver(match[1]);
-          }
-        }
-
-        const nextAction = this.recording?.actions?.[index + 1];
-        const isNextActionOption = Boolean(
-          nextAction && (
-            nextAction.target?.candidates?.some(c => c.value && (c.value.includes('option') || c.value.includes('pseudo-checkbox'))) ||
-            nextAction.target?.fingerprint?.tagName === 'mat-option' ||
-            nextAction.target?.fingerprint?.tagName === 'mat-pseudo-checkbox' ||
-            nextAction.target?.fingerprint?.role === 'option'
-          )
-        );
+        const actionToDispatch = await ActionDispatcher.resolveActionSecrets(action, this.secretResolver, index);
+        const isNextActionOption = ActionDispatcher.isNextActionOption(this.recording, index + 1);
 
         await elementHandle.scrollIntoViewIfNeeded().catch(() => {});
         await this._waitWhilePaused();
