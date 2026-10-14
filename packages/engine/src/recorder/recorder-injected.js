@@ -24,20 +24,28 @@
   let isPaused = Boolean(window.__workflowCapturePaused);
 
   function isRecorderUiEvent(event) {
-    const badge = document.getElementById('__workflow_capture_badge__');
-    const hud = document.getElementById('__reflow_recorder_hud__');
-    const overlay = document.getElementById('__reflow_hover_overlay__');
-    const target = event?.target;
-    if (target === badge || target?.closest?.('#__workflow_capture_badge__')) return true;
-    if (target === hud || target?.closest?.('#__reflow_recorder_hud__')) return true;
-    if (target === overlay || target?.closest?.('#__reflow_hover_overlay__')) return true;
-    if (target?.closest?.('[data-reflow-ignore="true"]')) return true;
+    if (!event) return false;
     try {
-      const path = event?.composedPath?.() || [];
-      if (badge && path.includes(badge)) return true;
-      if (hud && path.includes(hud)) return true;
-      if (overlay && path.includes(overlay)) return true;
-      if (path.some(el => el && el.getAttribute && el.getAttribute('data-reflow-ignore') === 'true')) return true;
+      const badge = document.getElementById('__workflow_capture_badge__');
+      const hud = document.getElementById('__reflow_recorder_hud__');
+      const overlay = document.getElementById('__reflow_hover_overlay__');
+      const target = event.target;
+      if (!target) return false;
+      if (target === badge || (typeof target.closest === 'function' && target.closest('#__workflow_capture_badge__'))) return true;
+      if (target === hud || (typeof target.closest === 'function' && target.closest('#__reflow_recorder_hud__'))) return true;
+      if (target === overlay || (typeof target.closest === 'function' && target.closest('#__reflow_hover_overlay__'))) return true;
+      if (typeof target.closest === 'function' && target.closest('[data-reflow-ignore="true"]')) return true;
+      if (typeof event.composedPath === 'function') {
+        const path = event.composedPath() || [];
+        if (badge && path.includes(badge)) return true;
+        if (hud && path.includes(hud)) return true;
+        if (overlay && path.includes(overlay)) return true;
+        for (const el of path) {
+          if (el && typeof el.getAttribute === 'function' && el.getAttribute('data-reflow-ignore') === 'true') {
+            return true;
+          }
+        }
+      }
     } catch {
       return false;
     }
@@ -907,8 +915,7 @@
     activeInputBuffer = null;
 
     if (isPaused) return;
-
-    if (!element || !document.body || !document.body.contains(element)) return;
+    if (!element) return;
 
     // Capture the actual typed value (do not redact password)
     const finalValue = value;
@@ -1642,83 +1649,105 @@
   }
 
   function handleFieldCaptureClick(event) {
-    const targetEl = event.target;
-    if (!targetEl || isRecorderUiEvent(event)) return;
+    try {
+      const targetEl = event.target;
+      if (!targetEl || isRecorderUiEvent(event)) return;
 
-    let targetFingerprint = null;
-    if (window.SelectorResolver && typeof window.SelectorResolver.captureTarget === 'function') {
-      try {
-        targetFingerprint = window.SelectorResolver.captureTarget(targetEl);
-      } catch (err) {
-        console.warn('[Workflow Capture] captureTarget error:', err);
+      let targetFingerprint = null;
+      if (window.SelectorResolver && typeof window.SelectorResolver.captureTarget === 'function') {
+        try {
+          targetFingerprint = window.SelectorResolver.captureTarget(targetEl);
+        } catch (err) {
+          console.warn('[Workflow Capture] captureTarget error:', err);
+        }
       }
-    }
-    if (!targetFingerprint || !targetFingerprint.candidates || targetFingerprint.candidates.length === 0) {
-      targetFingerprint = buildFallbackTarget(targetEl);
-    }
+      if (!targetFingerprint || !targetFingerprint.candidates || targetFingerprint.candidates.length === 0) {
+        targetFingerprint = buildFallbackTarget(targetEl);
+      }
 
-    const sampleText = (targetEl.value || targetEl.innerText || targetEl.textContent || '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 120);
+      const sampleText = (targetEl.value || targetEl.innerText || targetEl.textContent || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 120);
 
-    const inferredName = inferFieldName(targetEl);
-    const chosenFieldName = (window.prompt('Column name for Excel export:', inferredName) || inferredName).trim();
+      const inferredName = inferFieldName(targetEl);
+      const chosenFieldName = (inferredName || 'Extracted_Field').trim();
 
-    const actionPayload = {
-      type: 'EXTRACT_TEXT',
-      name: 'Extract ' + chosenFieldName,
-      elementName: 'Extract ' + chosenFieldName,
-      fieldName: chosenFieldName,
-      columnName: chosenFieldName,
-      sampleValue: sampleText,
-      value: chosenFieldName,
-      timestamp: Date.now(),
-      url: window.location.href,
-      target: targetFingerprint
-    };
-
-    if (typeof window.__recordAction === 'function') {
-      window.__recordAction(actionPayload);
-    } else {
-      emitAction('EXTRACT_TEXT', targetEl, {
+      const actionPayload = {
+        type: 'EXTRACT_TEXT',
+        name: 'Extract ' + chosenFieldName,
+        elementName: 'Extract ' + chosenFieldName,
         fieldName: chosenFieldName,
         columnName: chosenFieldName,
         sampleValue: sampleText,
-        value: chosenFieldName
-      });
-    }
+        value: chosenFieldName,
+        timestamp: Date.now(),
+        url: window.location.href,
+        target: targetFingerprint
+      };
 
-    flashElementCapturedBadge(targetEl, chosenFieldName);
+      if (typeof window.__recordAction === 'function') {
+        window.__recordAction(actionPayload);
+      } else {
+        emitAction('EXTRACT_TEXT', targetEl, {
+          fieldName: chosenFieldName,
+          columnName: chosenFieldName,
+          sampleValue: sampleText,
+          value: chosenFieldName
+        });
+      }
+
+      flashElementCapturedBadge(targetEl, chosenFieldName);
+    } catch (err) {
+      console.warn('[Workflow Capture] handleFieldCaptureClick error:', err);
+    } finally {
+      // Guaranteed reset back to ACTION mode so subsequent interactions are captured normally
+      window.__reflowRecorderMode = 'ACTION';
+      try {
+        if (typeof document !== 'undefined' && document.documentElement) {
+          document.documentElement.style.cursor = '';
+        }
+        const hud = document.getElementById('__reflow_recorder_hud__');
+        if (hud && hud.shadowRoot) {
+          const btnAction = hud.shadowRoot.getElementById('btnAction');
+          const btnCapture = hud.shadowRoot.getElementById('btnCapture');
+          if (btnAction) btnAction.classList.add('active-action');
+          if (btnCapture) btnCapture.classList.remove('active-capture');
+        }
+        const hoverEl = document.getElementById('__reflow_hover_overlay__');
+        if (hoverEl && hoverEl.parentNode) hoverEl.remove();
+      } catch {}
+    }
   }
 
   function renderReflowRecorderHud() {
-    if (typeof window === 'undefined' || window !== window.top) return;
-    if (typeof document === 'undefined') return;
-    if (document.getElementById('__reflow_recorder_hud__')) return;
+    try {
+      if (typeof window === 'undefined' || window !== window.top) return;
+      if (typeof document === 'undefined') return;
+      if (document.getElementById('__reflow_recorder_hud__')) return;
 
-    const container = document.body || document.documentElement;
-    if (!container) return;
+      const container = document.body || document.documentElement;
+      if (!container) return;
 
-    window.__reflowRecorderMode = window.__reflowRecorderMode || 'ACTION';
+      window.__reflowRecorderMode = window.__reflowRecorderMode || 'ACTION';
 
-    const hud = document.createElement('div');
-    hud.id = '__reflow_recorder_hud__';
-    hud.setAttribute('data-reflow-ignore', 'true');
-    Object.assign(hud.style, {
-      position: 'fixed',
-      bottom: '18px',
-      right: '18px',
-      zIndex: '2147483647',
-      pointerEvents: 'auto'
-    });
-    hud.style.setProperty('position', 'fixed', 'important');
-    hud.style.setProperty('bottom', '18px', 'important');
-    hud.style.setProperty('right', '18px', 'important');
-    hud.style.setProperty('z-index', '2147483647', 'important');
+      const hud = document.createElement('div');
+      hud.id = '__reflow_recorder_hud__';
+      hud.setAttribute('data-reflow-ignore', 'true');
+      Object.assign(hud.style, {
+        position: 'fixed',
+        bottom: '18px',
+        right: '18px',
+        zIndex: '2147483647',
+        pointerEvents: 'auto'
+      });
+      hud.style.setProperty('position', 'fixed', 'important');
+      hud.style.setProperty('bottom', '18px', 'important');
+      hud.style.setProperty('right', '18px', 'important');
+      hud.style.setProperty('z-index', '2147483647', 'important');
 
-    const shadow = hud.attachShadow({ mode: 'open' });
-    shadow.innerHTML = `
+      const shadow = hud.attachShadow({ mode: 'open' });
+      shadow.innerHTML = `
       <style>
         :host {
           all: initial;
@@ -1803,87 +1832,90 @@
       </div>
     `;
 
-    const btnAction = shadow.getElementById('btnAction');
-    const btnCapture = shadow.getElementById('btnCapture');
-    const btnScrapeTable = shadow.getElementById('btnScrapeTable');
-    const toast = shadow.getElementById('hudToast');
+      const btnAction = shadow.getElementById('btnAction');
+      const btnCapture = shadow.getElementById('btnCapture');
+      const btnScrapeTable = shadow.getElementById('btnScrapeTable');
+      const toast = shadow.getElementById('hudToast');
 
-    const showToast = (msg, isError = false) => {
-      if (!toast) return;
-      toast.textContent = msg;
-      toast.style.background = isError ? '#ef4444' : '#059669';
-      toast.classList.add('visible');
-      setTimeout(() => toast.classList.remove('visible'), 2400);
-    };
-
-    const setMode = (mode) => {
-      window.__reflowRecorderMode = mode;
-      if (mode === 'CAPTURE_FIELD') {
-        btnCapture.classList.add('active-capture');
-        btnAction.classList.remove('active-action');
-        document.documentElement.style.cursor = 'crosshair';
-        showToast('Capture Field Mode: Click any value to extract');
-      } else {
-        btnAction.classList.add('active-action');
-        btnCapture.classList.remove('active-capture');
-        document.documentElement.style.cursor = '';
-        if (hoverOverlay && hoverOverlay.parentNode) hoverOverlay.remove();
-        activeHoverEl = null;
-      }
-    };
-
-    btnAction.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setMode('ACTION');
-    });
-
-    btnCapture.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setMode(window.__reflowRecorderMode === 'CAPTURE_FIELD' ? 'ACTION' : 'CAPTURE_FIELD');
-    });
-
-    btnScrapeTable.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const tableEl = detectPrimaryTable();
-      if (!tableEl) {
-        showToast('No table detected on current page', true);
-        return;
-      }
-
-      let targetFingerprint = null;
-      if (window.SelectorResolver && typeof window.SelectorResolver.captureTarget === 'function') {
-        try {
-          targetFingerprint = window.SelectorResolver.captureTarget(tableEl);
-        } catch {}
-      }
-      if (!targetFingerprint || !targetFingerprint.candidates || targetFingerprint.candidates.length === 0) {
-        targetFingerprint = buildFallbackTarget(tableEl);
-      }
-
-      const tablePayload = {
-        type: 'EXTRACT_TABLE',
-        name: 'Full Table Export',
-        elementName: 'Full Table Export',
-        fieldName: 'Full_Table_Export',
-        columnName: 'Full_Table_Export',
-        timestamp: Date.now(),
-        url: window.location.href,
-        target: targetFingerprint
+      const showToast = (msg, isError = false) => {
+        if (!toast) return;
+        toast.textContent = msg;
+        toast.style.background = isError ? '#ef4444' : '#059669';
+        toast.classList.add('visible');
+        setTimeout(() => toast.classList.remove('visible'), 2400);
       };
 
-      if (typeof window.__recordAction === 'function') {
-        window.__recordAction(tablePayload);
-      } else {
-        emitAction('EXTRACT_TABLE', tableEl, { fieldName: 'Full_Table_Export' });
-      }
+      const setMode = (mode) => {
+        window.__reflowRecorderMode = mode;
+        if (mode === 'CAPTURE_FIELD') {
+          btnCapture.classList.add('active-capture');
+          btnAction.classList.remove('active-action');
+          document.documentElement.style.cursor = 'crosshair';
+          showToast('Capture Field Mode: Click any value to extract');
+        } else {
+          btnAction.classList.add('active-action');
+          btnCapture.classList.remove('active-capture');
+          document.documentElement.style.cursor = '';
+          if (hoverOverlay && hoverOverlay.parentNode) hoverOverlay.remove();
+          activeHoverEl = null;
+        }
+      };
 
-      showToast('📋 Table Scrape Captured!');
-    });
+      btnAction.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setMode('ACTION');
+      });
 
-    container.appendChild(hud);
+      btnCapture.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setMode(window.__reflowRecorderMode === 'CAPTURE_FIELD' ? 'ACTION' : 'CAPTURE_FIELD');
+      });
+
+      btnScrapeTable.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const tableEl = detectPrimaryTable();
+        if (!tableEl) {
+          showToast('No table detected on current page', true);
+          return;
+        }
+
+        let targetFingerprint = null;
+        if (window.SelectorResolver && typeof window.SelectorResolver.captureTarget === 'function') {
+          try {
+            targetFingerprint = window.SelectorResolver.captureTarget(tableEl);
+          } catch {}
+        }
+        if (!targetFingerprint || !targetFingerprint.candidates || targetFingerprint.candidates.length === 0) {
+          targetFingerprint = buildFallbackTarget(tableEl);
+        }
+
+        const tablePayload = {
+          type: 'EXTRACT_TABLE',
+          name: 'Full Table Export',
+          elementName: 'Full Table Export',
+          fieldName: 'Full_Table_Export',
+          columnName: 'Full_Table_Export',
+          timestamp: Date.now(),
+          url: window.location.href,
+          target: targetFingerprint
+        };
+
+        if (typeof window.__recordAction === 'function') {
+          window.__recordAction(tablePayload);
+        } else {
+          emitAction('EXTRACT_TABLE', tableEl, { fieldName: 'Full_Table_Export' });
+        }
+
+        showToast('📋 Table Scrape Captured!');
+      });
+
+      container.appendChild(hud);
+    } catch (err) {
+      console.warn('[Workflow Capture] Failed to render Reflow HUD:', err);
+    }
   }
 
   const onPointerDown = (e) => {
@@ -2134,6 +2166,7 @@
   }
 
   window.__workflowCaptureSetPaused = setPaused;
+  window.__workflowCaptureFlushBuffer = flushInputBuffer;
   window.__workflowCaptureUpdateUI = (state = {}) => {
     if (state.count !== undefined) updateBadgeCount(Number(state.count) || 0);
     if (state.isPaused !== undefined) setPaused(state.isPaused);
@@ -2175,7 +2208,19 @@
   };
   window.addEventListener('mouseover', onGlobalMouseOver, true);
 
-  // Capture-phase listeners on window intercept all events cleanly without document duplication
+  // Guarantee interception on document for frameworks that bind to document or stop bubbling
+  if (typeof document !== 'undefined') {
+    document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('mousedown', onMouseDown, true);
+    document.addEventListener('click', onClick, true);
+    document.addEventListener('mouseup', onMouseUp, true);
+    document.addEventListener('pointerup', onPointerUp, true);
+    document.addEventListener('input', handleInput, true);
+    document.addEventListener('change', handleChange, true);
+    document.addEventListener('blur', handleBlur, true);
+    document.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('scroll', handleScroll, { capture: true, passive: true });
+  }
 
   // Direct element listener binding for DevExpress / dynamic ERP toolbars
   let lastToolbarScan = 0;
@@ -2230,8 +2275,8 @@
   });
 
   const renderAllRecorderUi = () => {
-    renderRecordingBadge();
-    renderReflowRecorderHud();
+    try { renderRecordingBadge(); } catch (err) { console.warn('[Workflow Capture] renderRecordingBadge error:', err); }
+    try { renderReflowRecorderHud(); } catch (err) { console.warn('[Workflow Capture] renderReflowRecorderHud error:', err); }
   };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', renderAllRecorderUi);

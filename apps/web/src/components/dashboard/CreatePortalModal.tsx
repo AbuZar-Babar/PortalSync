@@ -341,7 +341,7 @@ export function CreatePortalModal({
         }
 
         // If user finished in Chrome floating banner or bridge signaled completion
-        if (data.completedRecording || (!data.isRecording && data.actions && data.actions.length > 0)) {
+        if (data.completedRecording) {
           setCapturedRecipe(data.recipe || {
             metadata: {
               name: recordName || data.name || 'Recorded Workflow',
