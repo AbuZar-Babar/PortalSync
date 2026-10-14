@@ -1,14 +1,14 @@
 'use client';
 
 const TICKER_ITEMS = [
-  'Works in Google Chrome',
-  'No Extensions Needed',
-  'Never Breaks on Site Changes',
-  '100% Automatic Replay',
-  'Works in Google Chrome',
-  'No Extensions Needed',
-  'Never Breaks on Site Changes',
-  '100% Automatic Replay',
+  '24x Faster Than Manual Work',
+  'Zero Code or Scripts Required',
+  'Self-Healing Selector Fallbacks',
+  'Works on Any Web Portal & ERP',
+  '100% Local Privacy & File Control',
+  'Zero Chrome Extensions Needed',
+  'Auto-Detects Tables & Form Rows',
+  'Duplicate Download Prevention',
 ];
 
 export default function RunningTicker() {

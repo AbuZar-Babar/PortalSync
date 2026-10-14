@@ -13,8 +13,39 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ReFlow — Autonomous Browser Automation & RPA Platform",
-  description: "Hybrid cloud and local Chrome CDP workflow automation with 90-second Human-in-the-Loop 2FA recovery and SHA-256 artifact verification.",
+  title: {
+    default: "ReFlow — Autonomous Browser Automation & RPA Platform",
+    template: "%s | ReFlow",
+  },
+  description: "Automate your repetitive browser routines in 60 seconds. ReFlow silently records clicks in Chrome, automatically detects tables, and replays tasks 24x faster with self-healing selectors and 100% local privacy.",
+  keywords: [
+    "browser automation",
+    "RPA",
+    "Chrome automation",
+    "web scraper",
+    "workflow capture",
+    "invoice download automation",
+    "self-healing selectors",
+    "local automation runner",
+    "no-code browser RPA"
+  ],
+  authors: [{ name: "ReFlow Engineering" }],
+  creator: "ReFlow",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://reflow.app",
+    title: "ReFlow — Autonomous Browser Automation & RPA Platform",
+    description: "Automate repetitive browser tasks 24x faster. Record once in Chrome, replay automatically with zero code and self-healing selectors.",
+    siteName: "ReFlow",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ReFlow — Autonomous Browser Automation & RPA Platform",
+    description: "Automate repetitive browser tasks 24x faster. Record once in Chrome, replay automatically with zero code.",
+    creator: "@reflow_app",
+  },
+  metadataBase: new URL("https://reflow.app"),
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -82,7 +113,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 z-50 px-4 py-2 bg-white text-zinc-950 font-mono text-xs font-bold rounded-full shadow-2xl border border-white/20 ring-2 ring-cyan-400"
+        >
+          Skip to main content
+        </a>
+        {children}
+      </body>
     </html>
   );
 }

@@ -18,7 +18,7 @@
   },
   "build": {
     "appId": "com.reflow.worker",
-    "productName": "FlowMind Worker",
+    "productName": "ReFlow Worker",
     "electronVersion": "33.2.0",
     "directories": {
       "output": "dist"
@@ -42,6 +42,7 @@
       {
         "name": "ReFlow Worker Protocol",
         "schemes": [
+          "reflow",
           "flowmind",
           "portalsync"
         ]

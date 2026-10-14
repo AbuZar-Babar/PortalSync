@@ -228,7 +228,7 @@ export default function FeatureCapabilities({ onActionClick }: FeatureCapabiliti
               onClick={onActionClick}
               className="w-full sm:w-auto px-7 py-3 rounded-full bg-white text-zinc-950 font-bold text-xs uppercase tracking-wider hover:bg-zinc-200 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg group"
             >
-              <span>Start Capturing Free</span>
+              <span>Try It Free &mdash; No Credit Card</span>
               <ArrowUpRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </button>
           </ScrollReveal>

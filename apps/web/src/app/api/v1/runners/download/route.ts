@@ -48,14 +48,22 @@ function nodeStreamToReadable(nodeStream: fs.ReadStream): ReadableStream<Uint8Ar
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const rawType = (searchParams.get('type') || 'installer').toLowerCase();
+  const rawOs = (searchParams.get('os') || '').toLowerCase();
 
+  const isMac = rawOs === 'mac' || rawOs === 'darwin' || rawType === 'dmg' || rawType === 'mac';
   const isPortable = rawType === 'portable' || rawType === 'zip';
-  const primaryFileName = isPortable
-    ? 'ReFlow-Worker-Portable-1.0.0.exe'
-    : 'ReFlow-Worker-Setup-1.0.0.exe';
-  const legacyFileName = isPortable
-    ? 'FlowMind-Worker-Portable-1.0.0.exe'
-    : 'FlowMind-Worker-Setup-1.0.0.exe';
+
+  let primaryFileName = 'ReFlow-Worker-Setup-1.0.0.exe';
+  let legacyFileName = 'FlowMind-Worker-Setup-1.0.0.exe';
+
+  if (isMac) {
+    primaryFileName = 'ReFlow-Worker-1.0.0.dmg';
+    legacyFileName = 'FlowMind-Worker-1.0.0.dmg';
+  } else if (isPortable) {
+    primaryFileName = 'ReFlow-Worker-Portable-1.0.0.exe';
+    legacyFileName = 'FlowMind-Worker-Portable-1.0.0.exe';
+  }
+
   const binaryPath = findBinaryPath(primaryFileName) || findBinaryPath(legacyFileName);
   const fileName = binaryPath ? path.basename(binaryPath) : primaryFileName;
 
@@ -68,7 +76,7 @@ export async function GET(request: NextRequest) {
       return new NextResponse(webStream, {
         status: 200,
         headers: {
-          'Content-Type': 'application/octet-stream',
+          'Content-Type': isMac ? 'application/x-apple-diskimage' : 'application/octet-stream',
           'Content-Disposition': `attachment; filename="${fileName}"`,
           'Content-Length': stat.size.toString(),
           'Cache-Control': 'public, max-age=86400',
@@ -83,14 +91,18 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json(
-    {
-      error: 'Desktop runner binary package not found on current host',
-      fileName,
-      requestedType: isPortable ? 'portable' : 'installer',
-      availableInRepo: 'apps/desktop/dist/',
-      tip: 'Run `npm run build:win --prefix apps/desktop` to regenerate prebuilt binaries if missing.',
-    },
-    { status: 404 }
-  );
+  // In production (Vercel) or when the local binary is not present on the host filesystem,
+  // seamlessly redirect to the hosted GitHub Release asset or configured Cloud Storage URL.
+  const customRemoteUrl = isMac
+    ? process.env.DESKTOP_MAC_DOWNLOAD_URL
+    : isPortable
+    ? process.env.DESKTOP_PORTABLE_DOWNLOAD_URL
+    : process.env.DESKTOP_WIN_DOWNLOAD_URL;
+
+  const defaultGitHubReleaseUrl = isMac
+    ? 'https://github.com/AbuZar-Babar/ReFlow/releases/tag/Desktop-app'
+    : `https://github.com/AbuZar-Babar/ReFlow/releases/download/Desktop-app/${fileName}`;
+  const redirectTarget = customRemoteUrl || defaultGitHubReleaseUrl;
+
+  return NextResponse.redirect(redirectTarget, 302);
 }

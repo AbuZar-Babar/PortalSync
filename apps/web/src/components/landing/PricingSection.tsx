@@ -2,15 +2,43 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Check, ArrowUpRight } from 'lucide-react';
+import { Check, ArrowUpRight, ChevronDown, Mail } from 'lucide-react';
 import ScrollReveal from '@/components/landing/ScrollReveal';
 
 interface PricingSectionProps {
   onSelectTier?: (tier: 'starter' | 'pro' | 'enterprise') => void;
 }
 
+const FAQ_ITEMS = [
+  {
+    q: 'Do I need coding experience or browser extensions?',
+    a: 'Zero coding is required. ReFlow works by connecting directly to standard Google Chrome via Chrome DevTools Protocol (CDP port 9222). You never have to install third-party browser extensions, write Selenium/Puppeteer scripts, or maintain fragile code.',
+  },
+  {
+    q: 'Where are my files and passwords stored?',
+    a: '100% on your local machine. The ReFlow desktop daemon runs locally, storing downloaded reports, credentials, and session tokens strictly on your private file system. Confidential data never leaves your environment.',
+  },
+  {
+    q: 'What happens if a website updates its layout or buttons?',
+    a: 'ReFlow features an autonomous self-healing selector fallback engine. If a website changes class names or DOM structures, ReFlow evaluates visual coordinates, ARIA roles, and semantic parent relationships to keep the workflow running seamlessly.',
+  },
+  {
+    q: 'What counts as an automated step?',
+    a: 'Every discrete mouse click, keystroke entry, dropdown selection, or file download executed counts as 1 step. A typical invoice export or report generation routine takes between 15 to 30 steps.',
+  },
+  {
+    q: 'Can I schedule workflows to run unattended?',
+    a: 'Yes. With our Pro and Enterprise plans, you can schedule routines to execute daily, weekly, or on custom cron schedules in the background without needing manual intervention.',
+  },
+  {
+    q: 'How does the Enterprise tier work?',
+    a: 'Enterprise plans include dedicated concurrent headless runners, custom SLA guarantees, multi-tenant portal orchestration, and a direct Slack/engineering support channel with our developers.',
+  },
+];
+
 export default function PricingSection({ onSelectTier }: PricingSectionProps = {}) {
   const [isAnnual, setIsAnnual] = useState(false);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
   const starterPrice = isAnnual ? '$23' : '$29';
   const proPrice = isAnnual ? '$79' : '$99';
@@ -291,57 +319,63 @@ export default function PricingSection({ onSelectTier }: PricingSectionProps = {
             </div>
 
             <div className="mt-8 pt-4">
-              {onSelectTier ? (
-                <button
-                  type="button"
-                  onClick={() => onSelectTier('enterprise')}
-                  className="w-full py-3 px-4 rounded-full border border-white/20 bg-zinc-900/60 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
-                >
-                  <span>Contact for Enterprise</span>
-                  <ArrowUpRight className="w-3.5 h-3.5" />
-                </button>
-              ) : (
-                <Link
-                  href="/signup?tier=enterprise"
-                  className="w-full py-3 px-4 rounded-full border border-white/20 bg-zinc-900/60 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
-                >
-                  <span>Contact for Enterprise</span>
-                  <ArrowUpRight className="w-3.5 h-3.5" />
-                </Link>
-              )}
+              <a
+                href="mailto:enterprise@reflow.app?subject=ReFlow%20Enterprise%20Runner%20Inquiry"
+                className="w-full py-3 px-4 rounded-full border border-white/20 bg-zinc-900/60 hover:bg-zinc-800 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                <Mail className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Contact Enterprise Sales</span>
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </a>
             </div>
           </div>
         </ScrollReveal>
       </div>
 
-      {/* Honest Technical FAQ Strip (Resolves R-28) */}
+      {/* Interactive Dual-Audience FAQ Accordion */}
       <ScrollReveal direction="up" delay={100} className="mt-16">
-        <div className="rounded-2xl bg-[#09090c] border border-white/10 p-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div>
-              <h4 className="text-xs font-mono font-bold text-white uppercase tracking-wider mb-2">
-                01 / What counts as a step?
-              </h4>
-              <p className="text-xs text-zinc-400 leading-relaxed">
-                Every discrete mouse click, keystroke sequence, or file download executed by the runner counts as 1 step. Typical invoice extraction batches consume 15 to 30 steps.
-              </p>
-            </div>
-            <div>
-              <h4 className="text-xs font-mono font-bold text-white uppercase tracking-wider mb-2">
-                02 / How does it connect to Chrome?
-              </h4>
-              <p className="text-xs text-zinc-400 leading-relaxed">
-                ReFlow communicates via standard Chrome DevTools Protocol (CDP) port 9222. It requires zero browser extensions and does not tamper with DOM sandboxes.
-              </p>
-            </div>
-            <div>
-              <h4 className="text-xs font-mono font-bold text-white uppercase tracking-wider mb-2">
-                03 / Where does execution occur?
-              </h4>
-              <p className="text-xs text-zinc-400 leading-relaxed">
-                Replays run on your local desktop runner or your private cloud worker. Confidential session tokens and local files remain securely inside your environment.
-              </p>
-            </div>
+        <div className="rounded-2xl bg-[#09090c] border border-white/10 p-6 sm:p-10 shadow-2xl">
+          <div className="text-center max-w-xl mx-auto mb-8">
+            <span className="font-mono text-[11px] uppercase tracking-widest text-zinc-500">
+              FREQUENTLY ASKED QUESTIONS
+            </span>
+            <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-2">
+              Everything you need to know.
+            </h3>
+          </div>
+
+          <div className="space-y-3 max-w-3xl mx-auto">
+            {FAQ_ITEMS.map((item, index) => {
+              const isOpen = openFaqIndex === index;
+              return (
+                <div
+                  key={item.q}
+                  className="rounded-xl border border-white/10 bg-zinc-950/60 overflow-hidden transition-all duration-200"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaqIndex(isOpen ? null : index)}
+                    className="w-full px-5 py-4 flex items-center justify-between text-left gap-4 hover:bg-white/5 transition-colors cursor-pointer"
+                  >
+                    <span className="text-xs sm:text-sm font-bold text-white flex items-center gap-2.5">
+                      <span className="font-mono text-[11px] text-zinc-500">0{index + 1}</span>
+                      <span>{item.q}</span>
+                    </span>
+                    <ChevronDown
+                      className={`w-4 h-4 text-zinc-400 shrink-0 transition-transform duration-300 ${
+                        isOpen ? 'rotate-180 text-white' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {isOpen && (
+                    <div className="px-5 pb-4 pt-1 text-xs text-zinc-400 leading-relaxed border-t border-white/5 animate-in fade-in duration-200">
+                      {item.a}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </ScrollReveal>
