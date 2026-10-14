@@ -17,6 +17,7 @@
 
   window.__workflowCaptureVersion = CURRENT_RECORDER_VERSION;
   window.__workflowCaptureInitialized = true;
+  window.__reflowRecorderMode = window.__reflowRecorderMode || 'ACTION';
 
   // Active input buffer to consolidate typing into a single TYPE action
   let activeInputBuffer = null;
@@ -24,14 +25,23 @@
 
   function isRecorderUiEvent(event) {
     const badge = document.getElementById('__workflow_capture_badge__');
-    if (!badge) return false;
+    const hud = document.getElementById('__reflow_recorder_hud__');
+    const overlay = document.getElementById('__reflow_hover_overlay__');
     const target = event?.target;
     if (target === badge || target?.closest?.('#__workflow_capture_badge__')) return true;
+    if (target === hud || target?.closest?.('#__reflow_recorder_hud__')) return true;
+    if (target === overlay || target?.closest?.('#__reflow_hover_overlay__')) return true;
+    if (target?.closest?.('[data-reflow-ignore="true"]')) return true;
     try {
-      return Boolean(event?.composedPath?.().includes(badge));
+      const path = event?.composedPath?.() || [];
+      if (badge && path.includes(badge)) return true;
+      if (hud && path.includes(hud)) return true;
+      if (overlay && path.includes(overlay)) return true;
+      if (path.some(el => el && el.getAttribute && el.getAttribute('data-reflow-ignore') === 'true')) return true;
     } catch {
       return false;
     }
+    return false;
   }
 
   // Diagnostic stamp: records the last pointerdown/mousedown target/time/coordinates, regardless
@@ -1399,21 +1409,534 @@
     });
   }
 
+
+  /**
+   * Universal action emitter accessible across injected contexts
+   */
+  window.__recordAction = function(rawAction) {
+    if (isPaused || !rawAction) return;
+    const actionUid = 'act_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    const actionTimestamp = rawAction.timestamp || Date.now();
+    const pageUrl = (typeof window !== 'undefined' && window.location && window.location.href) ? window.location.href : null;
+    const isInsideIframe = (typeof window !== 'undefined' && window.self !== window.top);
+    let frameInfo = null;
+    if (isInsideIframe) {
+      frameInfo = {
+        isIframe: true,
+        location: window.location.href,
+        title: document.title || ''
+      };
+    }
+
+    const payload = {
+      uid: actionUid,
+      type: rawAction.type,
+      name: rawAction.name || rawAction.fieldName || rawAction.type,
+      elementName: rawAction.name || rawAction.fieldName || rawAction.type,
+      timestamp: actionTimestamp,
+      captureTimestamp: actionTimestamp,
+      target: rawAction.target || null,
+      scrollOffset: {
+        x: Math.round(window.scrollX || window.pageXOffset || 0),
+        y: Math.round(window.scrollY || window.pageYOffset || 0)
+      },
+      ...(pageUrl ? { url: pageUrl } : {}),
+      ...(frameInfo ? { frame: frameInfo } : {}),
+      ...(rawAction.fieldName ? { fieldName: rawAction.fieldName, columnName: rawAction.fieldName } : {}),
+      ...(rawAction.columnName ? { columnName: rawAction.columnName } : {}),
+      ...(rawAction.sampleValue !== undefined ? { sampleValue: rawAction.sampleValue } : {}),
+      ...rawAction
+    };
+
+    try {
+      const msgStr = '__WORKFLOW_CAPTURE_ACTION__:' + JSON.stringify(payload);
+      console.debug(msgStr);
+      console.info(msgStr);
+    } catch {}
+
+    try {
+      if (typeof window.__workflowCaptureEmitAction === 'function') {
+        window.__workflowCaptureEmitAction(payload);
+      }
+    } catch {}
+
+    if (isInsideIframe) {
+      try {
+        if (window.top && window.top !== window && typeof window.top.__workflowCaptureEmitAction === 'function') {
+          window.top.__workflowCaptureEmitAction(payload);
+        }
+      } catch {}
+    }
+  };
+
+  function cleanToIdentifier(str) {
+    if (!str || typeof str !== 'string') return 'Extracted_Field';
+    let s = str.replace(/[:*#?!]/g, ' ').replace(/\s+/g, ' ').trim();
+    s = s.replace(/[^a-zA-Z0-9_\s]/g, '');
+    s = s.trim().replace(/\s+/g, '_');
+    if (!s) return 'Extracted_Field';
+    if (/^[0-9]/.test(s)) s = 'Field_' + s;
+    return s.slice(0, 40);
+  }
+
+  function inferFieldName(el) {
+    if (!el || el.nodeType !== 1) return 'Extracted_Field';
+    const aria = el.getAttribute?.('aria-label') || el.getAttribute?.('placeholder') || el.getAttribute?.('title') || el.getAttribute?.('name') || '';
+    if (aria && aria.trim().length > 1 && aria.trim().length < 40) {
+      return cleanToIdentifier(aria);
+    }
+
+    if (el.id) {
+      try {
+        const labelEl = document.querySelector(`label[for="${safeCssEscape(el.id)}"]`);
+        if (labelEl && labelEl.innerText) {
+          return cleanToIdentifier(labelEl.innerText);
+        }
+      } catch {}
+    }
+    const parentLabel = el.closest?.('label');
+    if (parentLabel && parentLabel.innerText) {
+      const txt = parentLabel.innerText.replace(el.innerText || '', '').trim();
+      if (txt) return cleanToIdentifier(txt);
+    }
+
+    let prev = el.previousElementSibling;
+    while (prev) {
+      if (['LABEL', 'TH', 'DT', 'SPAN', 'STRONG', 'B'].includes(prev.tagName) && prev.innerText?.trim()) {
+        return cleanToIdentifier(prev.innerText);
+      }
+      prev = prev.previousElementSibling;
+    }
+
+    const td = el.closest?.('td, [role="cell"]');
+    if (td && td.parentElement) {
+      const colIndex = Array.from(td.parentElement.children).indexOf(td);
+      const table = td.closest('table, [role="grid"], [role="table"]');
+      if (table && colIndex >= 0) {
+        const ths = table.querySelectorAll('th, [role="columnheader"]');
+        if (ths[colIndex] && ths[colIndex].innerText?.trim()) {
+          return cleanToIdentifier(ths[colIndex].innerText);
+        }
+      }
+    }
+
+    const rowContainer = el.closest?.('tr, div, dl, p');
+    if (rowContainer) {
+      const textNodes = Array.from(rowContainer.childNodes).filter(n => n.nodeType === 3 && n.textContent.trim());
+      if (textNodes.length > 0) {
+        const firstText = textNodes[0].textContent.replace(/[:\-]/g, '').trim();
+        if (firstText && firstText.length < 30) {
+          return cleanToIdentifier(firstText);
+        }
+      }
+    }
+
+    const text = (el.innerText || el.textContent || '').trim().slice(0, 30);
+    if (text && !/^\d+$/.test(text) && text.length < 25) {
+      return cleanToIdentifier(text);
+    }
+
+    return 'Extracted_Field';
+  }
+
+  function flashElementCapturedBadge(el, fieldName) {
+    try {
+      const rect = el.getBoundingClientRect();
+      const badge = document.createElement('div');
+      badge.setAttribute('data-reflow-ignore', 'true');
+      Object.assign(badge.style, {
+        position: 'fixed',
+        top: Math.max(4, rect.top - 26) + 'px',
+        left: Math.max(4, rect.left) + 'px',
+        background: '#059669',
+        color: '#ffffff',
+        fontSize: '11px',
+        fontWeight: '700',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        padding: '3px 8px',
+        borderRadius: '6px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
+        zIndex: '2147483647',
+        pointerEvents: 'none',
+        transition: 'opacity 300ms ease, transform 300ms ease',
+        transform: 'translateY(0)',
+        opacity: '1'
+      });
+      badge.textContent = '✓ Captured: ' + fieldName;
+      document.body.appendChild(badge);
+      setTimeout(() => {
+        badge.style.opacity = '0';
+        badge.style.transform = 'translateY(-6px)';
+        setTimeout(() => badge.remove(), 350);
+      }, 1800);
+    } catch {}
+  }
+
+  let activeHoverEl = null;
+  let hoverOverlay = null;
+
+  function updateHoverOverlay(el) {
+    if (window.__reflowRecorderMode !== 'CAPTURE_FIELD' || !el || el === document.body || el === document.documentElement || isRecorderUiEvent({ target: el })) {
+      if (hoverOverlay && hoverOverlay.parentNode) hoverOverlay.remove();
+      activeHoverEl = null;
+      return;
+    }
+    activeHoverEl = el;
+    if (!hoverOverlay) {
+      hoverOverlay = document.createElement('div');
+      hoverOverlay.id = '__reflow_hover_overlay__';
+      hoverOverlay.setAttribute('data-reflow-ignore', 'true');
+      Object.assign(hoverOverlay.style, {
+        position: 'fixed',
+        pointerEvents: 'none',
+        border: '2px solid #10b981',
+        backgroundColor: 'rgba(16, 185, 129, 0.12)',
+        borderRadius: '4px',
+        zIndex: '2147483646',
+        transition: 'all 60ms ease-out',
+        boxSizing: 'border-box'
+      });
+    }
+    const rect = el.getBoundingClientRect();
+    hoverOverlay.style.top = rect.top + 'px';
+    hoverOverlay.style.left = rect.left + 'px';
+    hoverOverlay.style.width = rect.width + 'px';
+    hoverOverlay.style.height = rect.height + 'px';
+    if (!hoverOverlay.parentNode && document.body) {
+      document.body.appendChild(hoverOverlay);
+    }
+  }
+
+  function detectPrimaryTable() {
+    const selectors = [
+      'table:not([data-reflow-ignore])',
+      '[role="grid"]',
+      '[role="table"]',
+      '.x-grid-view',
+      '.ag-root',
+      '.dxgvTable',
+      '.v-data-table',
+      '.mat-table'
+    ];
+    for (const sel of selectors) {
+      const tables = Array.from(document.querySelectorAll(sel))
+        .filter(t => !isRecorderUiEvent({ target: t }));
+      if (tables.length > 0) {
+        let best = tables[0];
+        let maxScore = 0;
+        for (const t of tables) {
+          const rect = t.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            const rows = t.querySelectorAll('tr, [role="row"]').length;
+            const score = (rect.width * rect.height) + (rows * 5000);
+            if (score > maxScore) {
+              maxScore = score;
+              best = t;
+            }
+          }
+        }
+        return best;
+      }
+    }
+    return null;
+  }
+
+  function handleFieldCaptureClick(event) {
+    const targetEl = event.target;
+    if (!targetEl || isRecorderUiEvent(event)) return;
+
+    let targetFingerprint = null;
+    if (window.SelectorResolver && typeof window.SelectorResolver.captureTarget === 'function') {
+      try {
+        targetFingerprint = window.SelectorResolver.captureTarget(targetEl);
+      } catch (err) {
+        console.warn('[Workflow Capture] captureTarget error:', err);
+      }
+    }
+    if (!targetFingerprint || !targetFingerprint.candidates || targetFingerprint.candidates.length === 0) {
+      targetFingerprint = buildFallbackTarget(targetEl);
+    }
+
+    const sampleText = (targetEl.value || targetEl.innerText || targetEl.textContent || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 120);
+
+    const inferredName = inferFieldName(targetEl);
+    const chosenFieldName = (window.prompt('Column name for Excel export:', inferredName) || inferredName).trim();
+
+    const actionPayload = {
+      type: 'EXTRACT_TEXT',
+      name: 'Extract ' + chosenFieldName,
+      elementName: 'Extract ' + chosenFieldName,
+      fieldName: chosenFieldName,
+      columnName: chosenFieldName,
+      sampleValue: sampleText,
+      value: chosenFieldName,
+      timestamp: Date.now(),
+      url: window.location.href,
+      target: targetFingerprint
+    };
+
+    if (typeof window.__recordAction === 'function') {
+      window.__recordAction(actionPayload);
+    } else {
+      emitAction('EXTRACT_TEXT', targetEl, {
+        fieldName: chosenFieldName,
+        columnName: chosenFieldName,
+        sampleValue: sampleText,
+        value: chosenFieldName
+      });
+    }
+
+    flashElementCapturedBadge(targetEl, chosenFieldName);
+  }
+
+  function renderReflowRecorderHud() {
+    if (typeof window === 'undefined' || window !== window.top) return;
+    if (typeof document === 'undefined') return;
+    if (document.getElementById('__reflow_recorder_hud__')) return;
+
+    const container = document.body || document.documentElement;
+    if (!container) return;
+
+    window.__reflowRecorderMode = window.__reflowRecorderMode || 'ACTION';
+
+    const hud = document.createElement('div');
+    hud.id = '__reflow_recorder_hud__';
+    hud.setAttribute('data-reflow-ignore', 'true');
+    Object.assign(hud.style, {
+      position: 'fixed',
+      bottom: '18px',
+      right: '18px',
+      zIndex: '2147483647',
+      pointerEvents: 'auto'
+    });
+    hud.style.setProperty('position', 'fixed', 'important');
+    hud.style.setProperty('bottom', '18px', 'important');
+    hud.style.setProperty('right', '18px', 'important');
+    hud.style.setProperty('z-index', '2147483647', 'important');
+
+    const shadow = hud.attachShadow({ mode: 'open' });
+    shadow.innerHTML = `
+      <style>
+        :host {
+          all: initial;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .hud-pill {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background: #0f172a;
+          padding: 5px 8px;
+          border-radius: 9999px;
+          border: 1px solid #334155;
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+          user-select: none;
+        }
+        .hud-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 6px 12px;
+          font-size: 12px;
+          font-weight: 600;
+          border-radius: 9999px;
+          border: 1px solid transparent;
+          background: transparent;
+          color: #94a3b8;
+          cursor: pointer;
+          transition: all 140ms ease;
+          white-space: nowrap;
+        }
+        .hud-btn:hover {
+          color: #f1f5f9;
+          background: rgba(255, 255, 255, 0.08);
+        }
+        .hud-btn.active-action {
+          background: #1e293b;
+          color: #38bdf8;
+          border-color: #0284c7;
+          box-shadow: 0 0 10px rgba(14, 165, 233, 0.3);
+        }
+        .hud-btn.active-capture {
+          background: rgba(16, 185, 129, 0.2);
+          color: #34d399;
+          border-color: #10b981;
+          box-shadow: 0 0 10px rgba(16, 185, 129, 0.35);
+        }
+        .toast {
+          position: absolute;
+          bottom: calc(100% + 8px);
+          right: 0;
+          background: #059669;
+          color: #fff;
+          padding: 6px 12px;
+          border-radius: 8px;
+          font-size: 11px;
+          font-weight: 600;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+          opacity: 0;
+          transform: translateY(6px);
+          transition: opacity 200ms ease, transform 200ms ease;
+          pointer-events: none;
+          white-space: nowrap;
+        }
+        .toast.visible {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      </style>
+      <div class="hud-pill">
+        <button type="button" class="hud-btn active-action" id="btnAction" title="Standard Interaction Mode">
+          <span>🖱️</span><span>Action Mode</span>
+        </button>
+        <button type="button" class="hud-btn" id="btnCapture" title="Click any value to extract to Excel">
+          <span>📊</span><span>Capture Field</span>
+        </button>
+        <button type="button" class="hud-btn" id="btnScrapeTable" title="Detect & scrape table on page">
+          <span>📋</span><span>Scrape Table</span>
+        </button>
+        <div class="toast" id="hudToast"></div>
+      </div>
+    `;
+
+    const btnAction = shadow.getElementById('btnAction');
+    const btnCapture = shadow.getElementById('btnCapture');
+    const btnScrapeTable = shadow.getElementById('btnScrapeTable');
+    const toast = shadow.getElementById('hudToast');
+
+    const showToast = (msg, isError = false) => {
+      if (!toast) return;
+      toast.textContent = msg;
+      toast.style.background = isError ? '#ef4444' : '#059669';
+      toast.classList.add('visible');
+      setTimeout(() => toast.classList.remove('visible'), 2400);
+    };
+
+    const setMode = (mode) => {
+      window.__reflowRecorderMode = mode;
+      if (mode === 'CAPTURE_FIELD') {
+        btnCapture.classList.add('active-capture');
+        btnAction.classList.remove('active-action');
+        document.documentElement.style.cursor = 'crosshair';
+        showToast('Capture Field Mode: Click any value to extract');
+      } else {
+        btnAction.classList.add('active-action');
+        btnCapture.classList.remove('active-capture');
+        document.documentElement.style.cursor = '';
+        if (hoverOverlay && hoverOverlay.parentNode) hoverOverlay.remove();
+        activeHoverEl = null;
+      }
+    };
+
+    btnAction.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setMode('ACTION');
+    });
+
+    btnCapture.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setMode(window.__reflowRecorderMode === 'CAPTURE_FIELD' ? 'ACTION' : 'CAPTURE_FIELD');
+    });
+
+    btnScrapeTable.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const tableEl = detectPrimaryTable();
+      if (!tableEl) {
+        showToast('No table detected on current page', true);
+        return;
+      }
+
+      let targetFingerprint = null;
+      if (window.SelectorResolver && typeof window.SelectorResolver.captureTarget === 'function') {
+        try {
+          targetFingerprint = window.SelectorResolver.captureTarget(tableEl);
+        } catch {}
+      }
+      if (!targetFingerprint || !targetFingerprint.candidates || targetFingerprint.candidates.length === 0) {
+        targetFingerprint = buildFallbackTarget(tableEl);
+      }
+
+      const tablePayload = {
+        type: 'EXTRACT_TABLE',
+        name: 'Full Table Export',
+        elementName: 'Full Table Export',
+        fieldName: 'Full_Table_Export',
+        columnName: 'Full_Table_Export',
+        timestamp: Date.now(),
+        url: window.location.href,
+        target: targetFingerprint
+      };
+
+      if (typeof window.__recordAction === 'function') {
+        window.__recordAction(tablePayload);
+      } else {
+        emitAction('EXTRACT_TABLE', tableEl, { fieldName: 'Full_Table_Export' });
+      }
+
+      showToast('📋 Table Scrape Captured!');
+    });
+
+    container.appendChild(hud);
+  }
+
   const onPointerDown = (e) => {
+    if (isRecorderUiEvent(e)) return;
+    if (window.__reflowRecorderMode === 'CAPTURE_FIELD') {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      return;
+    }
     handlePointerDownDiag(e);
     handleInteractionEvent(e, 'pointerdown');
   };
   const onMouseDown = (e) => {
+    if (isRecorderUiEvent(e)) return;
+    if (window.__reflowRecorderMode === 'CAPTURE_FIELD') {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      return;
+    }
     handlePointerDownDiag(e);
     handleInteractionEvent(e, 'mousedown');
   };
   const onClick = (e) => {
+    if (isRecorderUiEvent(e)) return;
+    if (window.__reflowRecorderMode === 'CAPTURE_FIELD') {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      handleFieldCaptureClick(e);
+      return;
+    }
     handleInteractionEvent(e, 'click');
   };
   const onPointerUp = (e) => {
+    if (isRecorderUiEvent(e)) return;
+    if (window.__reflowRecorderMode === 'CAPTURE_FIELD') {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      return;
+    }
     handleInteractionEvent(e, 'pointerup');
   };
   const onMouseUp = (e) => {
+    if (isRecorderUiEvent(e)) return;
+    if (window.__reflowRecorderMode === 'CAPTURE_FIELD') {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      return;
+    }
     handleInteractionEvent(e, 'mouseup');
   };
 
@@ -1616,6 +2139,11 @@
     if (state.isPaused !== undefined) setPaused(state.isPaused);
   };
   window.__workflowCaptureStopUI = () => {
+    const hud = document.getElementById('__reflow_recorder_hud__');
+    if (hud) hud.remove();
+    const hoverEl = document.getElementById('__reflow_hover_overlay__');
+    if (hoverEl) hoverEl.remove();
+    if (document.documentElement) document.documentElement.style.cursor = '';
     const badge = document.getElementById('__workflow_capture_badge__');
     if (badge?.shadowRoot) {
       const shadow = badge.shadowRoot;
@@ -1640,6 +2168,12 @@
   window.addEventListener('blur', handleBlur, true);
   window.addEventListener('keydown', handleKeyDown, true);
   window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
+  const onGlobalMouseOver = (e) => {
+    if (window.__reflowRecorderMode === 'CAPTURE_FIELD') {
+      updateHoverOverlay(e.target);
+    }
+  };
+  window.addEventListener('mouseover', onGlobalMouseOver, true);
 
   // Capture-phase listeners on window intercept all events cleanly without document duplication
 
@@ -1695,10 +2229,14 @@
     }
   });
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', renderRecordingBadge);
-  } else {
+  const renderAllRecorderUi = () => {
     renderRecordingBadge();
+    renderReflowRecorderHud();
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', renderAllRecorderUi);
+  } else {
+    renderAllRecorderUi();
   }
 
   // Expose cleanup function to cleanly unbind on script upgrade
@@ -1725,6 +2263,12 @@
     window.removeEventListener('blur', handleBlur, true);
     window.removeEventListener('keydown', handleKeyDown, true);
     window.removeEventListener('scroll', handleScroll, true);
+    try { window.removeEventListener('mouseover', onGlobalMouseOver, true); } catch {}
+    const remHud = document.getElementById('__reflow_recorder_hud__');
+    if (remHud) remHud.remove();
+    const remHover = document.getElementById('__reflow_hover_overlay__');
+    if (remHover) remHover.remove();
+    if (document.documentElement) document.documentElement.style.cursor = '';
     if (typeof document !== 'undefined') {
       document.removeEventListener('pointerdown', onPointerDown, true);
       document.removeEventListener('mousedown', onMouseDown, true);

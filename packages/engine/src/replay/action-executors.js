@@ -1057,6 +1057,34 @@ async function executeScroll(elementHandle, action, options = {}) {
 }
 
 /**
+ * Extracts visible text or input value from element and records into replayEngine
+ */
+async function executeExtractText(elementHandle, action, page, context = {}) {
+  const extractedValue = await elementHandle.evaluate((el) => {
+    if (!el) return '';
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {
+      return (el.value || '').trim();
+    }
+    return (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+  });
+  const fieldName =
+    action.fieldName ||
+    action.columnName ||
+    action.label ||
+    action.target?.label ||
+    action.target?.ariaLabel ||
+    action.target?.name ||
+    `Extracted_Field_${(context.actionIndex ?? 0) + 1}`;
+  if (context.replayEngine) {
+    if (!context.replayEngine.extractedRowFields) {
+      context.replayEngine.extractedRowFields = {};
+    }
+    context.replayEngine.extractedRowFields[fieldName] = extractedValue;
+  }
+  return { fieldName, value: extractedValue };
+}
+
+/**
  * Dispatcher to map action types to executor functions
  */
 async function dispatchAction(elementHandle, action, options = {}) {
@@ -1077,6 +1105,9 @@ async function dispatchAction(elementHandle, action, options = {}) {
     case 'KEY_DOWN':
     case 'ENTER':
       return executeKeyPress(elementHandle, action, options);
+    case 'EXTRACT_TEXT':
+    case 'CAPTURE_FIELD':
+      return executeExtractText(elementHandle, action, options.page, options);
     default:
       throw new ActionExecutionError(`Unsupported action type: ${action.type}`, {
         actionIndex: action.index,
@@ -1093,5 +1124,6 @@ module.exports = {
   executeSelect,
   executeKeyPress,
   executeScroll,
+  executeExtractText,
   dispatchAction
 };

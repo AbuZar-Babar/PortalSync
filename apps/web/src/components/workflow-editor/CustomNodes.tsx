@@ -6,7 +6,9 @@ export type StepActionType =
   | 'WAIT'
   | 'LOOP_START'
   | 'EXTRACT'
-  | 'DOWNLOAD';
+  | 'DOWNLOAD'
+  | 'EXTRACT_TEXT'
+  | 'EXTRACT_TABLE';
 
 export interface StepNodeData {
   id?: string | number;
@@ -32,6 +34,9 @@ export interface StepNodeData {
   download_dir?: string;
   upload_to_cloud?: boolean;
   rawTarget?: Record<string, unknown> | null;
+  fieldName?: string;
+  columnName?: string;
+  sampleValue?: string;
   [key: string]: unknown;
 }
 
@@ -144,6 +149,29 @@ export const ACTION_DEFINITIONS: Record<StepActionType, ActionDefinition> = {
     valuePlaceholder: 'Download button selector / path',
     role: 'LOOP',
   },
+  EXTRACT_TEXT: {
+    type: 'EXTRACT_TEXT',
+    label: 'Extract Field to Excel',
+    defaultName: 'Extract Field',
+    badgeClass: 'extract_text',
+    iconSvg: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>`,
+    defaultTimeout: 5000,
+    hasTarget: true,
+    hasValue: true,
+    valuePlaceholder: 'Column name: total_amount',
+    role: 'LOOP',
+  },
+  EXTRACT_TABLE: {
+    type: 'EXTRACT_TABLE',
+    label: 'Scrape Table to Excel',
+    defaultName: 'Scrape Table',
+    badgeClass: 'extract_table',
+    iconSvg: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>`,
+    defaultTimeout: 10000,
+    hasTarget: true,
+    hasValue: false,
+    role: 'LOOP',
+  },
 };
 
 export function escapeHtml(str: unknown): string {
@@ -178,6 +206,9 @@ export function createDefaultStepData(action: StepActionType, index: number): St
     extract_attribute: action === 'EXTRACT' ? 'textContent' : '',
     download_dir: action === 'DOWNLOAD' ? '~/Downloads/ReFlow' : '',
     upload_to_cloud: action === 'DOWNLOAD' ? true : false,
+    fieldName: action === 'EXTRACT_TEXT' ? 'Extracted_Value' : (action === 'EXTRACT_TABLE' ? 'Full_Table_Export' : undefined),
+    columnName: action === 'EXTRACT_TEXT' ? 'Extracted_Value' : undefined,
+    isLoop: action === 'EXTRACT_TABLE' || action === 'EXTRACT_TEXT' || def.role === 'LOOP',
   };
 }
 

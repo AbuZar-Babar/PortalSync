@@ -648,7 +648,10 @@ class RecorderBridge {
       ...(rawAction.options ? { options: rawAction.options } : {}),
       ...(rawAction.selectOptions ? { selectOptions: rawAction.selectOptions } : {}),
       ...(rawAction.table ? { table: rawAction.table } : {}),
-      ...(rawAction.fieldValues ? { fieldValues: rawAction.fieldValues } : {})
+      ...(rawAction.fieldValues ? { fieldValues: rawAction.fieldValues } : {}),
+      ...(rawAction.fieldName ? { fieldName: rawAction.fieldName } : {}),
+      ...(rawAction.columnName ? { columnName: rawAction.columnName } : {}),
+      ...(rawAction.sampleValue !== undefined ? { sampleValue: rawAction.sampleValue } : {})
     };
 
     this.actions.push(action);
@@ -704,6 +707,13 @@ class RecorderBridge {
     const actionsList = Array.isArray(this.actions) ? this.actions : [];
     for (const act of actionsList) {
       if (!act) continue;
+
+      if (act.fieldName || act.columnName) {
+        const f = addField(act.fieldName || act.columnName);
+        if (f && act.sampleValue !== undefined) {
+          addFieldValue(f, act.sampleValue);
+        }
+      }
 
       // 1. From action.context (in-page sniffing)
       if (act.context) {
@@ -907,8 +917,12 @@ class RecorderBridge {
     const filter_rules = this.consolidateFilterRules();
     this.filter_rules = filter_rules;
 
+    const hasExtractTable = this.actions.some(a => a && (a.type === 'EXTRACT_TABLE' || a.action === 'EXTRACT_TABLE'));
+    const isLoopDetected = Boolean(hasExtractTable);
+    const tableStepIdx = isLoopDetected ? this.actions.findIndex(a => a && (a.type === 'EXTRACT_TABLE' || a.action === 'EXTRACT_TABLE')) : null;
+
     // Decouple heavy synchronous loop detection from the critical Save path:
-    // Persist raw actions immediately with default mode ('STANDARD') keeping recording pure and instant (<200ms)
+    // Persist raw actions immediately, flagging loop mode if EXTRACT_TABLE was recorded
     const recording = {
       metadata: {
         recordingId: `rec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -919,17 +933,28 @@ class RecorderBridge {
         startUrl: finalStartUrl,
         userAgent,
         viewport,
-        isLoop: false,
-        loopStepIndex: null,
-        loopConfidence: 0,
-        confidenceCategory: 'NONE',
-        patternType: 'none',
-        mode: 'STANDARD',
+        isLoop: isLoopDetected,
+        loopStepIndex: tableStepIdx,
+        loopConfidence: isLoopDetected ? 1 : 0,
+        confidenceCategory: isLoopDetected ? 'HIGH' : 'NONE',
+        patternType: isLoopDetected ? 'table_extract' : 'none',
+        mode: isLoopDetected ? 'LOOP' : 'STANDARD',
         filter_rules,
         loopMetadata: {
-          reasons: [],
-          signals: []
+          loopDetected: isLoopDetected,
+          reasons: isLoopDetected ? ['User recorded EXTRACT_TABLE step'] : [],
+          signals: isLoopDetected ? ['EXTRACT_TABLE'] : []
+        },
+        loop_metadata: {
+          loopDetected: isLoopDetected,
+          reasons: isLoopDetected ? ['User recorded EXTRACT_TABLE step'] : [],
+          signals: isLoopDetected ? ['EXTRACT_TABLE'] : []
         }
+      },
+      loop_metadata: {
+        loopDetected: isLoopDetected,
+        reasons: isLoopDetected ? ['User recorded EXTRACT_TABLE step'] : [],
+        signals: isLoopDetected ? ['EXTRACT_TABLE'] : []
       },
       filter_rules,
       actions: this.actions

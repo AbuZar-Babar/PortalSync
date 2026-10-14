@@ -104,6 +104,8 @@ export default function PropertyDrawer({
         role: def.role,
         timeout_ms: prev.timeout_ms || def.defaultTimeout,
         is_idempotent: newAction === 'CLICK' ? prev.is_idempotent ?? true : false,
+        fieldName: newAction === 'EXTRACT_TEXT' ? (prev.fieldName || 'Extracted_Value') : prev.fieldName,
+        columnName: newAction === 'EXTRACT_TEXT' ? (prev.columnName || 'Extracted_Value') : prev.columnName,
       };
     });
   };
@@ -144,7 +146,10 @@ export default function PropertyDrawer({
         isUncheck: finalDesiredState === false,
         is_idempotent: true,
       } : {}),
-      isLoop: draft.role === 'LOOP' || draft.isLoop === true,
+      isLoop: draft.role === 'LOOP' || draft.isLoop === true || draft.action === 'EXTRACT_TABLE' || draft.action === 'EXTRACT_TEXT',
+      fieldName: draft.fieldName,
+      columnName: draft.columnName || draft.fieldName,
+      sampleValue: draft.sampleValue,
     };
 
     onUpdate(nodeId, updated);
@@ -455,6 +460,56 @@ export default function PropertyDrawer({
             </div>
           </label>
         </div>
+
+
+        {/* Extra Settings for EXTRACT_TEXT / CAPTURE_FIELD */}
+        {(draft.action === 'EXTRACT_TEXT' || (draft.action as string) === 'CAPTURE_FIELD') && (
+          <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3.5 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                <Database className="h-3.5 w-3.5" />
+                Excel Column Header (fieldName)
+              </span>
+              <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/20">
+                CSV Export
+              </span>
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-400 mb-1">
+                Column Name in Exported Sheet
+              </label>
+              <input
+                type="text"
+                value={draft.fieldName || draft.columnName || draft.value || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setDraft({
+                    ...draft,
+                    fieldName: val,
+                    columnName: val,
+                    value: val,
+                  });
+                }}
+                placeholder="e.g. Invoice_Number, Total_Amount, Due_Date"
+                className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-mono font-semibold text-emerald-300 placeholder-slate-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition"
+              />
+              <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
+                This name will be used as the column header in the generated Excel CSV spreadsheet.
+              </p>
+            </div>
+
+            {draft.sampleValue && (
+              <div className="rounded border border-emerald-500/20 bg-emerald-950/40 p-2.5">
+                <div className="text-[10px] uppercase font-bold tracking-wider text-emerald-400/80 mb-1">
+                  Sample Value Captured
+                </div>
+                <div className="text-xs font-mono text-slate-200 bg-slate-900/80 px-2 py-1 rounded border border-slate-800 break-all">
+                  {String(draft.sampleValue)}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Extra Settings for Item Extraction */}
         {draft.action === 'EXTRACT' && (

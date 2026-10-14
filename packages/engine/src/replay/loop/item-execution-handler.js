@@ -846,6 +846,10 @@ class ItemExecutionHandler {
         }
       }
 
+      if (replayEngine && typeof replayEngine.resetExtractedRowFields === 'function') {
+        replayEngine.resetExtractedRowFields();
+      }
+
       try {
         for (let actionOffset = nextActionOffset; actionOffset < generalizedActions.length; actionOffset++) {
           if (isAborted()) throw new Error('Execution stopped by user');
@@ -944,6 +948,12 @@ class ItemExecutionHandler {
           );
           await new Promise(r => setTimeout(r, 300));
         }
+
+        const extraFields = replayEngine && typeof replayEngine.getExtractedRowFields === 'function'
+          ? replayEngine.getExtractedRowFields()
+          : {};
+        targetItem.fields = { ...(targetItem.fields || {}), ...extraFields };
+        itemResult.fields = { ...(targetItem.fields || {}) };
 
         // Allow the complete per-item procedure to settle before restoring state.
         await new Promise(r => setTimeout(r, 800));
@@ -1045,6 +1055,19 @@ class ItemExecutionHandler {
     }
 
     itemResult.status = 'SUCCESS';
+    if (Array.isArray(itemResult.downloadedFiles) && itemResult.downloadedFiles.length > 0) {
+      const firstDl = itemResult.downloadedFiles[0];
+      if (firstDl) {
+        targetItem.fields = {
+          ...(targetItem.fields || {}),
+          Downloaded_File: firstDl.filename,
+          ...(firstDl.extractedFields || {}),
+          ...(firstDl.reconciliationStatus ? { Reconciliation_Status: firstDl.reconciliationStatus } : {}),
+          ...(firstDl.reconciliationDelta !== undefined && firstDl.reconciliationDelta !== null ? { Reconciliation_Delta: firstDl.reconciliationDelta } : {})
+        };
+      }
+    }
+    itemResult.fields = { ...(targetItem.fields || {}), ...(itemResult.fields || {}) };
     manifest.itemsSucceeded++;
     if (itemResult.downloadedFiles.length) {
       manifest.downloadedFiles.push(...itemResult.downloadedFiles);
@@ -1135,6 +1158,51 @@ class ItemExecutionHandler {
       i,
       itemResult
     );
+
+    const isZeroClickFastScrape = !generalizedActions ||
+      generalizedActions.length === 0 ||
+      generalizedActions.every(a => {
+        const act = (a.type || a.action || '').toUpperCase();
+        return act === 'EXTRACT_TABLE' || act === 'LOOP_START' || a.isLoopAnchor || act === 'EXTRACT';
+      });
+
+    if (isZeroClickFastScrape) {
+      itemResult.status = 'SUCCESS';
+      itemResult.fields = { ...(targetItem.fields || {}) };
+      itemResult.downloadedFiles = [];
+      manifest.itemsSucceeded++;
+
+      if (!Array.isArray(manifest.extractedRows)) {
+        manifest.extractedRows = [];
+      }
+      const rawId = itemIdentifier?.itemKey || itemIdentifier?.invoiceNumber || (typeof itemIdentifier === 'object' ? itemIdentifier.itemLabel : itemIdentifier) || `item_${i + 1}`;
+      manifest.extractedRows.push({
+        Item_ID: rawId,
+        Page: currentPage,
+        ...(targetItem.fields || {})
+      });
+
+      const existingIdx = manifest.results.findIndex(r => r.index === itemResult.index);
+      if (existingIdx >= 0) {
+        manifest.results[existingIdx] = itemResult;
+      } else {
+        manifest.results.push(itemResult);
+      }
+      if (runner) runner.manifest = manifest;
+
+      const runsDir = runner ? runner.runsDir : (this.downloadManager ? this.downloadManager.runsDir : null);
+      if (runsDir) {
+        try {
+          fs.writeFileSync(path.join(runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+        } catch {}
+      }
+
+      writeLoopCheckpoint(manifest, null, null, currentPage, i + 1, null);
+      if (typeof onProgress === 'function') {
+        onProgress({ status: 'ITEM_COMPLETE', itemResult, manifest });
+      }
+      return { itemResult };
+    }
 
     let nextActionOffset = startingActionOffset;
     try {
@@ -1233,6 +1301,36 @@ class ItemExecutionHandler {
       } catch {
         // Ignore recovery error
       }
+    }
+
+    if (itemResult.status === 'SUCCESS') {
+      if (Array.isArray(itemResult.downloadedFiles) && itemResult.downloadedFiles.length > 0) {
+        const firstDl = itemResult.downloadedFiles[0];
+        if (firstDl) {
+          targetItem.fields = {
+            ...(targetItem.fields || {}),
+            Downloaded_File: firstDl.filename,
+            ...(firstDl.extractedFields || {}),
+            ...(firstDl.reconciliationStatus ? { Reconciliation_Status: firstDl.reconciliationStatus } : {}),
+            ...(firstDl.reconciliationDelta !== undefined && firstDl.reconciliationDelta !== null ? { Reconciliation_Delta: firstDl.reconciliationDelta } : {})
+          };
+          itemResult.fields = {
+            ...(itemResult.fields || {}),
+            ...(targetItem.fields || {})
+          };
+        }
+      }
+
+      if (!Array.isArray(manifest.extractedRows)) {
+        manifest.extractedRows = [];
+      }
+      const rawId = itemIdentifier?.itemKey || itemIdentifier?.invoiceNumber || (typeof itemIdentifier === 'object' ? itemIdentifier.itemLabel : itemIdentifier) || `item_${i + 1}`;
+      manifest.extractedRows.push({
+        Item_ID: rawId,
+        Page: currentPage,
+        ...(targetItem.fields || {}),
+        ...(itemResult.fields || {})
+      });
     }
 
     const existingIdx = manifest.results.findIndex(r => r.index === itemResult.index);

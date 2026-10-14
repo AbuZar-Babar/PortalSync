@@ -6,7 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { dispatchAction } = require('./action-executors');
+const { dispatchAction, executeExtractText } = require('./action-executors');
 const { calculateDelay } = require('./human-mouse');
 const { DEFAULT_TIMEOUTS } = require('../shared/constants');
 const { resolveTargetUrl } = require('../utils/url-helper');
@@ -277,7 +277,8 @@ class ActionDispatcher {
       setAutomatedAction = null,
       secretResolver = null,
       actionIndex = 0,
-      scrollIfNeeded = false
+      scrollIfNeeded = false,
+      replayEngine = null
     } = options;
 
     if (scrollIfNeeded && typeof elementHandle.scrollIntoViewIfNeeded === 'function') {
@@ -294,7 +295,9 @@ class ActionDispatcher {
       await dispatchAction(elementHandle, actionToDispatch, {
         page,
         botConfig,
-        isNextActionOption
+        isNextActionOption,
+        replayEngine,
+        actionIndex
       });
     } finally {
       if (typeof setAutomatedAction === 'function') {

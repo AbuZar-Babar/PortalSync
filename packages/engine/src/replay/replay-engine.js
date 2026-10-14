@@ -76,6 +76,15 @@ class ReplayEngine extends EventEmitter {
       interruptionHandler: this.interruptionHandler,
       downloadsDir: path.resolve(process.cwd(), 'downloads')
     });
+    this.extractedRowFields = {};
+  }
+
+  resetExtractedRowFields() {
+    this.extractedRowFields = {};
+  }
+
+  getExtractedRowFields() {
+    return { ...(this.extractedRowFields || {}) };
   }
 
   /**
@@ -748,7 +757,9 @@ class ReplayEngine extends EventEmitter {
         await dispatchAction(elementHandle, actionToDispatch, {
           page: this.page,
           botConfig: this.botConfig,
-          isNextActionOption
+          isNextActionOption,
+          replayEngine: this,
+          actionIndex: index
         });
       } finally {
         await this._setAutomatedAction(false);
@@ -827,7 +838,9 @@ class ReplayEngine extends EventEmitter {
           await dispatchAction(elementHandle, actionToDispatch, {
             page: this.page,
             botConfig: this.botConfig,
-            isNextActionOption
+            isNextActionOption,
+            replayEngine: this,
+            actionIndex: index
           });
         } finally {
           await this._setAutomatedAction(false, elementHandle);

@@ -229,7 +229,7 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
     const compiledSteps = orderedNodes.map((item, idx) => {
       const d = item.data || {};
       const action = (d.action || 'CLICK').toUpperCase() as StepActionType;
-      const isLoop = d.role === 'LOOP' || action === 'LOOP_START';
+      const isLoop = d.role === 'LOOP' || action === 'LOOP_START' || action === 'EXTRACT_TABLE' || action === 'EXTRACT_TEXT';
 
       if (isLoop && firstLoopIdx === -1) {
         firstLoopIdx = idx;
@@ -308,13 +308,17 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
         ...(Array.isArray(d.options) ? { options: d.options } : {}),
         ...(d.extract_column ? { extract_column: d.extract_column, extract_attribute: d.extract_attribute } : {}),
         ...(d.download_dir ? { download_dir: d.download_dir, upload_to_cloud: d.upload_to_cloud } : {}),
+        ...(d.fieldName ? { fieldName: d.fieldName } : {}),
+        ...(d.columnName ? { columnName: d.columnName } : {}),
+        ...(d.sampleValue !== undefined ? { sampleValue: d.sampleValue } : {}),
       };
     });
 
+    const hasTableExtract = compiledSteps.some(s => s.action === 'EXTRACT_TABLE' || (s as Record<string, unknown>).type === 'EXTRACT_TABLE');
     return {
       steps: compiledSteps,
-      hasLoop: firstLoopIdx >= 0,
-      loopStepIndex: firstLoopIdx,
+      hasLoop: firstLoopIdx >= 0 || hasTableExtract,
+      loopStepIndex: firstLoopIdx >= 0 ? firstLoopIdx : (hasTableExtract ? compiledSteps.findIndex(s => s.action === 'EXTRACT_TABLE') : -1),
     };
   }, []);
 
@@ -940,6 +944,20 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
                   <Download className="h-3.5 w-3.5 text-emerald-400" />
                   <span>File Download</span>
                 </button>
+                <button
+                  onClick={() => handleAddStep('EXTRACT_TEXT')}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-slate-800 text-slate-200 transition"
+                >
+                  <Database className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Extract Field to Excel</span>
+                </button>
+                <button
+                  onClick={() => handleAddStep('EXTRACT_TABLE')}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-slate-800 text-slate-200 transition"
+                >
+                  <Repeat className="h-3.5 w-3.5 text-cyan-400" />
+                  <span>Scrape Table to Excel</span>
+                </button>
               </div>
             )}
           </div>
@@ -1071,7 +1089,7 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
                 isLoop: Boolean(
                   preflightCompiled?.hasLoop ||
                   preflightCompiled?.steps.some(
-                    (s) => s.action === 'LOOP_START' || (s.action as string) === 'EXTRACT_ITEMS' || (s as unknown as Record<string, unknown>).isLoopAction === true
+                    (s) => s.action === 'LOOP_START' || (s.action as string) === 'EXTRACT_ITEMS' || s.action === 'EXTRACT_TABLE' || (s as unknown as Record<string, unknown>).isLoopAction === true
                   )
                 ),
                 loopStepIndex: (preflightCompiled?.loopStepIndex ?? -1) >= 0 ? preflightCompiled?.loopStepIndex : null,

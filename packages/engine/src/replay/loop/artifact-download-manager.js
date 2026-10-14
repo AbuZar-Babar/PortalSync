@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const os = require('os');
 const { db } = require('../../database/db');
 const DownloadManager = require('../download-manager');
+const DocumentDataExtractor = require('../../shared/document-data-extractor');
 const logger = require('../../utils/logger');
 
 class ArtifactDownloadManager {
@@ -149,6 +150,27 @@ class ArtifactDownloadManager {
       const relativeFilePath = path.relative(process.cwd(), destPath).replace(/\\/g, '/');
       const relativeRunPath = runArtifact ? runArtifact.relativeRunPath : null;
 
+      // Extract PDF/CSV document fields and perform Web-to-Document amount reconciliation
+      let docExtraction = { extractedFields: {}, reconciliationStatus: 'UNVERIFIED', reconciliationDelta: null };
+      if (itemKey !== 'consolidated_table_export' && !targetFilename.includes('_extracted_data_')) {
+        try {
+          docExtraction = DocumentDataExtractor.extractFromFile(destPath, fileBuffer, itemFields);
+        } catch (extractErr) {
+          logger.warn(`[ArtifactDownloadManager] Document extraction notice for "${targetFilename}": ${extractErr.message}`);
+        }
+      }
+
+      if (docExtraction.extractedFields && Object.keys(docExtraction.extractedFields).length > 0) {
+        itemFields.Downloaded_File = targetFilename;
+        Object.assign(itemFields, docExtraction.extractedFields);
+        if (docExtraction.reconciliationStatus) {
+          itemFields.Reconciliation_Status = docExtraction.reconciliationStatus;
+        }
+        if (docExtraction.reconciliationDelta !== undefined && docExtraction.reconciliationDelta !== null) {
+          itemFields.Reconciliation_Delta = docExtraction.reconciliationDelta;
+        }
+      }
+
       if (this.downloadManager) {
         this.downloadManager.recordSuccess(itemKey || targetFilename, {
           filename: targetFilename,
@@ -176,6 +198,9 @@ class ArtifactDownloadManager {
         runPath: relativeRunPath,
         fileSizeBytes,
         itemFields: itemFields || {},
+        extractedFields: docExtraction.extractedFields || {},
+        reconciliationStatus: docExtraction.reconciliationStatus || 'UNVERIFIED',
+        reconciliationDelta: docExtraction.reconciliationDelta,
         downloadedAt: new Date().toISOString()
       };
 
@@ -206,7 +231,10 @@ class ArtifactDownloadManager {
         category: runArtifact ? runArtifact.category : null,
         fileHash,
         sizeBytes: fileSizeBytes,
-        itemKey: itemKey || filename
+        itemKey: itemKey || filename,
+        extractedFields: docExtraction.extractedFields || {},
+        reconciliationStatus: docExtraction.reconciliationStatus || 'UNVERIFIED',
+        reconciliationDelta: docExtraction.reconciliationDelta
       };
     } catch (err) {
       logger.error(`[ArtifactDownloadManager] Error organizing download "${sourcePath}": ${err.message}`);
@@ -547,6 +575,126 @@ class ArtifactDownloadManager {
         }
       }
     } catch {}
+  }
+
+  /**
+   * Automatically generates an Excel-compatible RFC 4180 CSV artifact with UTF-8 BOM
+   * from manifest.extractedRows (or manifest.results items with fields).
+   * @param {Object} manifest
+   * @returns {Object|null} Created artifact record
+   */
+  generateStructuredDataArtifact(manifest) {
+    if (!manifest) return null;
+
+    let rows = [];
+    if (Array.isArray(manifest.extractedRows) && manifest.extractedRows.length > 0) {
+      rows = manifest.extractedRows;
+    } else if (Array.isArray(manifest.results)) {
+      rows = manifest.results
+        .filter(r => r.fields && Object.keys(r.fields).length > 0)
+        .map(r => ({
+          Item_ID: r.itemKey || r.label || `item_${r.itemIndex ?? r.index}`,
+          Page: r.page || 1,
+          ...(r.fields || {})
+        }));
+    }
+
+    if (!rows || rows.length === 0) {
+      return null;
+    }
+
+    // Collect all unique column headers across all rows preserving column order:
+    // Item_ID, Page, followed by discovered table columns and EXTRACT_TEXT fields
+    const headerSet = new Set(['Item_ID', 'Page']);
+    // First, table & detail fields
+    for (const row of rows) {
+      for (const k of Object.keys(row)) {
+        if (!k || k.startsWith('__') || k === 'elementHandle' || k === 'asElement') continue;
+        if (k === 'itemIdentifier' || k === 'page') continue;
+        if (k.startsWith('Doc_') || k.startsWith('Reconciliation_') || k === 'Downloaded_File') continue;
+        headerSet.add(k);
+      }
+    }
+    // Then, document & reconciliation fields in structured finance order
+    const financeDocHeaders = ['Downloaded_File', 'Doc_Invoice_Number', 'Doc_Date', 'Doc_Due_Date', 'Doc_Subtotal', 'Doc_Tax_Amount', 'Doc_Total_Amount', 'Doc_Row_Count', 'Reconciliation_Status', 'Reconciliation_Delta'];
+    for (const dh of financeDocHeaders) {
+      if (rows.some(r => r[dh] !== undefined)) {
+        headerSet.add(dh);
+      }
+    }
+    // Any remaining headers
+    for (const row of rows) {
+      for (const k of Object.keys(row)) {
+        if (!k || k.startsWith('__') || k === 'elementHandle' || k === 'asElement') continue;
+        if (k === 'itemIdentifier' || k === 'page') continue;
+        headerSet.add(k);
+      }
+    }
+    const headers = Array.from(headerSet);
+
+    // Build Excel-compatible RFC 4180 CSV with UTF-8 BOM (\uFEFF)
+    const escapeCsv = (val) => {
+      if (val == null) return '';
+      const str = typeof val === 'object' ? JSON.stringify(val) : String(val);
+      if (str.includes('"') || str.includes(',') || str.includes('\n') || str.includes('\r')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const csvLines = [headers.map(escapeCsv).join(',')];
+    for (const row of rows) {
+      const line = headers.map(h => escapeCsv(row[h] ?? '')).join(',');
+      csvLines.push(line);
+    }
+    const csvContent = '\uFEFF' + csvLines.join('\r\n');
+
+    const targetDir = this.structuredDownloadsDir || this.downloadsDir || path.resolve(process.cwd(), 'downloads');
+    if (!fs.existsSync(targetDir)) {
+      try { fs.mkdirSync(targetDir, { recursive: true }); } catch {}
+    }
+
+    const dateTag = this.dateStr || new Date().toISOString().slice(0, 10);
+    const slug = this.workflowSlug || 'workflow';
+    const csvFileName = `${slug}_extracted_data_${dateTag}.csv`;
+    const csvFilePath = path.join(targetDir, csvFileName);
+
+    try {
+      fs.writeFileSync(csvFilePath, csvContent, 'utf8');
+      const fileBuffer = fs.readFileSync(csvFilePath);
+      const fileHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+      const sizeBytes = fileBuffer.length;
+
+      const csvArtifact = {
+        filename: csvFileName,
+        originalFilename: csvFileName,
+        path: csvFilePath,
+        relativePath: csvFileName,
+        fileHash,
+        sizeBytes,
+        itemKey: 'consolidated_table_export',
+        itemLabel: 'Consolidated Table Export (CSV)',
+        category: 'Extracted_Data',
+        portalDomain: this.portalDomain,
+        rowCount: rows.length,
+        columns: headers,
+        timestamp: new Date().toISOString()
+      };
+
+      if (!Array.isArray(manifest.downloadedFiles)) {
+        manifest.downloadedFiles = [];
+      }
+      if (!manifest.downloadedFiles.some(f => (f.fileHash && f.fileHash === fileHash) || f.path === csvFilePath)) {
+        manifest.downloadedFiles.push(csvArtifact);
+      }
+      this._diskFilesCache = null;
+
+      logger.success(`[ArtifactDownloadManager] Generated structured CSV data artifact: ${csvFileName} (${rows.length} rows, ${headers.length} columns)`);
+      return csvArtifact;
+    } catch (err) {
+      logger.error(`[ArtifactDownloadManager] Failed to generate structured CSV data artifact: ${err.message}`);
+      return null;
+    }
   }
 }
 

@@ -45,6 +45,7 @@ class LoopReplayRunner {
     this.workflowId = options.workflowId || null;
     this.workflowName = options.workflowName || 'workflow';
     this.forceRedownload = options.forceRedownload === true;
+    this.alwaysExportTableCsv = options.alwaysExportTableCsv !== false;
     this.itemMode = ['new', 'old', 'all'].includes(options.itemMode) ? options.itemMode : 'new';
     this.maxItems = Number.isInteger(options.maxItems) && options.maxItems > 0 ? options.maxItems : null;
 
@@ -585,7 +586,8 @@ class LoopReplayRunner {
       itemsFailed: 0,
       itemsSkipped: 0,
       results: [],
-      downloadedFiles: []
+      downloadedFiles: [],
+      extractedRows: []
     };
     this.manifest = manifest;
 
@@ -1695,6 +1697,16 @@ class LoopReplayRunner {
           if (!manifest.downloadedFiles.some(existing => (existing.fileHash && existing.fileHash === itemToAdd.fileHash) || existing.path === itemToAdd.path)) {
             manifest.downloadedFiles.push(itemToAdd);
           }
+        }
+      }
+
+      this._syncSubManagers();
+      if (this.artifactDownloadManager) {
+        const shouldGenerateCsv =
+          manifest.downloadedFiles.length === 0 ||
+          (this.alwaysExportTableCsv !== false && Array.isArray(manifest.extractedRows) && manifest.extractedRows.length > 0);
+        if (shouldGenerateCsv) {
+          this.artifactDownloadManager.generateStructuredDataArtifact(manifest);
         }
       }
 

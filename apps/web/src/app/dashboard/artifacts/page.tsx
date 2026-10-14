@@ -72,7 +72,7 @@ export interface ArtifactItem {
 
 export type ArtifactCategory = 'invoices' | 'datasets' | 'json' | 'media' | 'other';
 export type ViewMode = 'table' | 'tree';
-export type CategoryFilter = 'all' | 'invoices' | 'datasets' | 'json';
+export type CategoryFilter = 'all' | 'master_sheet' | 'invoices' | 'datasets' | 'json';
 export type SortOption = 'newest' | 'oldest' | 'size_desc' | 'size_asc' | 'name_asc';
 
 const VIEW_MODE_STORAGE_KEY = 'wf_saas_artifacts_view_mode';
@@ -766,19 +766,23 @@ export default function ArtifactsVaultPage() {
 
   const counts = useMemo(() => {
     let all = 0;
+    let master_sheet = 0;
     let invoices = 0;
     let datasets = 0;
     let json = 0;
 
     for (const art of artifacts) {
       all++;
+      if (art.file_name.includes('_extracted_data_') || (art.file_name.endsWith('.csv') && !art.file_name.includes('part'))) {
+        master_sheet++;
+      }
       const cat = getArtifactCategory(art.file_name);
       if (cat === 'invoices') invoices++;
       else if (cat === 'datasets') datasets++;
       else if (cat === 'json') json++;
     }
 
-    return { all, invoices, datasets, json };
+    return { all, master_sheet, invoices, datasets, json };
   }, [artifacts]);
 
   const filteredArtifacts = useMemo(() => {
@@ -787,8 +791,13 @@ export default function ArtifactsVaultPage() {
     return artifacts
       .filter((art) => {
         if (categoryFilter !== 'all') {
-          const cat = getArtifactCategory(art.file_name);
-          if (cat !== categoryFilter) return false;
+          if (categoryFilter === 'master_sheet') {
+            const isMasterSheet = art.file_name.includes('_extracted_data_') || (art.file_name.endsWith('.csv') && !art.file_name.includes('part'));
+            if (!isMasterSheet) return false;
+          } else {
+            const cat = getArtifactCategory(art.file_name);
+            if (cat !== categoryFilter) return false;
+          }
         }
 
         if (q) {
@@ -1080,6 +1089,24 @@ export default function ArtifactsVaultPage() {
           </button>
 
           <button
+            onClick={() => setCategoryFilter('master_sheet')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+              categoryFilter === 'master_sheet'
+                ? 'bg-emerald-500/20 border border-emerald-500 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.25)] font-semibold'
+                : 'bg-slate-900/40 border border-white/5 text-slate-400 hover:text-slate-200 hover:border-white/10'
+            }`}
+          >
+            <span className="text-emerald-400 font-bold">📊</span>
+            <span>Master Data Sheets</span>
+            <span
+              className={`ml-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-mono ${
+                categoryFilter === 'master_sheet' ? 'bg-emerald-500/30 text-emerald-200' : 'bg-slate-800 text-slate-400'
+              }`}
+            >
+              {counts.master_sheet}
+            </span>
+          </button>
+          <button
             onClick={() => setCategoryFilter('invoices')}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
               categoryFilter === 'invoices'
@@ -1311,10 +1338,15 @@ export default function ArtifactsVaultPage() {
                               {getFileIcon(art.file_name)}
                             </div>
                             <div className="min-w-0">
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="font-semibold text-white group-hover:text-cyan-300 transition-colors truncate max-w-[280px]">
                                   {art.file_name}
                                 </span>
+                                {(art.file_name.includes('_extracted_data_') || (art.file_name.endsWith('.csv') && !art.file_name.includes('part'))) && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-sm shadow-emerald-950/50">
+                                    📊 Master Data Sheet (Excel/CSV)
+                                  </span>
+                                )}
                                 {(art.cloud_storage_path || art.synced_to_drive) && (
                                   <span title="Synced to ReFlow Cloud Storage">
                                     <Cloud className="h-3 w-3 text-cyan-400 shrink-0" />
