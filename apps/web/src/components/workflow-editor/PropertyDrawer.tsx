@@ -524,7 +524,7 @@ export default function PropertyDrawer({
                 type="text"
                 value={draft.download_dir || ''}
                 onChange={(e) => setDraft({ ...draft, download_dir: e.target.value })}
-                placeholder="~/Downloads/PortalSync"
+                placeholder="~/Downloads/ReFlow"
                 className="w-full rounded border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-300"
               />
             </div>

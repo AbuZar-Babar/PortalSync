@@ -50,11 +50,14 @@ export async function GET(request: NextRequest) {
   const rawType = (searchParams.get('type') || 'installer').toLowerCase();
 
   const isPortable = rawType === 'portable' || rawType === 'zip';
-  const fileName = isPortable
+  const primaryFileName = isPortable
+    ? 'ReFlow-Worker-Portable-1.0.0.exe'
+    : 'ReFlow-Worker-Setup-1.0.0.exe';
+  const legacyFileName = isPortable
     ? 'FlowMind-Worker-Portable-1.0.0.exe'
     : 'FlowMind-Worker-Setup-1.0.0.exe';
-
-  const binaryPath = findBinaryPath(fileName);
+  const binaryPath = findBinaryPath(primaryFileName) || findBinaryPath(legacyFileName);
+  const fileName = binaryPath ? path.basename(binaryPath) : primaryFileName;
 
   if (binaryPath) {
     try {

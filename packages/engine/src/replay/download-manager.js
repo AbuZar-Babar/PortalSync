@@ -360,11 +360,17 @@ class DownloadManager {
     const originalFilename = path.basename(sourcePath);
     if (originalFilename.endsWith('.crdownload') || originalFilename.endsWith('.tmp')) return null;
 
-    const fileBuffer = fs.readFileSync(sourcePath);
-    const fileHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+    // Support options object as 2nd arg or options passed via itemFields
+    const options = (itemKey && typeof itemKey === 'object' && !Array.isArray(itemKey)) ? itemKey : (itemFields && typeof itemFields === 'object' ? itemFields : {});
+    const effectiveItemKey = (itemKey && typeof itemKey === 'object') ? options.itemKey || null : itemKey;
+    const effectiveItemLabel = (itemKey && typeof itemKey === 'object') ? options.itemLabel || null : itemLabel;
+    const effectiveItemFields = (itemKey && typeof itemKey === 'object') ? options.itemFields || {} : (itemFields || {});
 
-    const category = this.inferCategory(originalFilename, itemFields);
-    let targetFilename = this.formatItemFilename(originalFilename, itemFields, itemKey, fileBuffer);
+    const fileBuffer = options.fileBuffer || fs.readFileSync(sourcePath);
+    const fileHash = options.fileHash || crypto.createHash('sha256').update(fileBuffer).digest('hex');
+
+    const category = this.inferCategory(originalFilename, effectiveItemFields);
+    let targetFilename = this.formatItemFilename(originalFilename, effectiveItemFields, effectiveItemKey, fileBuffer);
     const categoryDir = path.join(this.runDomainDir, category);
 
     if (!fs.existsSync(categoryDir)) {

@@ -17,6 +17,9 @@ export type RunnerAuthResult =
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const orgPrefixCache = new Map<string, { orgId: string; expiresAt: number }>();
+const lastHeartbeatWriteCache = new Map<string, number>();
+
 function getServiceClient(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -51,6 +54,9 @@ export function extractRunnerToken(request: NextRequest): string | null {
 async function resolveOrCreateOrgId(rawOrgId: string, supabase: SupabaseClient): Promise<string | null> {
   if (!rawOrgId) return null;
 
+  const cached = orgPrefixCache.get(rawOrgId);
+  if (cached && Date.now() < cached.expiresAt) return cached.orgId;
+
   // Strip any trailing ellipsis or whitespace (e.g. user copying ps_live_12345678...)
   const sanitized = rawOrgId.replace(/[\.\s]+$/, '').trim();
   if (!sanitized) return null;
@@ -64,6 +70,7 @@ async function resolveOrCreateOrgId(rawOrgId: string, supabase: SupabaseClient):
       .maybeSingle();
 
     if (existing) {
+      orgPrefixCache.set(rawOrgId, { orgId: existing.id, expiresAt: Date.now() + 60000 });
       return existing.id;
     }
 
@@ -80,8 +87,10 @@ async function resolveOrCreateOrgId(rawOrgId: string, supabase: SupabaseClient):
       .maybeSingle();
 
     if (!error && created) {
+      orgPrefixCache.set(rawOrgId, { orgId: created.id, expiresAt: Date.now() + 60000 });
       return created.id;
     }
+    orgPrefixCache.set(rawOrgId, { orgId: sanitized, expiresAt: Date.now() + 60000 });
     return sanitized;
   }
 
@@ -106,6 +115,7 @@ async function resolveOrCreateOrgId(rawOrgId: string, supabase: SupabaseClient):
       );
     });
     if (matched) {
+      orgPrefixCache.set(rawOrgId, { orgId: matched.id, expiresAt: Date.now() + 60000 });
       return matched.id;
     }
   }
@@ -118,6 +128,7 @@ async function resolveOrCreateOrgId(rawOrgId: string, supabase: SupabaseClient):
     .maybeSingle();
 
   if (bySlug) {
+    orgPrefixCache.set(rawOrgId, { orgId: bySlug.id, expiresAt: Date.now() + 60000 });
     return bySlug.id;
   }
 
@@ -129,6 +140,7 @@ async function resolveOrCreateOrgId(rawOrgId: string, supabase: SupabaseClient):
     .maybeSingle();
 
   if (byName) {
+    orgPrefixCache.set(rawOrgId, { orgId: byName.id, expiresAt: Date.now() + 60000 });
     return byName.id;
   }
 
@@ -154,6 +166,7 @@ async function resolveOrCreateOrgId(rawOrgId: string, supabase: SupabaseClient):
     .maybeSingle();
 
   if (createdOrg) {
+    orgPrefixCache.set(rawOrgId, { orgId: createdOrg.id, expiresAt: Date.now() + 60000 });
     return createdOrg.id;
   }
 
@@ -200,8 +213,12 @@ export async function authenticateRunnerOrUser(request: NextRequest): Promise<Ru
     const incomingCdp = request.headers.get('x-runner-cdp');
 
     const isRunnerRequest = Boolean(incomingHostname || incomingPlatform || request.method === 'POST');
+    const shouldWriteHeartbeat = isRunnerRequest && (
+      (request.method === 'POST' && request.nextUrl.pathname.endsWith('/runners')) ||
+      (Date.now() - (lastHeartbeatWriteCache.get(orgId) || 0) > 15000)
+    );
 
-    if (isRunnerRequest) {
+    if (shouldWriteHeartbeat) {
       try {
         // Fetch existing metadata to preserve real fields if incoming headers are partial or omitted
         const { data: existingOrg } = await client
@@ -233,6 +250,8 @@ export async function authenticateRunnerOrUser(request: NextRequest): Promise<Ru
             stripe_subscription_id: JSON.stringify(mergedPayload),
           })
           .eq('id', orgId);
+
+        lastHeartbeatWriteCache.set(orgId, Date.now());
       } catch {
         // Non-fatal if telemetry update fails
       }
@@ -271,17 +290,19 @@ export async function authenticateRunnerOrUser(request: NextRequest): Promise<Ru
       .from('wf_organization_members')
       .select('org_id')
       .eq('user_id', user.id)
-      .limit(1);
+      .limit(20);
 
     let orgId: string | null = null;
     if (members && members.length > 0) {
       orgId = members[0].org_id;
     }
 
-    // Check query params if specified
+    // Check query params if specified and verify user membership
     const requestedOrgId = request.nextUrl.searchParams.get('org_id');
     if (requestedOrgId && UUID_REGEX.test(requestedOrgId)) {
-      orgId = requestedOrgId;
+      if (members && members.some((m) => m.org_id === requestedOrgId)) {
+        orgId = requestedOrgId;
+      }
     }
 
     // If user has no organization yet, resolve or create default

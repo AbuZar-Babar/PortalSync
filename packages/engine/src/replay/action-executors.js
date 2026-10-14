@@ -21,6 +21,9 @@ async function ensureInteractable(elementHandle, action) {
       (el.className && typeof el.className === 'string' && el.className.includes('backdrop'))
     );
 
+    const rectBefore = el.getBoundingClientRect();
+    const wasInViewport = rectBefore.top >= 0 && rectBefore.bottom <= window.innerHeight && rectBefore.left >= 0 && rectBefore.right <= window.innerWidth;
+
     if (el.scrollIntoView && !isBackdrop) {
       try {
         el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
@@ -52,7 +55,7 @@ async function ensureInteractable(elementHandle, action) {
     const hasDimensions = !!(el.offsetWidth || el.offsetHeight || (el.getClientRects && el.getClientRects().length));
     const isVisible = hasDimensions || isBackdrop;
     const isDisabled = el.disabled === true;
-    return { isVisible, isDisabled };
+    return { isVisible, isDisabled, didScroll: !wasInViewport && !isBackdrop };
   });
 
   if (!status.isVisible) {
@@ -66,7 +69,7 @@ async function ensureInteractable(elementHandle, action) {
 
   // Pre-action stabilization settle delay:
   // Allow browser layout shifts, smooth scrolling, and framework hydration to settle
-  await new Promise(r => setTimeout(r, 250));
+  await new Promise(r => setTimeout(r, status.didScroll ? 250 : 30));
 
   if (status.isDisabled) {
     logger.warn(`Element for Action #${action.index + 1} has disabled attribute; attempting synthetic click dispatch.`);

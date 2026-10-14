@@ -133,20 +133,7 @@ class RunnerController {
         }
       };
 
-      // Start dedicated heartbeat timer (every 10s)
-      if (this._heartbeatTimer) {
-        clearInterval(this._heartbeatTimer);
-      }
-      this._heartbeatTimer = setInterval(async () => {
-        if (this.status !== 'active' && this.status !== 'starting') return;
-        try {
-          const cdpStatus = await chromeSpawner.isPortOpen();
-          await cloudClient.sendHeartbeat({ cdp_active: cdpStatus.open });
-        } catch {}
-      }, 10000);
-
-      // Start polling & send initial heartbeat
-      void cloudClient.sendHeartbeat().catch(() => {});
+      // Start polling & send initial heartbeat (daemon runs its own 10s heartbeat cycle)
       this.daemon.start().catch((err) => {
         console.error('Daemon polling error:', err);
       });

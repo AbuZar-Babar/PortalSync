@@ -69,12 +69,33 @@ class HttpBridge {
   }
 
   setCorsHeaders(req, res) {
-    const origin = req.headers.origin || '*';
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Request-Private-Network');
+    const rawOrigin = req.headers.origin;
+    let allowedOrigin = 'http://localhost:3000';
+    if (!rawOrigin) {
+      allowedOrigin = '*';
+    } else {
+      const configuredCloudUrl = (this.configManager?.get?.()?.cloudUrl) || (configManager?.get?.()?.cloudUrl) || '';
+      let configuredOrigin = '';
+      try {
+        if (configuredCloudUrl) configuredOrigin = new URL(configuredCloudUrl).origin;
+      } catch (_) {}
+
+      const isTrusted =
+        /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(rawOrigin) ||
+        /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(rawOrigin) ||
+        /^https:\/\/([a-z0-9-]+\.)?reflow\.(io|ai|app|dev)$/i.test(rawOrigin) ||
+        (configuredOrigin && rawOrigin === configuredOrigin);
+
+      if (isTrusted) {
+        allowedOrigin = rawOrigin;
+      }
+    }
+
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
     res.setHeader('Access-Control-Allow-Private-Network', 'true');
-    if (origin !== '*') {
+    if (allowedOrigin !== '*') {
       res.setHeader('Access-Control-Allow-Credentials', 'true');
     }
   }

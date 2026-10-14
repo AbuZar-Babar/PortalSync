@@ -511,7 +511,7 @@ export function CreatePortalModal({
         portal_url: normalizedUrl,
         workflow_definition: {
           schedule: 'manual',
-          target_folder: canvasTargetFolder || 'C:\\FlowMind\\Invoices',
+          target_folder: canvasTargetFolder || '~/Documents/ReFlow/Invoices',
           upload_to_cloud: canvasUploadToCloud,
           steps: [
             {
@@ -560,7 +560,7 @@ export function CreatePortalModal({
         },
         filter_rules: {},
         upload_to_cloud: canvasUploadToCloud,
-        target_folder: canvasTargetFolder || 'C:\\FlowMind\\Invoices',
+        target_folder: canvasTargetFolder || '~/Documents/ReFlow/Invoices',
       };
 
       const res = await fetch('/api/v1/workflows', {

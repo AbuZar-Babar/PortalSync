@@ -640,7 +640,7 @@ export default function RunnersPage() {
           status: 'success',
           message: 'Desktop Worker connected. Chrome CDP port 9222 managed automatically by runner daemon.',
           latencyMs: 15,
-          details: 'Port: 9222 | Managed by FlowMind Worker Engine',
+          details: 'Port: 9222 | Managed by ReFlow Worker Engine',
         };
       } else {
         cdpResult = {
@@ -738,7 +738,7 @@ export default function RunnersPage() {
   // Commands for quick copy
   const terminalDoctorCmd = 'npm run runner:doctor';
   const terminalListenCmd = `npm run runner:listen -- --token ${currentToken || 'ps_live_token'}`;
-  const dockerCmd = `docker run -d --net=host -e WORKER_TOKEN=${currentToken || 'ps_live_token'} flowmind/worker:latest`;
+  const dockerCmd = `docker run -d --net=host -e WORKER_TOKEN=${currentToken || 'ps_live_token'} reflow/worker:latest`;
   const chromeWindowsCmd = `& "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --remote-debugging-port=9222 --user-data-dir="C:\\ChromeDebug"`;
   const chromeMacCmd = `/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --remote-debugging-port=9222 --user-data-dir=/tmp/ChromeDebug`;
 
@@ -1032,7 +1032,7 @@ export default function RunnersPage() {
                 <div className="pt-2 space-y-2">
                   <a
                     href="/api/v1/runners/download?type=installer"
-                    download="FlowMind-Worker-Setup-1.0.0.exe"
+                    download="ReFlow-Worker-Setup-1.0.0.exe"
                     className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-cyan-500/20 transition-all"
                   >
                     <Download className="w-3.5 h-3.5" />
@@ -1041,7 +1041,7 @@ export default function RunnersPage() {
 
                   <a
                     href="/api/v1/runners/download?type=portable"
-                    download="FlowMind-Worker-Portable-1.0.0.exe"
+                    download="ReFlow-Worker-Portable-1.0.0.exe"
                     className="w-full flex items-center justify-center gap-2 py-1.5 px-3 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-white/10 rounded-xl text-xs font-semibold transition-all"
                   >
                     <Download className="w-3.5 h-3.5 text-slate-400" />
@@ -1289,7 +1289,7 @@ export default function RunnersPage() {
             </div>
 
             <p className="text-[11px] text-slate-300 leading-relaxed">
-              Google Chrome must be launched with remote debugging enabled so the FlowMind engine can automate browser tabs without leaving user traces. Run the following command in your terminal:
+              Google Chrome must be launched with remote debugging enabled so the ReFlow engine can automate browser tabs without leaving user traces. Run the following command in your terminal:
             </p>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 text-[11px] font-mono">

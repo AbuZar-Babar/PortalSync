@@ -112,14 +112,14 @@ export function Sidebar({ isRunnerOnline = false }: SidebarProps) {
         <Link
           href="/dashboard"
           className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-white/5 transition-colors group"
-          title="Workflow Agent SaaS"
+          title="ReFlow Cloud SaaS"
         >
           <RobotAvatar size={isCollapsed ? 'mini' : 'badge'} state={isRunnerOnline ? 'running' : 'idle'} />
           {!isCollapsed && (
             <div className="flex flex-col overflow-hidden">
               <div className="flex items-center gap-1.5">
                 <span className="font-extrabold text-sm tracking-tight text-white group-hover:text-cyan-400 transition-colors">
-                  Workflow Agent
+                  ReFlow
                 </span>
               </div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400/80">

@@ -31,7 +31,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         <RobotAvatar size="medium" state="running" />
         <div className="flex items-center gap-2 text-sm font-semibold text-cyan-400">
           <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-          <span>Connecting to Workflow Agent Cloud...</span>
+          <span>Connecting to ReFlow Cloud...</span>
         </div>
       </div>
     );

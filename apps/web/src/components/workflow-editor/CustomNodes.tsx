@@ -176,7 +176,7 @@ export function createDefaultStepData(action: StepActionType, index: number): St
     role: def.role,
     extract_column: action === 'EXTRACT' ? 'record_id' : '',
     extract_attribute: action === 'EXTRACT' ? 'textContent' : '',
-    download_dir: action === 'DOWNLOAD' ? '~/Downloads/PortalSync' : '',
+    download_dir: action === 'DOWNLOAD' ? '~/Downloads/ReFlow' : '',
     upload_to_cloud: action === 'DOWNLOAD' ? true : false,
   };
 }

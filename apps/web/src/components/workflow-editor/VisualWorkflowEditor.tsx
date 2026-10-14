@@ -768,6 +768,8 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isDirty]);
 
+  const preflightCompiled = isPreflightOpen ? compileTopologicalSteps() : null;
+
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-[#060913] text-slate-100 antialiased select-none">
       {/* ===================================================================
@@ -1063,11 +1065,16 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
               updated_at: new Date().toISOString(),
               workflow_definition: {
                 drawflow: editorRef.current ? editorRef.current.export() : undefined,
-                steps: compileTopologicalSteps().steps,
-                actions: compileTopologicalSteps().steps,
-                mode: compileTopologicalSteps().hasLoop ? 'loop' : 'single',
-                isLoop: compileTopologicalSteps().hasLoop,
-                loopStepIndex: compileTopologicalSteps().loopStepIndex >= 0 ? compileTopologicalSteps().loopStepIndex : null,
+                steps: (preflightCompiled?.steps || []) as unknown as Array<Record<string, unknown>>,
+                actions: (preflightCompiled?.steps || []) as unknown as Array<Record<string, unknown>>,
+                mode: preflightCompiled?.hasLoop ? 'loop' : 'single',
+                isLoop: Boolean(
+                  preflightCompiled?.hasLoop ||
+                  preflightCompiled?.steps.some(
+                    (s) => s.action === 'LOOP_START' || s.action === 'EXTRACT_ITEMS' || (s as unknown as Record<string, unknown>).isLoopAction === true
+                  )
+                ),
+                loopStepIndex: (preflightCompiled?.loopStepIndex ?? -1) >= 0 ? preflightCompiled?.loopStepIndex : null,
               },
               filter_rules: filterRules || {},
             }}

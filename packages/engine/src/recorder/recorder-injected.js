@@ -1641,22 +1641,15 @@
   window.addEventListener('keydown', handleKeyDown, true);
   window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
 
-  if (typeof document !== 'undefined') {
-    document.addEventListener('pointerdown', onPointerDown, true);
-    document.addEventListener('mousedown', onMouseDown, true);
-    document.addEventListener('click', onClick, true);
-    document.addEventListener('mouseup', onMouseUp, true);
-    document.addEventListener('pointerup', onPointerUp, true);
-    document.addEventListener('input', handleInput, true);
-    document.addEventListener('change', handleChange, true);
-    document.addEventListener('blur', handleBlur, true);
-    document.addEventListener('keydown', handleKeyDown, true);
-    document.addEventListener('scroll', handleScroll, { capture: true, passive: true });
-  }
+  // Capture-phase listeners on window intercept all events cleanly without document duplication
 
   // Direct element listener binding for DevExpress / dynamic ERP toolbars
+  let lastToolbarScan = 0;
   function attachToolbarListeners() {
     if (typeof document === 'undefined') return;
+    const now = Date.now();
+    if (now - lastToolbarScan < 400) return;
+    lastToolbarScan = now;
     try {
       const selector = 'img[title*="Export"], img[title*="save" i], img[title*="export" i], .dxm-item, .dxm-content, .dxm-image, [id*="Toolbar_Menu"], canvas, button, [role="button"], [role="menuitem"]';
       const elements = document.querySelectorAll(selector);

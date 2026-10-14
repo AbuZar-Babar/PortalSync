@@ -441,7 +441,7 @@ class RecorderBridge {
     const scheduleFrameInjection = (targetFrame) => {
       const allFrames = getAllFramesRecursive(targetFrame);
       for (const f of allFrames) {
-        const delays = [0, 80, 200, 500, 1000, 2000, 3500, 5000, 7500, 10000];
+        const delays = [0, 150, 600];
         for (const d of delays) {
           if (d === 0) {
             injectIntoFrame(f);

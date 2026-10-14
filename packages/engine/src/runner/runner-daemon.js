@@ -460,7 +460,6 @@ class RunnerDaemon {
         cancelWatchdogCounter++;
         if (cancelWatchdogCounter % 2 === 0 && !this.isStoppingCurrentRun) {
           try {
-            const remoteRuns = await this.cloudClient.getPendingRuns();
             // Also check current run if not pending
             const remoteStatus = await this.cloudClient._request(`/api/v1/runs?workflow_id=${run.workflow_id}`, { method: 'GET' });
             const currentRecord = Array.isArray(remoteStatus?.runs) ? remoteStatus.runs.find((r) => r.id === run.id) : null;

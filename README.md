@@ -1,135 +1,145 @@
 # ReFlow
 
-Autonomous enterprise browser automation and RPA platform. ReFlow bridges a modern cloud control plane with a local desktop automation daemon and Chrome DevTools Protocol (CDP) engine for resilient web workflow capture, intelligent element discovery, and reliable replay without breaking on 2FA, popups, or anti-bot protections.
+**Autonomous Browser Automation & Hybrid Robotic Process Automation (RPA) Platform**
+
+ReFlow bridges a modern cloud control plane with a local desktop automation daemon and a Chrome DevTools Protocol (CDP) engine for zero-extension workflow capture, intelligent table/collection discovery, and self-healing replay—without breaking on 2FA challenges, popups, or cloud anti-bot firewalls.
 
 ---
 
-## Key Capabilities
+## 1. Project Overview & Core Value Proposition
 
-- **Resilient Autonomous Replay**: Multi-strategy selector resolution across IDs, CSS selectors, normalized text, and evaluated XPaths.
-- **Smart Interruption Recovery**: Automatically detects and dismisses unexpected overlays, cookie banners, and survey popups while protecting in-workflow modals and dialog inputs.
-- **Visual Workflow Editor**: Interactive full-page visual workflow canvas (`/dashboard/workflows/[id]/edit`) built on Drawflow and Next.js 16.
-- **90-Second Human-in-the-Loop (HITL) 2FA**: Detects 2FA, OTP, and CAPTCHA challenges, alerts the cloud dashboard, and provides a 90s countdown for user resolution before cleanly resuming.
-- **State-Aware Checkbox Idempotency**: Inspects DOM and ARIA checkbox states to prevent accidental toggling on replay.
-- **Multi-Tab Orchestration**: Manages auxiliary tabs and popups during downloads and authentication flows.
-- **Hybrid Artifact Storage & Deduplication**: Computes cryptographic SHA-256 hashes of all downloaded files, deduplicates local storage, and optionally syncs artifacts to Supabase Storage.
+Enterprise workflows—such as logging into vendor billing portals, filtering data tables by date or status, and bulk-downloading statements or invoices—frequently fail on conventional cloud headless automation tools (Selenium, Playwright, Puppeteer). Datacenter IP ranges get flagged by Cloudflare/PerimeterX/DataDome, sessions lack persistent cookies, and multi-factor authentication (MFA/2FA) prompts abruptly abort headless scripts.
+
+**ReFlow solves this with a Programming by Demonstration (PbD) paradigm and a 3-tier hybrid architecture:**
+
+1. **Demonstrate Once via Real Local Chrome**: The user clicks **Record** and performs the action once in their genuine local Chrome browser. ReFlow attaches directly over CDP (`--remote-debugging-port=9222`) using a dedicated persistent profile (`~/.chrome-reflow`), completely eliminating the need for brittle browser extensions.
+2. **Multi-Attribute Element Fingerprinting & Self-Healing**: Target elements are captured with multi-attribute fingerprints (tag name, stable IDs, ARIA labels, semantic bounding boxes, text content, and class Jaccard similarity) while dynamic framework IDs (ExtJS, Angular, React) are automatically stripped.
+3. **Smart Collection Detection & Action Generalization**: If an action is performed on a row of a table or an option in a dropdown, ReFlow's `LoopDetector` and `ActionGeneralizer` partition the workflow into **Setup Steps** (login, navigation, opening menus) and **Loop Steps** (per-item actions). Row-specific selectors (`tr:nth-child(1) > td > a`) are generalized into item-relative selectors (`td > a` or `:scope`), enabling autonomous execution over 10 or 1,000 items.
+4. **90-Second Human-in-the-Loop (HITL) 2FA Recovery**: When a portal triggers an unexpected OTP, SMS, or Okta challenge, ReFlow pauses execution, updates cloud run telemetry to `requires_action`, displays a live 90-second countdown in the web dashboard, and triggers a desktop OS notification. Once the user completes the challenge in Chrome, ReFlow detects authentication and resumes execution automatically.
+5. **Cryptographic Deduplication & Vaulting**: Every downloaded artifact (invoices, receipts, CSVs) is hashed with SHA-256. ReFlow checks local storage indexes and database records before downloading, skips duplicate items, organizes outputs into structured hierarchies (`Run/<timestamp>/<domain>/<category>/`), and optionally syncs files to Supabase Storage.
 
 ---
 
-## Monorepo Architecture
+## 2. Monorepo Architecture
+
+ReFlow is structured as an npm workspaces monorepo:
 
 ```text
-reflow-saas/
+Workflow-Capture-SaaS/
 ├── apps/
-│   ├── web/               # Next.js 16 Web Control Plane & Customer Dashboard
-│   └── desktop/           # Electron Desktop Client & Local HTTP Bridge (:49152)
+│   ├── web/               # Next.js 16 Web Control Plane & SaaS Dashboard
+│   └── desktop/           # Electron System Tray Worker & Localhost HTTP Bridge (:49152)
 ├── packages/
-│   └── engine/            # Core Browser Automation Engine & Runner Daemon
-├── supabase/              # PostgreSQL DDL Schema & Row-Level Security Policies
-├── docs/                  # System Architecture & Technical Specifications
+│   └── engine/            # Core CDP Automation Engine & Runner Daemon
+├── supabase/              # PostgreSQL Schema, Foreign Keys & Row-Level Security (RLS)
+├── docs/                  # System Architecture, Technical Diagrams & Specifications
 ├── DESIGN.md              # ReFlow Design System Tokens & Editorial Guidelines
-└── .env.example           # Monorepo Environment Configuration Template
+└── package.json           # Root workspace configuration
 ```
 
-For an in-depth breakdown of the technical design, data flows, and state machines, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). For design tokens and typography hierarchy, refer to [DESIGN.md](DESIGN.md).
+### Subsystems Breakdown
+
+#### `apps/web` (Next.js 16 App Router + Supabase Cloud Control Plane)
+* **Agent Workflows Catalog & Visual Editor**: Interactive node-based canvas (`VisualWorkflowEditor.tsx`) powered by Drawflow for designing and modifying sequential and looped automation graphs.
+* **Execution Preflight Modal**: Pre-run inspection modal (`ExecutionPreflightModal.tsx`) supporting live table column discovery via the desktop bridge, runtime column filters (numeric, date ranges, status), batch limits, and dry-run previews.
+* **Live Telemetry & HITL 2FA Banner**: Real-time run monitoring (`runs/page.tsx`) subscribed to Supabase Realtime (`postgres_changes`), rendering live step logs, artifact links, and the 90-second countdown banner (`TwoFactorBanner.tsx`).
+* **Outputs & Invoices Vault**: Cryptographic artifact repository (`artifacts/page.tsx`) with SHA-256 integrity verification, cloud sync status, and streaming in-browser PKWARE ZIP exports.
+* **Enterprise Security Vault**: AES-256-GCM credential vault (`/api/v1/secrets`) and HMAC-SHA256 signed outgoing webhooks (`/api/v1/webhooks`) with SSRF protection against private IPv4 destinations.
+
+#### `apps/desktop` (Electron Local Worker & System Tray Bridge)
+* **`chrome-spawner.js`**: Launches or attaches to local Google Chrome on CDP debugging port `9222` with persistent user data directory `~/.chrome-reflow`.
+* **`http-bridge.js`**: Local HTTP server listening on `127.0.0.1:49152` with origin-validated Private Network Access CORS, exposing endpoints for the cloud web dashboard:
+  * `POST /record/start`: Attaches recorder bridge to active Chrome tab.
+  * `POST /record/stop`: Compiles recorded actions into a structured workflow.
+  * `POST /discover`: Live table/grid column inspection using `ItemDiscovery` and `PageInspector`.
+  * `POST /run/stop`: Cleanly aborts active local automation runs.
+* **`runner-controller.js` & `notifier.js`**: Manages the local `RunnerDaemon` execution lifecycle and triggers native OS desktop notifications.
+
+#### `packages/engine` (Core CDP Automation & Intelligence Engine)
+* **`recorder/`** (`recorder-bridge.js`, `recorder-injected.js`): CDP interaction recorder injecting capture-phase listeners, buffering keystrokes, and recording multi-attribute element fingerprints.
+* **`shared/`**:
+  * `selector-resolver.js`: Weighted scoring engine matching candidate elements across IDs, classes, ARIA attributes, text overlap, and modal containers.
+  * `item-discovery.js` & `page-inspector.js`: Inspects tables, ExtJS grids, and repeated UI collections to identify columns, row counts, and structural signatures.
+  * `loop-detector.js` & `loop-confidence-engine.js`: Statistical loop detection and step partitioning.
+  * `action-generalizer.js`: Converts absolute row clicks into item-relative scoped actions.
+  * `condition-evaluator.js`: Universal evaluator supporting 25+ relational, numeric, and date operators.
+  * `auth-detector.js` & `hitl-detector.js`: Automated session detection and 2FA challenge recognition.
+  * `tab-manager.js`: Auxiliary popup and download viewer tab tracking and cleanup.
+* **`replay/`**:
+  * `replay-engine.js`: CDP replay controller with cubic Bézier curve human mouse trajectories (`human-mouse.js`) and anti-bot evasion.
+  * `loop-replay-runner.js`: Orchestrator delegating item iteration, state synchronization, and failure recoveries.
+  * `replay/loop/`: Modular sub-managers including `ArtifactDownloadManager`, `GridSelectionAdapter`, `ItemExecutionHandler`, and `LoopStateCoordinator`.
+  * `action-dispatcher.js` & `action-executors.js`: Resilient execution of clicks, inputs, dropdown selections, and datepicker normalization.
+* **`runner/`** (`runner-daemon.js`, `cloud-client.js`): Background daemon polling the cloud control plane for pending jobs, claiming execution runs, streaming progress telemetry, and uploading vaulted artifacts.
 
 ---
 
-## Tech Stack
-
-- **Cloud Web App**: Next.js 16 (App Router, Turbopack, React 19), Tailwind CSS v4, TypeScript, Lucide Icons, Drawflow
-- **Database & Auth**: Supabase (PostgreSQL with Row-Level Security, Storage Buckets)
-- **Desktop Application**: Electron, Node.js, Localhost HTTP Bridge (`127.0.0.1:49152`)
-- **Automation Engine**: Node.js, Puppeteer-core, Chrome DevTools Protocol (`127.0.0.1:9222`)
-- **Engine Tests**: Native Node.js test runner (`node --test`)
-
----
-
-## Getting Started
+## 3. Getting Started
 
 ### Prerequisites
-
-- **Node.js**: `20.x` or higher (tested on Node 20+ and Node 25)
-- **Google Chrome**: Launched with remote debugging enabled (`--remote-debugging-port=9222`)
-- **Supabase**: Account with initialized schema (run `supabase/schema.sql` in your Supabase SQL Editor)
+* **Node.js**: `20.x` or higher (compatible with Node 20, 22, and 25)
+* **Google Chrome**: Installed on the local operating system
+* **Supabase Account**: Project configured with PostgreSQL and Storage bucket
 
 ---
 
-### 1. Database Initialization
+### Step 1: Initialize Database Schema
 
-Execute the complete DDL script in your Supabase SQL editor:
+In your Supabase SQL Editor, run the DDL schema file:
 
-```bash
-# File located at:
+```sql
+-- File located at:
 supabase/schema.sql
 ```
 
-This creates the core `wf_organizations`, `wf_organization_members`, `wf_workflows`, `wf_execution_runs`, and `wf_run_artifacts` tables with indexes and Row-Level Security (RLS) policies.
+This creates the core relational tables (`wf_organizations`, `wf_organization_members`, `wf_workflows`, `wf_execution_runs`, `wf_run_artifacts`, `wf_secrets`) alongside Row-Level Security (RLS) policies.
 
 ---
 
-### 2. Web Control Plane (`apps/web`)
+### Step 2: Configure Environment Variables
+
+Create `apps/web/.env.local` using the template below:
+
+```env
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# Secrets Vault Encryption (32-byte hex string for AES-256-GCM)
+VAULT_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+
+# Optional: Cloud URL
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+---
+
+### Step 3: Install Dependencies & Run Development Servers
+
+From the monorepo root:
 
 ```bash
-# Configure environment:
-cp apps/web/.env.example apps/web/.env.local
-
-# Run development server:
-npm run dev
-
-# Or directly in apps/web:
-cd apps/web
+# 1. Install all dependencies across workspaces
 npm install
-npm run dev
-```
 
-Open [http://localhost:3000](http://localhost:3000) to view the marketing landing page and access `/dashboard`.
+# 2. Run the Next.js Cloud Dashboard
+npm run dev --prefix apps/web
+# (Open http://localhost:3000 in your browser)
 
----
-
-### 3. Desktop Application (`apps/desktop`)
-
-The desktop app runs in the system tray, automatically coordinates Chrome instances on port 9222, and provides the local HTTP bridge on port 49152 for web-to-desktop workflow recording.
-
-```bash
-# Launch Electron desktop client:
-npm run desktop
-
-# Package desktop executables:
-npm run desktop:build        # Windows installer / portable exe
-npm run desktop:build:mac    # macOS dmg / zip
-npm run desktop:build:all    # Multi-platform build
+# 3. Start the Electron Desktop Worker & HTTP Bridge
+npm start --prefix apps/desktop
 ```
 
 ---
 
-### 4. Headless Runner Daemon (`packages/engine`)
+### Step 4: Build Executables (Optional)
 
-The headless runner daemon polls the cloud control plane for pending execution runs and executes workflows locally:
-
-```bash
-# Run system and CDP diagnostics:
-npm run runner:doctor
-
-# Start polling daemon:
-npm run runner:listen
-
-# Execute a specific workflow directly:
-node packages/engine/src/runner/cli.js run <workflow_id_or_file>
-```
-
----
-
-## Testing & Verification
-
-The core browser automation engine includes unit and integration test suites validating interruption handling, date inputs, table alignment, and replay consistency:
+To package the Electron desktop worker into standalone installation binaries:
 
 ```bash
-# Run engine test suite:
-npm test
-
-# Run individual engine test files:
-node --test packages/engine/test/exception-tab-management.test.js
-node --test packages/engine/test/universal-date-handler.test.js
-node --test packages/engine/test/table-expander-field-alignment.test.js
+# Build Windows Installer (.exe) & Portable Executable
+npm run dist --prefix apps/desktop
 ```
+
+Generated installer artifacts will be placed in `apps/desktop/dist/` (`ReFlow-Worker-Setup-1.0.0.exe` and `ReFlow-Worker-Portable-1.0.0.exe`).

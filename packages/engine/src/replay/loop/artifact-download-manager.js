@@ -113,7 +113,7 @@ class ArtifactDownloadManager {
       // 1. Organize into primary Run/ hierarchy: Run/<runTimestamp>/<portalDomain>/<Category>/<formattedFilename>
       let runArtifact = null;
       if (this.downloadManager && typeof this.downloadManager.organizeRunArtifact === 'function') {
-        runArtifact = this.downloadManager.organizeRunArtifact(sourcePath, itemKey, itemLabel, itemFields);
+        runArtifact = this.downloadManager.organizeRunArtifact(sourcePath, { itemKey, itemLabel, itemFields, fileBuffer, fileHash });
       }
 
       let targetFilename = runArtifact ? runArtifact.targetFilename : filename;
