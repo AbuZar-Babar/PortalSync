@@ -1071,7 +1071,7 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
                 isLoop: Boolean(
                   preflightCompiled?.hasLoop ||
                   preflightCompiled?.steps.some(
-                    (s) => s.action === 'LOOP_START' || s.action === 'EXTRACT_ITEMS' || (s as unknown as Record<string, unknown>).isLoopAction === true
+                    (s) => s.action === 'LOOP_START' || (s.action as string) === 'EXTRACT_ITEMS' || (s as unknown as Record<string, unknown>).isLoopAction === true
                   )
                 ),
                 loopStepIndex: (preflightCompiled?.loopStepIndex ?? -1) >= 0 ? preflightCompiled?.loopStepIndex : null,
