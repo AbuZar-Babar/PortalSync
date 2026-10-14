@@ -243,7 +243,36 @@ class LoopReplayRunner {
     return this.executeStandard(workflow, options.onProgress);
   }
 
+  _syncSubManagers() {
+    if (this.artifactDownloadManager) {
+      this.artifactDownloadManager.workflowId = this.workflowId;
+      this.artifactDownloadManager.workflowName = this.workflowName;
+      this.artifactDownloadManager.workflowSlug = this.workflowSlug;
+      this.artifactDownloadManager.workflowDownloadsBaseDir = this.workflowDownloadsBaseDir;
+      this.artifactDownloadManager.structuredDownloadsDir = this.structuredDownloadsDir;
+      this.artifactDownloadManager.downloadsDir = this.downloadsDir;
+      this.artifactDownloadManager.runsDir = this.runsDir;
+      this.artifactDownloadManager.forceRedownload = this.forceRedownload;
+      if (this.portalDomain) {
+        this.artifactDownloadManager.setPortalDomain(this.portalDomain);
+      }
+      if (this._activeItemContext) {
+        this.artifactDownloadManager._activeItemContext = this._activeItemContext;
+      }
+    }
+    if (this.loopStateCoordinator) {
+      this.loopStateCoordinator.workflowId = this.workflowId;
+      this.loopStateCoordinator.workflowName = this.workflowName;
+      this.loopStateCoordinator.runsDir = this.runsDir;
+      this.loopStateCoordinator.resumeFromCheckpoint = this.resumeFromCheckpoint;
+      this.loopStateCoordinator.itemFilter = this.itemFilter;
+      this.loopStateCoordinator.rowFilter = this.rowFilter;
+      this.loopStateCoordinator.loopLimit = this.loopLimit;
+      this.loopStateCoordinator.itemMode = this.itemMode;
+    }
+  }
   initDirectories() {
+    this._syncSubManagers();
     if (!fs.existsSync(this.downloadsDir)) {
       fs.mkdirSync(this.downloadsDir, { recursive: true });
     }
@@ -264,6 +293,7 @@ class LoopReplayRunner {
    * 5. Appends record to workflow downloads manifest: downloads/<workflow-slug>/manifest.json
    */
   processAndStoreDownload(sourcePath, itemKey = null, itemLabel = null, itemFields = {}) {
+    this._syncSubManagers();
     if (this._activeItemContext && !this.artifactDownloadManager._activeItemContext) {
       this.artifactDownloadManager._activeItemContext = this._activeItemContext;
     }
@@ -275,6 +305,7 @@ class LoopReplayRunner {
   }
 
   checkIfAlreadyDownloaded(itemKey, invoiceNumber = null, itemFields = {}, contentHash = null) {
+    this._syncSubManagers();
     return this.artifactDownloadManager.checkIfAlreadyDownloaded(itemKey, invoiceNumber, itemFields, contentHash);
   }
 
@@ -315,10 +346,12 @@ class LoopReplayRunner {
   }
 
   writeLoopCheckpoint(manifest, currentItemIndex = null, currentActionOffset = null, currentPage = 1, currentPageItemIndex = null, activeItem = null) {
+    this._syncSubManagers();
     return this.loopStateCoordinator.writeLoopCheckpoint(manifest, currentItemIndex, currentActionOffset, currentPage, currentPageItemIndex, activeItem);
   }
 
   loadLoopCheckpoint(workflow) {
+    this._syncSubManagers();
     return this.loopStateCoordinator.loadLoopCheckpoint(workflow);
   }
 

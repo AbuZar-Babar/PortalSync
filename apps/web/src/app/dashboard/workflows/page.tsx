@@ -143,11 +143,8 @@ export default function WorkflowsPage() {
   const loadData = useCallback(async () => {
     setFetchError(null);
     try {
-      const [wfRes, pendingRes, runningRes, actionRes, allRunsRes] = await Promise.all([
+      const [wfRes, allRunsRes] = await Promise.all([
         fetch('/api/v1/workflows'),
-        fetch('/api/v1/runs?status=pending'),
-        fetch('/api/v1/runs?status=running'),
-        fetch('/api/v1/runs?status=requires_action'),
         fetch('/api/v1/runs').catch(() => null),
       ]);
 
@@ -159,20 +156,13 @@ export default function WorkflowsPage() {
       const wfData = await wfRes.json();
       setWorkflows(Array.isArray(wfData.workflows) ? wfData.workflows : []);
 
-      const pendingData = pendingRes.ok ? await pendingRes.json() : { runs: [] };
-      const runningData = runningRes.ok ? await runningRes.json() : { runs: [] };
-      const actionData = actionRes.ok ? await actionRes.json() : { runs: [] };
       const allRunsData = allRunsRes && allRunsRes.ok ? await allRunsRes.json() : { runs: [] };
+      const runsList: ExecutionRun[] = Array.isArray(allRunsData.runs) ? allRunsData.runs : [];
 
-      const allActive: ExecutionRun[] = [
-        ...(Array.isArray(pendingData.runs) ? pendingData.runs : []),
-        ...(Array.isArray(runningData.runs) ? runningData.runs : []),
-        ...(Array.isArray(actionData.runs) ? actionData.runs : []),
-      ];
+      const allActive: ExecutionRun[] = runsList.filter(r => ['pending', 'running', 'requires_action'].includes(r.status));
       setActiveRuns(allActive);
 
       const latestMap: Record<string, ExecutionRun> = {};
-      const runsList: ExecutionRun[] = Array.isArray(allRunsData.runs) ? allRunsData.runs : [];
       for (const r of runsList) {
         if (!latestMap[r.workflow_id]) {
           latestMap[r.workflow_id] = r;

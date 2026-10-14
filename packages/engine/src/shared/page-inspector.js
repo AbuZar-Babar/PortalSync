@@ -416,9 +416,16 @@ class PageInspector {
         };
       });
 
+      const collections = (inspection.entities || []).map(ent => ({
+        ...ent,
+        entityName: ent.name,
+        rowCount: ent.itemCount,
+        items: ent.rows || ent.sampleRows || []
+      }));
       return {
         success: true,
         summary: inspection,
+        collections,
         timestamp: new Date().toISOString()
       };
     } catch (err) {

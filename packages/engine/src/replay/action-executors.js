@@ -868,11 +868,6 @@ async function executeType(elementHandle, action, options = {}) {
         const delay = calculateTypingDelay(char, typingCfg);
         
         await elementHandle.type(char, { delay: Math.min(delay, 500) });
-
-        // Trigger input event to satisfy reactive frameworks
-        await elementHandle.evaluate((el) => {
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-        });
       }
 
       await elementHandle.evaluate((el) => {
@@ -884,10 +879,10 @@ async function executeType(elementHandle, action, options = {}) {
       await elementHandle.evaluate((el, text) => {
         el.focus();
         if (text !== '[REDACTED]') {
-          const prototypeValueSetter = Object.getOwnPropertyDescriptor(
-            window.HTMLInputElement.prototype,
-            'value'
-          )?.set;
+          const proto = el.tagName === 'TEXTAREA' && window.HTMLTextAreaElement
+            ? window.HTMLTextAreaElement.prototype
+            : window.HTMLInputElement.prototype;
+          const prototypeValueSetter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
           if (prototypeValueSetter) {
             prototypeValueSetter.call(el, text);
           } else {

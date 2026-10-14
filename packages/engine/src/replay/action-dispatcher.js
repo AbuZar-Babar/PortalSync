@@ -370,14 +370,18 @@ class ActionDispatcher {
               const handle = await frame.evaluateHandle((targetData) => {
                 if (!window.SelectorResolver) return null;
                 const res = window.SelectorResolver.resolveElement(targetData);
-                return res.success && res.element ? res.element : null;
+                window.__lastResolutionReport = res ? {
+                  success: res.success,
+                  confidenceScore: res.confidenceScore,
+                  resolvedCandidate: res.resolvedCandidate || res.candidate || null,
+                  reason: res.reason || null,
+                  attempts: res.attempts || []
+                } : null;
+                return res && res.success && res.element ? res.element : null;
               }, target).catch(() => null);
 
               // 2. Fetch resolution report
-              const report = await frame.evaluate((targetData) => {
-                if (!window.SelectorResolver) return null;
-                return window.SelectorResolver.resolveElement(targetData);
-              }, target).catch(() => null);
+              const report = await frame.evaluate(() => window.__lastResolutionReport).catch(() => null);
 
               if (report) {
                 lastResolutionResult = report;

@@ -214,7 +214,8 @@ class HttpBridge {
               });
             }
 
-            const currentUrl = page.url ? page.url() : '';
+            try {
+              const currentUrl = page.url ? page.url() : '';
             if (targetUrl && (currentUrl === 'about:blank' || !currentUrl)) {
               await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
             }
@@ -306,6 +307,9 @@ class HttpBridge {
               url: page.url ? page.url() : '',
               title: (typeof page.title === 'function') ? await page.title().catch(() => '') : ''
             });
+            } finally {
+              if (browser) await browser.disconnect().catch(() => {});
+            }
           } catch (err) {
             console.warn('[HTTPBridge] Discovery handler error:', err.message);
             return this.sendJson(req, res, 500, {

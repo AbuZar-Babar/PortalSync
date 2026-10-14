@@ -367,68 +367,6 @@ class ConditionEvaluator {
           reason: matches ? null : `"${rule.field}" (${numVal}) is not <= ${targetNum}`
         };
       }
-      case 'date_gt': {
-        const itemDate = this.parseDate(rawValue);
-        const targetDate = this.parseDate(targetVal);
-        if (!itemDate || !targetDate) {
-          return { matches: false, reason: `Cannot parse date from "${rawValue}" or target "${targetVal}"` };
-        }
-        const matches = itemDate.getTime() > targetDate.getTime();
-        return {
-          matches,
-          reason: matches ? null : `Date "${rawValue}" is not after "${targetVal}"`
-        };
-      }
-
-      case 'date_on_or_after':
-      case 'on_or_after':
-      case 'date_gte': {
-        const itemDate = this.parseDate(rawValue);
-        const targetDate = this.parseDate(targetVal);
-        if (!itemDate || !targetDate) {
-          return { matches: false, reason: `Cannot parse date from "${rawValue}" or target "${targetVal}"` };
-        }
-        itemDate.setHours(0, 0, 0, 0);
-        targetDate.setHours(0, 0, 0, 0);
-        const matches = itemDate.getTime() >= targetDate.getTime();
-        return {
-          matches,
-          reason: matches ? null : `Date "${rawValue}" is before "${targetVal}"`
-        };
-      }
-
-      case 'date_before':
-      case 'before':
-      case 'date_lt': {
-        const itemDate = this.parseDate(rawValue);
-        const targetDate = this.parseDate(targetVal);
-        if (!itemDate || !targetDate) {
-          return { matches: false, reason: `Cannot parse date from "${rawValue}" or target "${targetVal}"` };
-        }
-        const matches = itemDate.getTime() < targetDate.getTime();
-        return {
-          matches,
-          reason: matches ? null : `Date "${rawValue}" is not before "${targetVal}"`
-        };
-      }
-
-      case 'date_on_or_before':
-      case 'on_or_before':
-      case 'date_lte': {
-        const itemDate = this.parseDate(rawValue);
-        const targetDate = this.parseDate(targetVal);
-        if (!itemDate || !targetDate) {
-          return { matches: false, reason: `Cannot parse date from "${rawValue}" or target "${targetVal}"` };
-        }
-        itemDate.setHours(23, 59, 59, 999);
-        targetDate.setHours(23, 59, 59, 999);
-        const matches = itemDate.getTime() <= targetDate.getTime();
-        return {
-          matches,
-          reason: matches ? null : `Date "${rawValue}" is after "${targetVal}"`
-        };
-      }
-
       case 'date_between':
       case 'between_dates': {
         const itemDate = this.parseDate(rawValue);

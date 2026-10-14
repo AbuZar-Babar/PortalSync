@@ -18,6 +18,7 @@ export function RobotAvatar({
   className = '',
   style = {}
 }: RobotAvatarProps) {
+  const uid = React.useId().replace(/:/g, '');
   // Dimensions
   let width = 34;
   let height = 38;
@@ -76,16 +77,16 @@ export function RobotAvatar({
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
-          <linearGradient id="rbBody" x1="60" y1="40" x2="260" y2="340" gradientUnits="userSpaceOnUse">
+          <linearGradient id={`rbBody-${uid}`} x1="60" y1="40" x2="260" y2="340" gradientUnits="userSpaceOnUse">
             <stop offset="0%" stopColor="#ffffff" />
             <stop offset="65%" stopColor="#edf2fe" />
             <stop offset="100%" stopColor="#d9e3f8" />
           </linearGradient>
-          <linearGradient id="rbVisor" x1="100" y1="90" x2="220" y2="180" gradientUnits="userSpaceOnUse">
+          <linearGradient id={`rbVisor-${uid}`} x1="100" y1="90" x2="220" y2="180" gradientUnits="userSpaceOnUse">
             <stop offset="0%" stopColor="#0a1226" />
             <stop offset="100%" stopColor="#1e293b" />
           </linearGradient>
-          <filter id="rbGlow" x="-20%" y="-20%" width="140%" height="140%">
+          <filter id={`rbGlow-${uid}`} x="-20%" y="-20%" width="140%" height="140%">
             <feGaussianBlur stdDeviation="3" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
@@ -95,11 +96,11 @@ export function RobotAvatar({
         <ellipse cx="160" cy="335" rx="55" ry="10" fill="#6366f1" filter="blur(6px)" opacity="0.35" />
 
         {/* Right Ear Pod */}
-        <rect x="238" y="112" width="20" height="38" rx="8" fill="url(#rbBody)" stroke="#c7d2fe" strokeWidth="1.5" />
+        <rect x="238" y="112" width="20" height="38" rx="8" fill={`url(#rbBody-${uid})`} stroke="#c7d2fe" strokeWidth="1.5" />
         <circle cx="248" cy="131" r="5" fill={earColor} />
 
         {/* Left Ear Pod */}
-        <rect x="62" y="112" width="20" height="38" rx="8" fill="url(#rbBody)" stroke="#c7d2fe" strokeWidth="1.5" />
+        <rect x="62" y="112" width="20" height="38" rx="8" fill={`url(#rbBody-${uid})`} stroke="#c7d2fe" strokeWidth="1.5" />
         <circle cx="72" cy="131" r="5" fill={earColor} />
 
         {/* Head Capsule */}
@@ -109,7 +110,7 @@ export function RobotAvatar({
           width="172"
           height="142"
           rx="71"
-          fill="url(#rbBody)"
+          fill={`url(#rbBody-${uid})`}
           stroke="#ffffff"
           strokeWidth="2.5"
         />
@@ -121,7 +122,7 @@ export function RobotAvatar({
           width="132"
           height="72"
           rx="36"
-          fill="url(#rbVisor)"
+          fill={`url(#rbVisor-${uid})`}
           stroke="#38bdf8"
           strokeWidth="1.5"
           strokeOpacity="0.4"
@@ -139,19 +140,19 @@ export function RobotAvatar({
         {/* Dynamic Eyes based on State */}
         {state === 'running' ? (
           <>
-            <circle cx="124" cy="131" r="6" fill={eyeColor} filter="url(#rbGlow)" />
-            <circle cx="196" cy="131" r="6" fill={eyeColor} filter="url(#rbGlow)" />
+            <circle cx="124" cy="131" r="6" fill={eyeColor} filter={`url(#rbGlow-${uid})`} />
+            <circle cx="196" cy="131" r="6" fill={eyeColor} filter={`url(#rbGlow-${uid})`} />
             <circle cx="126" cy="129" r="2" fill="#ffffff" />
             <circle cx="198" cy="129" r="2" fill="#ffffff" />
           </>
         ) : state === 'analyzing' ? (
-          <rect x="110" y="128" width="100" height="6" rx="3" fill={eyeColor} filter="url(#rbGlow)">
+          <rect x="110" y="128" width="100" height="6" rx="3" fill={eyeColor} filter={`url(#rbGlow-${uid})`}>
             <animate attributeName="opacity" values="0.7;1;0.7" dur="1.2s" repeatCount="indefinite" />
           </rect>
         ) : state === 'error' ? (
           <>
-            <line x1="116" y1="126" x2="132" y2="136" stroke={eyeColor} strokeWidth="4" strokeLinecap="round" filter="url(#rbGlow)" />
-            <line x1="188" y1="136" x2="204" y2="126" stroke={eyeColor} strokeWidth="4" strokeLinecap="round" filter="url(#rbGlow)" />
+            <line x1="116" y1="126" x2="132" y2="136" stroke={eyeColor} strokeWidth="4" strokeLinecap="round" filter={`url(#rbGlow-${uid})`} />
+            <line x1="188" y1="136" x2="204" y2="126" stroke={eyeColor} strokeWidth="4" strokeLinecap="round" filter={`url(#rbGlow-${uid})`} />
           </>
         ) : (
           <>
@@ -162,7 +163,7 @@ export function RobotAvatar({
               stroke={eyeColor}
               strokeWidth="4"
               strokeLinecap="round"
-              filter="url(#rbGlow)"
+              filter={`url(#rbGlow-${uid})`}
             />
             <path
               d="M182 133 C186 123 202 123 206 133"
@@ -170,7 +171,7 @@ export function RobotAvatar({
               stroke={eyeColor}
               strokeWidth="4"
               strokeLinecap="round"
-              filter="url(#rbGlow)"
+              filter={`url(#rbGlow-${uid})`}
             />
           </>
         )}
@@ -178,14 +179,14 @@ export function RobotAvatar({
         {/* Torso Capsule */}
         <path
           d="M110 205 C110 196 120 190 135 190 L185 190 C200 190 210 196 210 205 L220 280 C220 295 205 305 185 305 L135 305 C115 305 100 295 100 280 Z"
-          fill="url(#rbBody)"
+          fill={`url(#rbBody-${uid})`}
           stroke="#ffffff"
           strokeWidth="2"
         />
 
         {/* Chest Glow Reactor */}
         <circle cx="160" cy="245" r="14" fill="#0f172a" stroke="#cbd5e1" strokeWidth="1" />
-        <circle cx="160" cy="245" r="8" fill={eyeColor} filter="url(#rbGlow)">
+        <circle cx="160" cy="245" r="8" fill={eyeColor} filter={`url(#rbGlow-${uid})`}>
           <animate attributeName="opacity" values="0.7;1;0.7" dur="2s" repeatCount="indefinite" />
         </circle>
       </svg>

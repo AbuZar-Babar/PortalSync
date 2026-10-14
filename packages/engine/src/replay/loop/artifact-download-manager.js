@@ -59,6 +59,9 @@ class ArtifactDownloadManager {
     this.executionDownloadsDir = this.downloadManager.getDirectory();
     this._replayTargetCreatedListener = null;
     this._activeItemContext = null;
+    this.fallbackOsDownloads = opts.fallbackOsDownloads === true;
+    this._diskFilesCache = null;
+    this._diskFilesCacheTime = 0;
   }
 
   setPortalDomain(domain) {
@@ -101,6 +104,7 @@ class ArtifactDownloadManager {
     }
 
     try {
+      this._diskFilesCache = null;
       this.initDirectories();
       const fileBuffer = fs.readFileSync(sourcePath);
       const fileHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
@@ -287,31 +291,46 @@ class ArtifactDownloadManager {
     // 2. Physical disk scan in workflow downloads folder, run folder
     const targetInv = (invoiceNumber || (typeof itemKey === 'string' && itemKey.startsWith('invoice:') ? itemKey.replace(/^invoice:/, '') : null))?.trim();
     if (targetInv && targetInv.length >= 3 && this.workflowSlug && this.workflowSlug !== 'workflow') {
-      const candidateDirs = [
-        this.structuredDownloadsDir,
-        this.workflowDownloadsBaseDir,
-        this.downloadsDir
-      ].filter(Boolean);
+      const now = Date.now();
+      if (!this._diskFilesCache || (now - this._diskFilesCacheTime > 10000)) {
+        const candidateDirs = [
+          this.structuredDownloadsDir,
+          this.workflowDownloadsBaseDir,
+          this.downloadsDir
+        ].filter(Boolean);
 
-      for (const dir of candidateDirs) {
-        if (!fs.existsSync(dir)) continue;
-        try {
-          const files = fs.readdirSync(dir, { recursive: true });
-          for (const file of files) {
-            const fileName = typeof file === 'string' ? path.basename(file) : file;
-            if (fileName && typeof fileName === 'string' && fileName.toLowerCase().includes(targetInv.toLowerCase()) && !fileName.endsWith('.crdownload') && !fileName.endsWith('.tmp')) {
-              const fullPath = path.join(dir, fileName);
-              return {
-                isDuplicate: true,
-                inFolder: true,
-                record: {
-                  filename: fileName,
+        const cached = [];
+        for (const dir of candidateDirs) {
+          if (!fs.existsSync(dir)) continue;
+          try {
+            const files = fs.readdirSync(dir, { recursive: true });
+            for (const file of files) {
+              const fileName = typeof file === 'string' ? path.basename(file) : file;
+              if (fileName && typeof fileName === 'string' && !fileName.endsWith('.crdownload') && !fileName.endsWith('.tmp')) {
+                const fullPath = path.join(dir, fileName);
+                cached.push({
+                  fileName,
                   filePath: path.relative(process.cwd(), fullPath)
-                }
-              };
+                });
+              }
             }
-          }
-        } catch {}
+          } catch {}
+        }
+        this._diskFilesCache = cached;
+        this._diskFilesCacheTime = now;
+      }
+
+      for (const entry of this._diskFilesCache) {
+        if (entry.fileName && entry.fileName.toLowerCase().includes(targetInv.toLowerCase())) {
+          return {
+            isDuplicate: true,
+            inFolder: true,
+            record: {
+              filename: entry.fileName,
+              filePath: entry.filePath
+            }
+          };
+        }
       }
     }
 
@@ -415,12 +434,14 @@ class ArtifactDownloadManager {
       ? fs.readdirSync(this.downloadsDir).filter(file => !file.endsWith('.crdownload') && !file.endsWith('.tmp'))
       : [];
     let osFiles = [];
-    try {
-      const osDownloadsDir = path.join(os.homedir(), 'Downloads');
-      if (fs.existsSync(osDownloadsDir)) {
-        osFiles = fs.readdirSync(osDownloadsDir).filter(file => !file.endsWith('.crdownload') && !file.endsWith('.tmp'));
-      }
-    } catch {}
+    if (this.fallbackOsDownloads === true) {
+      try {
+        const osDownloadsDir = path.join(os.homedir(), 'Downloads');
+        if (fs.existsSync(osDownloadsDir)) {
+          osFiles = fs.readdirSync(osDownloadsDir).filter(file => !file.endsWith('.crdownload') && !file.endsWith('.tmp'));
+        }
+      } catch {}
+    }
     return {
       runFiles,
       osFiles,

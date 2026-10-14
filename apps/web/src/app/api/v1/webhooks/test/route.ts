@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     // 1. Authenticate runner or session user
     const auth = await authenticateRunnerOrUser(req);
     const isDevelopment = process.env.NODE_ENV !== 'production';
-    const isTestCall = req.headers.get('x-test-bypass') === 'true';
+    const isTestCall = isDevelopment && req.headers.get('x-test-bypass') === 'true';
 
     if (!auth.success && !isDevelopment && !isTestCall) {
       return NextResponse.json(
@@ -106,6 +106,32 @@ export async function POST(req: NextRequest) {
         },
         { status: 400 }
       );
+    }
+
+    if (process.env.NODE_ENV === 'production') {
+      const hostname = parsedUrl.hostname.toLowerCase();
+      const isPrivateOrLoopback =
+        hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname === '169.254.169.254' ||
+        hostname.startsWith('10.') ||
+        hostname.startsWith('192.168.');
+
+      if (isPrivateOrLoopback) {
+        return NextResponse.json(
+          {
+            success: false,
+            status: 400,
+            statusText: 'Bad Request',
+            latency_ms: 0,
+            latencyMs: 0,
+            reachable: false,
+            error: 'Invalid Destination',
+            message: 'Webhook destination cannot resolve to private or loopback IP addresses.',
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // 3. Construct authentic test payload

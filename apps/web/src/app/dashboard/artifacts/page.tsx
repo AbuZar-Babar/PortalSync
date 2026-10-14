@@ -838,35 +838,44 @@ export default function ArtifactsVaultPage() {
       const zipEntries: ZipEntry[] = [];
       const encoder = new TextEncoder();
 
-      for (let i = 0; i < filteredArtifacts.length; i++) {
-        const art = filteredArtifacts[i];
-        setZipProgress({ current: i + 1, total: filteredArtifacts.length });
+      const BATCH_SIZE = 4;
+      let completedCount = 0;
 
-        try {
-          const res = await fetch(`/api/v1/artifacts/download?id=${art.id}`);
-          if (res.ok) {
-            const arrayBuffer = await res.arrayBuffer();
-            zipEntries.push({
-              name: art.file_name,
-              data: new Uint8Array(arrayBuffer),
-              date: new Date(art.created_at),
-            });
-          } else {
-            // Include manifest fallback for failed download
-            const fallbackText = `ReFlow Artifact Archive\nFile: ${art.file_name}\nSHA-256: ${art.sha256_hash}\nSize: ${art.file_size_bytes || 0} bytes\nCaptured: ${art.created_at}\nStatus: Retrieved from registry\n`;
-            zipEntries.push({
-              name: `${art.file_name}.txt`,
-              data: encoder.encode(fallbackText),
-              date: new Date(art.created_at),
-            });
-          }
-        } catch {
-          const errText = `ReFlow Artifact: ${art.file_name}\nHash: ${art.sha256_hash}\n`;
-          zipEntries.push({
-            name: `${art.file_name}.txt`,
-            data: encoder.encode(errText),
-          });
-        }
+      for (let i = 0; i < filteredArtifacts.length; i += BATCH_SIZE) {
+        const batch = filteredArtifacts.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.all(
+          batch.map(async (art) => {
+            try {
+              const res = await fetch(`/api/v1/artifacts/download?id=${art.id}`);
+              if (res.ok) {
+                const arrayBuffer = await res.arrayBuffer();
+                return {
+                  name: art.file_name,
+                  data: new Uint8Array(arrayBuffer),
+                  date: new Date(art.created_at),
+                };
+              } else {
+                // Include manifest fallback for failed download
+                const fallbackText = `ReFlow Artifact Archive\nFile: ${art.file_name}\nSHA-256: ${art.sha256_hash}\nSize: ${art.file_size_bytes || 0} bytes\nCaptured: ${art.created_at}\nStatus: Retrieved from registry\n`;
+                return {
+                  name: `${art.file_name}.txt`,
+                  data: encoder.encode(fallbackText),
+                  date: new Date(art.created_at),
+                };
+              }
+            } catch {
+              const errText = `ReFlow Artifact: ${art.file_name}\nHash: ${art.sha256_hash}\n`;
+              return {
+                name: `${art.file_name}.txt`,
+                data: encoder.encode(errText),
+              };
+            } finally {
+              completedCount++;
+              setZipProgress({ current: completedCount, total: filteredArtifacts.length });
+            }
+          })
+        );
+        zipEntries.push(...batchResults);
       }
 
       // Add a root manifest file describing the exported batch

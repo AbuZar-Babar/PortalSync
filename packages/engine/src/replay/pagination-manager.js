@@ -146,7 +146,7 @@ class PaginationManager {
         const isDisabled = (el) => {
           if (el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true') return true;
           const cls = (typeof el.className === 'string' ? el.className : '').toLowerCase();
-          if (/\\b(disabled|x-item-disabled|dxp-disabled|mat-button-disabled|is-disabled)\\b/i.test(cls)) return true;
+          if (/\b(disabled|x-item-disabled|dxp-disabled|mat-button-disabled|is-disabled)\b/i.test(cls)) return true;
           return false;
         };
 
@@ -161,10 +161,10 @@ class PaginationManager {
           const aria = (el.getAttribute('aria-label') || '').toLowerCase();
           const cls = (typeof el.className === 'string' ? el.className : '').toLowerCase();
 
-          const isNextMatch = /\\bnext\\b|^>|^»|chevron_right/i.test(text) ||
-            /\\bnext\\b/i.test(title) ||
-            /\\bnext\\b/i.test(aria) ||
-            /\\b(x-tbar-page-next|dxp-button-next|mat-paginator-navigation-next|next-page)\\b/i.test(cls);
+          const isNextMatch = /\bnext\b|^>|^»|chevron_right/i.test(text) ||
+            /\bnext\b/i.test(title) ||
+            /\bnext\b/i.test(aria) ||
+            /\b(x-tbar-page-next|dxp-button-next|mat-paginator-navigation-next|next-page)\b/i.test(cls);
 
           if (isNextMatch) {
             const disabled = isDisabled(el);
@@ -264,7 +264,7 @@ class PaginationManager {
         const isDisabled = (el) => {
           if (el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true') return true;
           const cls = (typeof el.className === 'string' ? el.className : '').toLowerCase();
-          return /\\b(disabled|x-item-disabled|dxp-disabled|mat-button-disabled|is-disabled)\\b/i.test(cls);
+          return /\b(disabled|x-item-disabled|dxp-disabled|mat-button-disabled|is-disabled)\b/i.test(cls);
         };
 
         const candidates = Array.from(document.querySelectorAll(
@@ -277,10 +277,10 @@ class PaginationManager {
           const aria = (el.getAttribute('aria-label') || '').toLowerCase();
           const cls = (typeof el.className === 'string' ? el.className : '').toLowerCase();
 
-          if (/\\bnext\\b|^>|^»|load more|show more/i.test(text) ||
-              /\\bnext\\b/i.test(title) ||
-              /\\bnext\\b/i.test(aria) ||
-              /\\b(x-tbar-page-next|dxp-button-next|mat-paginator-navigation-next|next-page)\\b/i.test(cls)) {
+          if (/\bnext\b|^>|^»|load more|show more/i.test(text) ||
+              /\bnext\b/i.test(title) ||
+              /\bnext\b/i.test(aria) ||
+              /\b(x-tbar-page-next|dxp-button-next|mat-paginator-navigation-next|next-page)\b/i.test(cls)) {
             el.scrollIntoView({ block: 'nearest' });
             el.click();
             return true;
