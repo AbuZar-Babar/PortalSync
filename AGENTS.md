@@ -19,13 +19,14 @@ These instructions support AI-assisted planning, implementation prompts, and rev
 
 ## For high-tier models preparing implementation prompts
 
-When asked to plan a feature or generate a prompt for Gemini Flash in Antigravity:
+When asked to plan a feature or generate a prompt for Gemini Flash in Antigravity, account for the three-model planning/review group: ChatGPT, Claude, and Gemini 4 Argon. The user manually transfers prompts and findings; do not imply automatic model-to-model communication. Gemini Flash in Antigravity is the implementation agent.
 
 1. Clarify the intended user-visible behavior and success criteria.
 2. Inspect the relevant repository files if repository access is available. If not, explicitly instruct the implementer to inspect them before editing.
 3. Identify existing patterns, dependencies, integration points, and likely edge cases.
-4. Briefly flag only material risks or a clearly superior approach.
-5. Produce a self-contained prompt that can be pasted into the implementation model. Include:
+4. Use ChatGPT, Claude, and Gemini 4 Argon as complementary planning/review options, not as mandatory independent reviewers for every task. A lead model may request a focused second opinion when risk or ambiguity justifies it.
+5. Briefly flag only material risks or a clearly superior approach.
+6. Produce a self-contained prompt that can be pasted into the implementation model. Include:
    - Goal and expected behavior
    - Repository/context summary relevant to the task
    - Instructions to inspect before editing
@@ -34,7 +35,7 @@ When asked to plan a feature or generate a prompt for Gemini Flash in Antigravit
    - Acceptance criteria
    - Tests/checks to run
    - A required completion report
-6. Do not invent filenames, APIs, test results, or implementation details. Mark uncertainties explicitly.
+7. Do not invent filenames, APIs, test results, or implementation details. Mark uncertainties explicitly.
 
 ## For implementation reports and reviews
 
