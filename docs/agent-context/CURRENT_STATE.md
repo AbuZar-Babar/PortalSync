@@ -32,6 +32,7 @@ These are documented capabilities. Their implementation status, completeness, an
 - Root scripts are declared for web development/build, runner operations, desktop startup/build, and engine tests.
 - `README.md` contains a detailed product overview and subsystem map.
 - `DESIGN.md` documents a restrained, dark, architectural UI direction.
+- `apps/web/AGENTS.md` contains Next.js 16-specific instructions; `apps/web/CLAUDE.md` includes that file by reference. Web changes should follow those local instructions.
 
 ## Known context gaps
 
@@ -43,6 +44,18 @@ These items still require code-level inspection and should not be treated as con
 - Establish which tests cover critical paths and which commands can run in the current environment.
 - Verify organization/tenant scoping, authorization, Row-Level Security, and secrets handling before security-sensitive changes.
 - Confirm whether any overlapping modules are genuinely redundant before consolidating them.
+
+## Initial code inspection notes
+
+Read-only source inspection on `main` confirmed the following areas deserve deliberate verification before future changes:
+
+- `apps/desktop/src/main/http-bridge.js` exposes local browser automation routes on `127.0.0.1:49152`; inspect authorization and request validation separately from CORS rules.
+- `apps/web/src/app/api/v1/runs/route.ts` derives an effective organization ID partly from request input and looks up a workflow by ID. Trace `authenticateRunnerOrUser`, database permissions/RLS, and organization ownership before treating the route as tenant-safe or modifying it.
+- `apps/web/src/app/api/v1/runners/route.ts` serializes runner heartbeat metadata into `wf_organizations.stripe_subscription_id`. Verify intent and all consumers before changing this behavior.
+- `supabase/schema.sql` enables RLS and provides membership-based policies, but the deployed schema and API route scoping still need verification.
+- Package scripts are declared in package manifests; no build or test command has been run as part of this documentation audit.
+
+These are audit leads, not confirmed defects. No application code was changed during this pass.
 
 ## How to update this file
 
