@@ -2,19 +2,20 @@
 
 ## Purpose
 
-Use this guide when a high-tier model (such as ChatGPT or Claude) prepares work for Gemini Flash in Antigravity, then reviews the implementation report. The user remains the coordinator: prompts and reports are copied manually. This is not an automated multi-agent execution system.
+Use this guide for the three-model planning/review group—ChatGPT, Claude, and Gemini 4 Argon—and the separate implementation agent, Gemini Flash in Antigravity. The user remains the coordinator: prompts and reports are copied manually. This is not an automated multi-agent execution system. If the user's environment labels Argon differently, confirm the exact model label in that environment rather than silently substituting a model.
 
 ## Workflow at a glance
 
 1. User describes the desired outcome.
-2. Planning model checks the relevant repository context and code, when available.
-3. Planning model raises a concise concern only if the proposal has a meaningful flaw or a clearly better alternative.
-4. Planning model produces a self-contained implementation prompt.
-5. User pastes that prompt into Gemini Flash in Antigravity.
-6. Gemini inspects the code, implements the change, runs appropriate checks, and reports what happened.
-7. User returns the original prompt and implementation report to the planning model. Ideally, include the diff and test output too.
-8. Reviewer checks the evidence against the requirements and produces either approval with caveats or a targeted correction prompt.
-9. User decides whether to apply corrections, inspect locally, or accept the result.
+2. A lead planning model (ChatGPT or Claude, depending on the session) checks relevant repository context and code when available.
+3. Gemini 4 Argon contributes a complementary analysis or review when useful; it should not repeat work just to satisfy a three-model ritual.
+4. The models raise concise concerns only for meaningful flaws, material risks, or a clearly better alternative. If there is no material concern, proceed.
+5. The lead model produces one self-contained implementation prompt that incorporates relevant findings and resolves disagreements where possible. If a disagreement materially affects correctness and cannot be resolved from evidence, present the specific decision to the user.
+6. User pastes the prompt into Gemini Flash in Antigravity.
+7. Gemini Flash inspects the code, implements the change, runs appropriate checks, and reports what happened.
+8. User returns the original prompt and implementation report to the lead model. Ideally, include the diff and test output too.
+9. The reviewer checks evidence against requirements and produces either approval with caveats or one targeted correction prompt.
+10. User decides whether to apply corrections, inspect locally, or accept the result.
 
 ## A. Prompt-generation checklist
 
@@ -95,6 +96,15 @@ When the user returns the implementation report:
    - **No material findings:** the available evidence supports acceptance, with any caveats stated.
 7. If corrections are needed, provide one targeted, copy-ready correction prompt that names the issue, expected behavior, and verification. Avoid asking Gemini to rewrite everything unnecessarily.
 8. If evidence is insufficient, request the specific missing diff, file, or command output rather than guessing.
+
+## D. Roles and handoffs for the three-model workflow
+
+- **ChatGPT:** Can lead requirements analysis, repository investigation, prompt drafting, evidence review, and final recommendation.
+- **Claude:** Can lead the same kind of task when chosen by the user, or provide a focused second opinion on a consequential design or review.
+- **Gemini 4 Argon:** The third high-capability planning/review model. Use it for a complementary analysis when it is available in the user's environment; do not assume its access or model label without confirmation.
+- **Gemini Flash in Antigravity:** The implementation agent that receives the final prompt, inspects and edits the repository, runs checks, and produces the completion report.
+
+These are default roles, not hard restrictions. The user may choose a different lead. Do not ask all three planning models to independently solve every small task. For routine changes, one lead model is enough; add another reviewer only when the risk, ambiguity, or impact justifies it. The three planning/review models do not automatically communicate with one another—the user transfers relevant prompts and findings manually.
 
 ## D. Constructive pushback policy
 
