@@ -4,7 +4,7 @@
 
 This document defines the planning, architecture, and review workflow for ReFlow. It is written specifically for human planners, top-tier reasoning models (ChatGPT, Claude, Gemini 4 Argon), and code reviewers.
 
-Implementation rules for the execution model (Gemini Flash) are maintained separately in root [`AGENTS.md`](file:///c:/Users/AbuZar/Desktop/Fyp/Workflow-Capture-SaaS/AGENTS.md).
+Implementation rules for the execution model (Gemini Flash) are maintained separately in root [AGENTS.md](AGENTS.md).
 
 All prompt handoffs, context sharing, and report transfers between models are handled manually by the user. There is no automated model-to-model communication or direct execution bridge.
 
@@ -12,14 +12,18 @@ All prompt handoffs, context sharing, and report transfers between models are ha
 
 The high-tier models are **not interchangeable**; each fills a specialized role based on its concrete tooling and repository visibility:
 
-- **ChatGPT (The Verifier)**:
+- **ChatGPT (The Default Verifier)**:
   - **Primary responsibility**: Verification, regression checking, and final implementation review.
   - **Tooling advantage**: Can read the GitHub repository directly via GitHub integration to inspect commits, diffs, branches, and code files in place.
   - **Workflow**: Compares actual git commits and pull request diffs against original requirements and acceptance criteria.
-- **Claude & Gemini 4 Argon (The Planners)**:
+- **Claude (The Planner)**:
   - **Primary responsibility**: System architecture, multi-file planning, and implementation prompt drafting.
-  - **Tooling advantage**: Ingest structured repository context via Repomix snapshot packs to reason over complex logic, dependency graphs, and data flows.
-  - **Workflow**: Analyze requirements, apply pushback rules when applicable, formulate trade-offs, and produce self-contained implementation prompts for Flash.
+  - **Tooling advantage**: Claude can read a branch directly when given repository access, and otherwise uses a Repomix pack.
+  - **Workflow**: Analyzes requirements, applies pushback rules for big modules, formulates trade-offs, and drafts implementation prompts for Flash.
+- **Gemini 4 Argon (The Planner)**:
+  - **Primary responsibility**: System architecture and complementary planning.
+  - **Tooling advantage**: Uses Repomix snapshot packs to ingest repository context and evaluate complex logic.
+  - **Workflow**: Contributes focused architectural analysis, trade-off evaluation, and prompt generation using context packs.
 - **Gemini Flash (The Implementer)**:
   - **Primary responsibility**: Local code implementation and test execution in Antigravity.
   - **Tooling advantage**: Direct file modification and terminal execution in the working directory.
@@ -42,8 +46,24 @@ Top-tier models consume significant quota and must be used with discipline:
 
 ## 4. Repomix Snapshot Rules
 
-When generating Repomix packs for planning models:
-- **Strictly exclude secrets and environment files**: Never pack `.env`, `.env.*`, API keys, private certs, or credentials. Ensure patterns like `.env*` and `*.pem` are excluded in repomix configurations.
+No repository-level Repomix configuration file exists in the codebase. Therefore, exclusion patterns must be supplied explicitly with every pack command rather than relying on automatic configuration.
+
+Every pack command must explicitly exclude `.env`, `.env.*`, and `*.pem` using Repomix's ignore option.
+
+### Verified Command Format (Repomix 1.18.1)
+The installed version of Repomix (`1.18.1`, verified via `npx repomix --version`) provides the `--ignore` / `-i` flag accepting comma-separated exclusion patterns.
+
+The exact command format to run is:
+```bash
+npx repomix <directory> --style markdown -o <output-file> --ignore ".env,.env.*,*.pem"
+```
+
+Examples for targeted packs:
+- **Web Plane**: `npx repomix apps/web --style markdown -o reflow-web.md --ignore ".env,.env.*,*.pem"`
+- **Automation Engine**: `npx repomix packages/engine --style markdown -o reflow-engine.md --ignore ".env,.env.*,*.pem"`
+- **Desktop Worker**: `npx repomix apps/desktop --style markdown -o reflow-desktop.md --ignore ".env,.env.*,*.pem"`
+
+### Repository Safety
 - **Never commit packs to the repository**: Repomix markdown packs (such as `reflow-web.md`, `reflow-engine.md`, `reflow-desktop-db.md`, or `repomix-output.txt`) must remain local, untracked, and ignored. Never stage or commit packs to git.
 
 ## 5. Pushback Rules for Big Modules Only
