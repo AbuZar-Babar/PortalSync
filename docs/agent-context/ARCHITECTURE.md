@@ -1,68 +1,79 @@
 # ReFlow Architecture Context
 
 ## Status and reliability
-
-This is an initial architecture map based on the repository's current `README.md` and root `package.json`. It is useful for planning, but it is **not yet a code-level audit**. Before proposing changes, inspect the current implementation, relevant tests, and configuration. Update this document when verified code differs from this map.
+This map combines the repository's documented architecture with a targeted source review. It is not a complete audit, and build/test commands have not been run as part of this pass. Source findings and unverified assumptions are labelled separately.
 
 ## Product shape
-
-ReFlow is described as a hybrid browser-automation and RPA platform combining a cloud control plane with a local desktop worker and a Chrome DevTools Protocol (CDP)-based automation engine. Its documented goal is to let users record browser workflows and replay them with collection discovery, loop generalization, recovery, and artifact handling.
+ReFlow is a hybrid browser-automation and RPA platform combining a cloud control plane with a local desktop worker and a Chrome DevTools Protocol (CDP)-based automation engine. Its documented goal is to let users record browser workflows and replay them with collection discovery, loop generalization, recovery, and artifact handling.
 
 ## Monorepo layout
-
 The root package uses npm workspaces for `apps/*` and `packages/*`.
 
-- `apps/web`: documented as the Next.js web control plane/dashboard, including workflow editing, execution monitoring, artifact views, and API routes.
-- `apps/desktop`: documented as an Electron desktop worker and local HTTP bridge for interaction with a local Chrome instance.
-- `packages/engine`: documented as the shared CDP automation engine, recorder, discovery logic, replay, loop handling, and runner daemon.
-- `supabase/`: documented database schema and related Supabase configuration.
+- `apps/web`: Next.js web control plane/dashboard, workflow editing, execution monitoring, artifact views, and API routes.
+- `apps/desktop`: Electron desktop worker and local HTTP bridge for interaction with a local Chrome instance.
+- `packages/engine`: shared CDP automation engine, recorder, discovery logic, replay, loop handling, and runner daemon.
+- `supabase/`: database schema and related Supabase configuration.
 - `docs/`: project documentation and technical specifications.
 - `DESIGN.md`: product UI design direction and design tokens.
 
-Confirm current paths and responsibilities in the code before relying on them for a feature.
-
-### AI instruction files
-
-- Root `AGENTS.md` contains the repository-wide collaboration and safety rules (on this documentation branch; it is not yet on `main`).
-- `apps/web/AGENTS.md` on `main` contains generated Next.js 16-specific agent guidance. It instructs agents to consult the installed Next.js docs under `node_modules/next/dist/docs/` before changing web code because APIs and conventions may differ from older Next.js versions.
-- `apps/web/CLAUDE.md` contains `@AGENTS.md`, so Claude should load the adjacent `apps/web/AGENTS.md` as well as applicable root instructions.
-- Before editing another package, search for nested `AGENTS.md`, `CLAUDE.md`, or equivalent instructions; this first audit only confirmed the web app's nested files.
+## AI instruction files
+- Root `AGENTS.md` contains repository-wide collaboration and safety rules on the `docs/ai-context-foundation` branch; it is not yet on `main`.
+- `apps/web/AGENTS.md` on `main` contains generated Next.js 16-specific agent guidance. It instructs agents to consult installed Next.js documentation before changing web code.
+- `apps/web/CLAUDE.md` includes `@AGENTS.md`; Claude should load the adjacent web instructions and applicable root instructions.
+- Before editing another package, search for nested `AGENTS.md`, `CLAUDE.md`, or equivalent instructions.
 
 ## Main runtime boundaries
 
 ### Web control plane
-
-The README describes a Next.js application connected to Supabase for workflow management, execution state, realtime telemetry, and artifact metadata. Inspect the relevant routes, server/client boundaries, database access, and Row-Level Security policies before changing this area.
+The Next.js application connects to Supabase for workflow management, execution state, telemetry, and artifact metadata. The shared `authenticateRunnerOrUser` helper currently returns a service-role Supabase client when `SUPABASE_SERVICE_ROLE_KEY` is configured. Consequently, application routes must enforce organization ownership explicitly; database RLS alone cannot be assumed to contain a route-level authorization bug when the service-role key is in use.
 
 ### Desktop worker
-
-The README describes an Electron process that starts or attaches to local Chrome, exposes a localhost bridge, and controls the lifecycle of local automation. Changes to this boundary should consider origin validation, local network exposure, authentication of bridge requests, process lifecycle, and operating-system differences.
+The Electron process starts or attaches to local Chrome, exposes a localhost bridge, and controls local automation lifecycle. The bridge binds to `127.0.0.1:49152`. Changes here must consider origin validation, local network exposure, command authorization, request validation, process lifecycle, and operating-system differences.
 
 ### Automation engine
-
-The README describes a CDP-based engine with recorder, selector resolution, collection discovery, loop detection/generalization, action execution, authentication/HITL handling, downloads, and a runner daemon. Inspect the exact current modules and tests before modifying these systems; names in documentation do not establish that a module is active or complete.
+The documented CDP engine includes recorder, selector resolution, collection discovery, loop detection/generalization, action execution, authentication/HITL handling, downloads, and a runner daemon. Inspect active modules and tests before modifying these systems.
 
 ### Cloud/desktop interaction
+The documented architecture separates cloud workflow control and telemetry from execution in a local browser. Trace the actual request/job lifecycle end to end, including claiming work, reporting status, handling user intervention, and uploading artifacts.
 
-The documented architecture separates cloud workflow control and telemetry from execution in a local browser. Before changing this boundary, trace the actual request/job lifecycle end to end, including claiming work, reporting status, handling user intervention, and uploading artifacts.
+## Targeted audit findings (read-only source inspection)
 
-## Important behavior to preserve
+### F-01 — Runner authentication is based on organization-prefix resolution, not credential verification
+File: `apps/web/src/lib/auth/runner-auth.ts`
 
-Unless a task explicitly changes them, investigate and preserve existing behavior related to:
+The runner-token branch checks for the `ps_live_` prefix, resolves the suffix to an organization by UUID/prefix, and returns a runner-authenticated context. In the inspected flow, it does not compare the submitted token against a stored, issued, revocable secret. `apps/web/src/app/api/v1/runners/route.ts` also has a deterministic fallback token derived from the organization UUID prefix.
 
-- Workflow recording and replay
-- Table/collection discovery and column inspection
-- Filters and stored discovered items
-- Loop detection, action generalization, and per-item execution
-- Downloads, artifact deduplication, and output organization
-- Login/session handling and human-in-the-loop authentication recovery
-- Cloud run telemetry and local worker lifecycle
-- Organization/tenant boundaries and secret handling
+**Assessment:** critical authentication design flaw in source. Treat the token suffix as an identifier, not a secret; replace it with high-entropy credentials, validation, revocation/rotation, and negative tests. No deployed exploit test has been performed.
 
-This is a precautionary list of product-critical areas, not a claim that every listed behavior has been independently tested.
+### F-02 — Run POST does not bind the requested organization and workflow ownership
+File: `apps/web/src/app/api/v1/runs/route.ts`
 
-## Root commands documented in package.json
+The handler allows `body.org_id` / `body.orgId` to override the authenticated organization. It fetches `wf_workflows` by workflow ID without an organization predicate, updates the workflow by ID, and inserts the run using the request-derived organization ID. Since the auth helper uses a service-role client when configured, RLS is not a reliable fallback for these omissions.
 
+**Assessment:** critical cross-tenant authorization risk. Scope all operations to the authenticated organization, check that the workflow and run organization IDs agree, and add cross-tenant denial tests for session and runner authentication.
+
+### F-03 — Local bridge commands are not authenticated
+File: `apps/desktop/src/main/http-bridge.js`
+
+The bridge binds to loopback port `49152`. State-changing routes for recording start/stop/reset, active-run stop, and discovery execute without checking a request credential. CORS/PNA can constrain browser requests but does not authenticate local processes and must not be treated as an authorization control.
+
+**Assessment:** high risk requiring a local threat-model decision and hardening. Add a per-install/session authorization mechanism and tests that reject unauthenticated state-changing requests. Retain CORS/PNA checks as defense-in-depth, not the primary control.
+
+### F-04 — Runner metadata is serialized into the Stripe subscription column
+Files: `apps/web/src/lib/auth/runner-auth.ts`, `apps/web/src/app/api/v1/runners/route.ts`, and `supabase/schema.sql`
+
+Runner heartbeat code reads/writes JSON in `wf_organizations.stripe_subscription_id`, while the schema defines that column as the Stripe subscription identifier. Billing consumers and migration history have not yet been fully traced.
+
+**Assessment:** medium data-integrity/design risk; downstream billing impact is unverified. Trace all consumers before migration, then separate runner state into a dedicated data model if appropriate.
+
+## Security and data boundaries to preserve
+- Treat service-role Supabase access as privileged; validate membership/ownership in server routes.
+- Never use organization IDs, UUID prefixes, slugs, or other identifiers as authentication secrets.
+- Ensure workflow, run, artifact, and secret access is scoped to the authenticated tenant.
+- Localhost binding and CORS/PNA are not substitutes for local command authentication.
+- Keep billing identifiers separate from runner heartbeat/state metadata.
+
+## Root commands declared in package.json
 - `npm run dev`: delegates to `apps/web`
 - `npm run build`: delegates to `apps/web`
 - `npm start`: delegates to `apps/web`
@@ -72,22 +83,11 @@ This is a precautionary list of product-critical areas, not a claim that every l
 - `npm run desktop`: starts `apps/desktop`
 - `npm run test`: delegates to `packages/engine`
 
-These are declared scripts; this document does not assert that they have been executed successfully.
+These scripts are declared; this document does not assert that they pass.
 
-## Initial code-level observations (read-only inspection)
-
-The following observations were checked against source files on `main`; they are not a full security or behavior audit:
-
-- `apps/desktop/src/main/http-bridge.js` defines a localhost bridge on `127.0.0.1:49152` with health/status, recording, run-stop, and discovery routes. It has explicit CORS origin handling. Before changing it, trace authentication/authorization and validation for every state-changing route; CORS is not an authorization mechanism.
-- `apps/web/src/app/api/v1/runs/route.ts` authenticates through `authenticateRunnerOrUser`, but its POST handler also reads an organization ID from the request body and uses it for run/workflow creation. Trace the auth helper, Supabase client privileges, RLS, and all org/workflow ownership checks before changing or relying on this path. Treat this as a security-review question, not a confirmed vulnerability.
-- `apps/web/src/app/api/v1/runners/route.ts` reads and writes runner heartbeat metadata by JSON-parsing/stringifying `wf_organizations.stripe_subscription_id`. Confirm whether this field is intentionally being used as a metadata container or whether it risks conflating billing data with runner state. Do not change it without tracing migrations and all reads/writes.
-- `supabase/schema.sql` enables RLS on organization, membership, workflow, run, and artifact tables and defines organization-membership-based policies. This schema file alone does not establish that deployed policies match the file or that every API route scopes queries safely.
-
-## Guidance for architecture changes
-
-1. Trace the existing behavior from entry point through dependencies and data flow.
-2. Find relevant tests and extend them for the new behavior or regression risk.
-3. Prefer an existing supported module/pattern over parallel implementations.
-4. Avoid merging or deleting similarly named modules without proving their responsibilities and call sites.
-5. For database or tenant-sensitive changes, inspect schema, RLS, server authorization, and organization scoping together.
-6. Update this map only after checking the implementation.
+## Next audit steps
+1. Add focused regression tests for F-01 and F-02 before patching production behavior.
+2. Harden and test the local bridge authorization boundary (F-03).
+3. Trace all Stripe/subscription consumers and migration history for F-04.
+4. Run focused tests and builds in a controlled development environment; record actual output.
+5. Trace one complete workflow from recording/discovery through execution, telemetry, and artifact handling.
