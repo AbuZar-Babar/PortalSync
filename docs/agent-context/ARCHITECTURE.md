@@ -21,6 +21,13 @@ The root package uses npm workspaces for `apps/*` and `packages/*`.
 
 Confirm current paths and responsibilities in the code before relying on them for a feature.
 
+### AI instruction files
+
+- Root `AGENTS.md` contains the repository-wide collaboration and safety rules (on this documentation branch; it is not yet on `main`).
+- `apps/web/AGENTS.md` on `main` contains generated Next.js 16-specific agent guidance. It instructs agents to consult the installed Next.js docs under `node_modules/next/dist/docs/` before changing web code because APIs and conventions may differ from older Next.js versions.
+- `apps/web/CLAUDE.md` contains `@AGENTS.md`, so Claude should load the adjacent `apps/web/AGENTS.md` as well as applicable root instructions.
+- Before editing another package, search for nested `AGENTS.md`, `CLAUDE.md`, or equivalent instructions; this first audit only confirmed the web app's nested files.
+
 ## Main runtime boundaries
 
 ### Web control plane
@@ -66,6 +73,15 @@ This is a precautionary list of product-critical areas, not a claim that every l
 - `npm run test`: delegates to `packages/engine`
 
 These are declared scripts; this document does not assert that they have been executed successfully.
+
+## Initial code-level observations (read-only inspection)
+
+The following observations were checked against source files on `main`; they are not a full security or behavior audit:
+
+- `apps/desktop/src/main/http-bridge.js` defines a localhost bridge on `127.0.0.1:49152` with health/status, recording, run-stop, and discovery routes. It has explicit CORS origin handling. Before changing it, trace authentication/authorization and validation for every state-changing route; CORS is not an authorization mechanism.
+- `apps/web/src/app/api/v1/runs/route.ts` authenticates through `authenticateRunnerOrUser`, but its POST handler also reads an organization ID from the request body and uses it for run/workflow creation. Trace the auth helper, Supabase client privileges, RLS, and all org/workflow ownership checks before changing or relying on this path. Treat this as a security-review question, not a confirmed vulnerability.
+- `apps/web/src/app/api/v1/runners/route.ts` reads and writes runner heartbeat metadata by JSON-parsing/stringifying `wf_organizations.stripe_subscription_id`. Confirm whether this field is intentionally being used as a metadata container or whether it risks conflating billing data with runner state. Do not change it without tracing migrations and all reads/writes.
+- `supabase/schema.sql` enables RLS on organization, membership, workflow, run, and artifact tables and defines organization-membership-based policies. This schema file alone does not establish that deployed policies match the file or that every API route scopes queries safely.
 
 ## Guidance for architecture changes
 
