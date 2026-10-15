@@ -106,13 +106,13 @@ When the user returns the implementation report:
 
 These are default roles, not hard restrictions. The user may choose a different lead. Do not ask all three planning models to independently solve every small task. For routine changes, one lead model is enough; add another reviewer only when the risk, ambiguity, or impact justifies it. The three planning/review models do not automatically communicate with one another—the user transfers relevant prompts and findings manually.
 
-## D. Constructive pushback policy
+## E. Constructive pushback policy
 
 Push back briefly when the proposed approach creates a meaningful correctness, security, scalability, product, or maintenance problem, or when a clearly better alternative exists. Explain the trade-off and offer a practical alternative.
 
 If the idea is reasonable, proceed. Do not manufacture objections, force every model to debate the decision, or require a formal review for a trivial low-risk change.
 
-## E. Scope and safety
+## F. Scope and safety
 
 - The planning/review model does not need execution permissions.
 - The user manually transfers prompts and reports between models.
@@ -121,6 +121,6 @@ If the idea is reasonable, proceed. Do not manufacture objections, force every m
 - A successful build does not by itself prove feature correctness.
 - User acceptance remains the final decision.
 
-## F. What counts as a good result
+## G. What counts as a good result
 
 A good prompt is specific enough to guide implementation but tells Gemini to verify actual code rather than blindly trust assumptions. A good review is evidence-based, concise, and actionable. The objective is a repeatable, low-friction development loop—not a large process that slows down everyday work.
