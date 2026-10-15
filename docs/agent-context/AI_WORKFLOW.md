@@ -1,126 +1,102 @@
-# AI Prompt Generation and Implementation Review Workflow
+# AI Collaboration & Planning Workflow
 
-## Purpose
+## 1. Purpose and Architecture
 
-Use this guide for the three-model planning/review group—ChatGPT, Claude, and Gemini 4 Argon—and the separate implementation agent, Gemini Flash in Antigravity. The user remains the coordinator: prompts and reports are copied manually. This is not an automated multi-agent execution system. If the user's environment labels Argon differently, confirm the exact model label in that environment rather than silently substituting a model.
+This document defines the planning, architecture, and review workflow for ReFlow. It is written specifically for human planners, top-tier reasoning models (ChatGPT, Claude, Gemini 4 Argon), and code reviewers.
 
-## Workflow at a glance
+Implementation rules for the execution model (Gemini Flash) are maintained separately in root [`AGENTS.md`](file:///c:/Users/AbuZar/Desktop/Fyp/Workflow-Capture-SaaS/AGENTS.md).
 
-1. User describes the desired outcome.
-2. A lead planning model (ChatGPT or Claude, depending on the session) checks relevant repository context and code when available.
-3. Gemini 4 Argon contributes a complementary analysis or review when useful; it should not repeat work just to satisfy a three-model ritual.
-4. The models raise concise concerns only for meaningful flaws, material risks, or a clearly better alternative. If there is no material concern, proceed.
-5. The lead model produces one self-contained implementation prompt that incorporates relevant findings and resolves disagreements where possible. If a disagreement materially affects correctness and cannot be resolved from evidence, present the specific decision to the user.
-6. User pastes the prompt into Gemini Flash in Antigravity.
-7. Gemini Flash inspects the code, implements the change, runs appropriate checks, and reports what happened.
-8. User returns the original prompt and implementation report to the lead model. Ideally, include the diff and test output too.
-9. The reviewer checks evidence against requirements and produces either approval with caveats or one targeted correction prompt.
-10. User decides whether to apply corrections, inspect locally, or accept the result.
+All prompt handoffs, context sharing, and report transfers between models are handled manually by the user. There is no automated model-to-model communication or direct execution bridge.
 
-## A. Prompt-generation checklist
+## 2. Model Roles and Boundaries
 
-Before writing the implementation prompt:
+The high-tier models are **not interchangeable**; each fills a specialized role based on its concrete tooling and repository visibility:
 
-- Restate the intended behavior and who/what it affects.
-- Inspect relevant files and existing patterns if repository access is available.
-- If code access is unavailable, do not guess exact implementation details. Instruct Gemini to inspect the repository and report what it finds before editing if uncertainty affects the design.
-- Identify dependencies and integration boundaries.
-- Preserve unrelated functionality, especially discovery, filtering, stored discovered items, loop execution, downloads, authentication/session handling, and cloud/desktop interaction where relevant.
-- Consider security, tenant isolation, error handling, accessibility, and regression risks when relevant.
-- Keep the solution proportional to the task. Do not turn a small change into a broad refactor.
-- Define observable acceptance criteria and appropriate tests.
+- **ChatGPT (The Verifier)**:
+  - **Primary responsibility**: Verification, regression checking, and final implementation review.
+  - **Tooling advantage**: Can read the GitHub repository directly via GitHub integration to inspect commits, diffs, branches, and code files in place.
+  - **Workflow**: Compares actual git commits and pull request diffs against original requirements and acceptance criteria.
+- **Claude & Gemini 4 Argon (The Planners)**:
+  - **Primary responsibility**: System architecture, multi-file planning, and implementation prompt drafting.
+  - **Tooling advantage**: Ingest structured repository context via Repomix snapshot packs to reason over complex logic, dependency graphs, and data flows.
+  - **Workflow**: Analyze requirements, apply pushback rules when applicable, formulate trade-offs, and produce self-contained implementation prompts for Flash.
+- **Gemini Flash (The Implementer)**:
+  - **Primary responsibility**: Local code implementation and test execution in Antigravity.
+  - **Tooling advantage**: Direct file modification and terminal execution in the working directory.
+  - **Workflow**: Reads root `AGENTS.md`, executes in Quick mode or Careful mode, writes negative tests before sensitive fixes, and returns a structured completion report.
 
-## B. Copy-ready implementation prompt template
+### Why Model Roles Can Change
+Roles are not rigid entitlements. They can change when:
+- **Repository access changes**: If GitHub integration is unavailable for ChatGPT, Claude or Argon can perform code review from repomix diff packs or commit patches.
+- **Quota and rate limits**: When a high-tier model exhausts its usage quotas, another top-tier model assumes planning or review duties.
+- **Context window requirements**: A refactor requiring an exceptionally large single-pass context window may require shifting planning to a model with higher token limits.
+- **Tooling updates**: When IDE extensions, local plugins, or model platform capabilities evolve.
 
-Adapt this template to the feature. Remove irrelevant sections instead of filling the prompt with boilerplate.
+## 3. Quota Management Rules
 
----
+Top-tier models consume significant quota and must be used with discipline:
 
-**Task:** [Short feature or bug-fix title]
+- **Quick fixes skip top-tier models entirely**: Bug fixes, localized tweaks, typos, single-file edits, and straightforward improvements go straight from the user to Gemini Flash. Do not involve ChatGPT, Claude, or Argon for routine edits.
+- **Reserve top-tier models for Careful mode**: Involve Claude, Gemini 4 Argon, or ChatGPT only for planning big modules, complex multi-step features, architectural refactors, or high-risk security audits.
+- **Prefer narrow Repomix packs over full-repo packs**: When creating context packs for planners, pack only the relevant package or directory (for example, `apps/web`, `packages/engine`, or `apps/desktop`). Never generate or feed a full-monorepo pack when a targeted pack suffices. Narrow packs preserve context window token limits and reduce latency.
 
-**Goal and expected behavior**
-[Explain the user-visible outcome and how it should work.]
+## 4. Repomix Snapshot Rules
 
-**Repository instructions**
-- Read `AGENTS.md` and relevant context documents if present.
-- Inspect the actual implementation and tests before editing; do not assume file paths or architecture from this prompt alone.
-- Summarize the relevant current behavior and proposed change briefly before making broad or risky edits.
+When generating Repomix packs for planning models:
+- **Strictly exclude secrets and environment files**: Never pack `.env`, `.env.*`, API keys, private certs, or credentials. Ensure patterns like `.env*` and `*.pem` are excluded in repomix configurations.
+- **Never commit packs to the repository**: Repomix markdown packs (such as `reflow-web.md`, `reflow-engine.md`, `reflow-desktop-db.md`, or `repomix-output.txt`) must remain local, untracked, and ignored. Never stage or commit packs to git.
 
-**Requirements**
-1. [Specific functional requirement]
-2. [Expected edge-case behavior]
-3. [Error, loading, empty, or recovery behavior where applicable]
+## 5. Pushback Rules for Big Modules Only
 
-**Constraints**
-- Follow existing project patterns and design conventions.
-- Preserve unrelated behavior and public interfaces.
-- Avoid unrelated refactoring, duplicate implementations, and unnecessary dependencies.
-- Do not weaken authentication, authorization, tenant isolation, or secrets handling.
-- Do not report tests as passing unless they were run and passed.
+To prevent bureaucratic slowdowns, planners must not question or debate routine changes. Pushback and preliminary questioning are strictly reserved for **big modules**.
 
-**Acceptance criteria**
-- [Observable result 1]
-- [Observable result 2]
-- [Relevant regression case]
+### Definition of a Big Module
+A change qualifies as a big module if and only if it involves:
+1. A new feature or new module.
+2. A database schema change (e.g., Supabase table migrations, column alterations, or RLS policy updates).
+3. Anything touching authentication, authorization, secrets, runner tokens, or tenant isolation.
+4. A new external dependency (npm package or third-party service).
+5. A refactoring that spans multiple files or packages.
 
-**Verification**
-- Identify and run the most relevant existing tests.
-- Add or update tests for the new behavior where appropriate.
-- Run relevant lint/build/type checks when practical.
-- If a check cannot run, state why instead of implying success.
+### The Three Preliminary Questions
+When presented with a big module, the planner must not draft an implementation prompt immediately. Instead, the planner must first ask the user **up to three structured questions**:
+1. **The Main Goal**: What is the core business and technical outcome required?
+2. **Approach Options & Recommendation**: What are the viable implementation approaches, and which one does the planner recommend with trade-offs?
+3. **Workflow Changes**: How does this change the existing user journey, runner execution flow, or API contract?
 
-**Completion report**
-Return:
-1. Summary of implementation.
-2. Files created or changed.
-3. Tests and commands run, with actual outcomes.
-4. Known limitations and untested cases.
-5. Any deviation from the prompt and the reason.
-6. A concise list of anything that needs human verification.
+*Small changes and routine fixes get no preliminary questions; the user or planner proceeds immediately with the prompt.*
 
----
+## 6. Security Checklist for Auth and Tenant Changes
 
-## C. Review checklist for the high-tier model
+Whenever a task touches authentication (`apps/web/src/lib/auth/`), runner tokens, API routes (`apps/web/src/app/api/v1/`), or tenant isolation, the planner must incorporate this checklist into the prompt, and Flash must implement a test for every item before writing the fix:
 
-When the user returns the implementation report:
+- [ ] **Wrong, short, and guessed tokens**:
+  - Test rejection of incorrect token strings.
+  - Test rejection of short or truncated tokens (e.g., truncated `ps_live_` prefixes).
+  - Test rejection of guessed prefixes or fake UUID combinations.
+- [ ] **Cross-tenant organization ID spoofing**:
+  - Test that passing another organization's ID in query parameters (`?org_id=`), headers, or request bodies (`org_id`, `orgId`) is rejected or ignored.
+  - Test that workflow and run operations are strictly scoped to the authenticated organization.
+- [ ] **Missing or malformed fields**:
+  - Test rejection when authorization headers, required body fields, or token payloads are absent, empty, or malformed.
+- [ ] **Test coverage requirement**:
+  - Every condition listed above must have an explicit automated test asserting rejection (HTTP 401 Unauthorized or 403 Forbidden).
 
-1. Retrieve the original requirements and acceptance criteria; do not review the report in isolation.
-2. Check whether the report covers every requirement and edge case.
-3. Distinguish claims from evidence. A report alone cannot prove correctness.
-4. If possible, inspect the actual diff and test output. If only a report is provided, explicitly state the limits of the review.
-5. Check for regressions, broken contracts, error-path gaps, security/tenant-isolation problems, accidental scope expansion, and missing tests.
-6. Classify findings as:
-   - **Blocker:** unsafe or fundamentally incorrect; do not accept yet.
-   - **Important:** likely bug, missing requirement, or significant regression risk.
-   - **Minor:** limited polish or low-risk maintainability concern.
-   - **No material findings:** the available evidence supports acceptance, with any caveats stated.
-7. If corrections are needed, provide one targeted, copy-ready correction prompt that names the issue, expected behavior, and verification. Avoid asking Gemini to rewrite everything unnecessarily.
-8. If evidence is insufficient, request the specific missing diff, file, or command output rather than guessing.
+## 7. Implementation Prompt Structure
 
-## D. Roles and handoffs for the three-model workflow
+When a planner prepares a Careful-mode prompt for Gemini Flash, the prompt must include:
+1. **Task Title & Mode**: Clearly marked as Careful mode.
+2. **Goal & Source Scope**: Specific user-visible outcome and explicit files to inspect.
+3. **Pre-Implementation Test Requirement**: Negative security tests required before fix code.
+4. **Requirements & Edge Cases**: Detailed behavioral specifications.
+5. **Acceptance Criteria**: Concrete, observable outcomes.
+6. **Completion Report Requirement**: Mandate the six required report sections defined in root `AGENTS.md`.
 
-- **ChatGPT:** Can lead requirements analysis, repository investigation, prompt drafting, evidence review, and final recommendation.
-- **Claude:** Can lead the same kind of task when chosen by the user, or provide a focused second opinion on a consequential design or review.
-- **Gemini 4 Argon:** The third high-capability planning/review model. Use it for a complementary analysis when it is available in the user's environment; do not assume its access or model label without confirmation.
-- **Gemini Flash in Antigravity:** The implementation agent that receives the final prompt, inspects and edits the repository, runs checks, and produces the completion report.
+## 8. Review and Verification Standard
 
-These are default roles, not hard restrictions. The user may choose a different lead. Do not ask all three planning models to independently solve every small task. For routine changes, one lead model is enough; add another reviewer only when the risk, ambiguity, or impact justifies it. The three planning/review models do not automatically communicate with one another—the user transfers relevant prompts and findings manually.
-
-## E. Constructive pushback policy
-
-Push back briefly when the proposed approach creates a meaningful correctness, security, scalability, product, or maintenance problem, or when a clearly better alternative exists. Explain the trade-off and offer a practical alternative.
-
-If the idea is reasonable, proceed. Do not manufacture objections, force every model to debate the decision, or require a formal review for a trivial low-risk change.
-
-## F. Scope and safety
-
-- The planning/review model does not need execution permissions.
-- The user manually transfers prompts and reports between models.
-- The implementation model should only change the requested scope.
-- High-risk database, authentication, authorization, secrets, tenant-isolation, or destructive changes require extra inspection and explicit verification.
-- A successful build does not by itself prove feature correctness.
-- User acceptance remains the final decision.
-
-## G. What counts as a good result
-
-A good prompt is specific enough to guide implementation but tells Gemini to verify actual code rather than blindly trust assumptions. A good review is evidence-based, concise, and actionable. The objective is a repeatable, low-friction development loop—not a large process that slows down everyday work.
+When reviewing a completed task:
+- ChatGPT inspects the commit directly on GitHub (or Claude/Argon reviews an explicit git diff).
+- Verify against the code in the repository, not unverified claims in the completion report.
+- Confirm all negative security tests were written and executed.
+- Ensure no out-of-scope files were modified.
+- If issues remain, issue one targeted correction prompt specifying the exact file and expected behavior.

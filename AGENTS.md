@@ -1,69 +1,64 @@
-# ReFlow AI Collaboration Instructions
+# ReFlow — AI Implementation Rules (Gemini Flash)
 
-## Purpose
+These rules apply to Gemini Flash implementing changes in the ReFlow codebase. Flash reads this file automatically.
 
-ReFlow is a production-oriented SaaS product for hybrid browser automation and RPA. Treat it as an evolving product, not a student project or disposable prototype. Preserve existing behavior unless the task explicitly changes it.
+## Operating Modes
 
-These instructions support AI-assisted planning, implementation prompts, and review. They do **not** grant any model execution access or require automated model-to-model communication.
+Always identify which mode the user's prompt requests:
 
-## Shared working principles
+- **Quick mode**:
+  - Used for targeted fixes and self-contained tasks.
+  - Exactly one concern per prompt with minimal scope.
+  - Implement directly, run relevant checks, and report what changed and what was run.
+- **Careful mode**:
+  - Used for multi-step features, architectural changes, or high-risk tasks.
+  - Work strictly follows a plan that the user has explicitly approved.
+  - For any security, authentication, or data-isolation change, tests must be written before implementing the fix.
 
-- Use the repository as the source of truth. Read relevant code and current documentation before making architectural claims.
-- Distinguish verified facts from assumptions. If a file, API, behavior, or test has not been inspected, say so.
-- Prefer the smallest sound solution that meets the requirements. Do not overengineer simple tasks or introduce abstractions without a concrete benefit.
-- Apply constructive pushback only when there is a meaningful correctness, security, maintainability, product, or scope concern, or a clearly better alternative. Explain the concern briefly and propose a practical alternative. If the approach is reasonable, proceed without debate.
-- Preserve existing features and contracts unless the task explicitly calls for a change. Pay special attention to discovery, filtering, stored discovered items, loop execution, downloads, authentication/session handling, and the cloud/desktop boundary.
-- Never claim that code was changed, a command ran, or a test passed unless there is direct evidence.
-- Avoid unrelated refactors and avoid deleting or consolidating modules based only on names or apparent overlap.
-- Protect secrets, customer data, tenant isolation, authentication, and authorization. Treat security-sensitive changes as high risk and inspect their surrounding flows and tests.
+## Stop-and-Ask Rule
 
-## For high-tier models preparing implementation prompts
+If the prompt's assumptions do not match the actual code (for example: a referenced file is missing, an API contract differs, or existing behavior contradicts the prompt), **stop and report immediately before editing any files**. Do not proceed on invalid assumptions.
 
-When asked to plan a feature or generate a prompt for Gemini Flash in Antigravity, account for the three-model planning/review group: ChatGPT, Claude, and Gemini 4 Argon. The user manually transfers prompts and findings; do not imply automatic model-to-model communication. Gemini Flash in Antigravity is the implementation agent.
+## Out-of-Scope Rule
 
-1. Clarify the intended user-visible behavior and success criteria.
-2. Inspect the relevant repository files if repository access is available. If not, explicitly instruct the implementer to inspect them before editing.
-3. Identify existing patterns, dependencies, integration points, and likely edge cases.
-4. Use ChatGPT, Claude, and Gemini 4 Argon as complementary planning/review options, not as mandatory independent reviewers for every task. A lead model may request a focused second opinion when risk or ambiguity justifies it.
-5. Briefly flag only material risks or a clearly superior approach.
-6. Produce a self-contained prompt that can be pasted into the implementation model. Include:
-   - Goal and expected behavior
-   - Repository/context summary relevant to the task
-   - Instructions to inspect before editing
-   - Requirements and constraints
-   - Edge cases and failure handling
-   - Acceptance criteria
-   - Tests/checks to run
-   - A required completion report
-7. Do not invent filenames, APIs, test results, or implementation details. Mark uncertainties explicitly.
+If you discover a bug, security flaw, or code quality issue outside the assigned task, **report it in the completion report and do not fix it**. Keep changes strictly scoped to the requested task.
 
-## For implementation reports and reviews
+## Git Rules
 
-When reviewing a report from an implementation model:
+- Always work on a branch named for the task (e.g., `feat/...`, `fix/...`, `docs/...`).
+- **Never commit directly to `main`**.
+- Make small, atomic commits with clear, descriptive messages.
+- **Never force-push (`git push --force`)** and never rewrite published git history.
 
-- Compare reported work against the original requirements and acceptance criteria.
-- Separate confirmed evidence (such as an actual diff or test output) from the implementer's claims.
-- Ask for the diff, relevant files, or test output when necessary to make a reliable judgment.
-- Prioritize correctness, regressions, security, tenant boundaries, error handling, and maintainability over style-only preferences.
-- Return actionable findings with severity and file/line references when available. If no material issue is found, say so; do not invent criticism.
+## Read-First List (Exact Paths)
 
-## Required implementation completion report
+Before modifying code in sensitive runtime boundaries, read the relevant context document:
 
-The implementer should report:
+- [`docs/agent-context/CURRENT_STATE.md`](file:///c:/Users/AbuZar/Desktop/Fyp/Workflow-Capture-SaaS/docs/agent-context/CURRENT_STATE.md): Read before touching runner authentication, the desktop bridge, or tenant data boundaries to review known security audit findings and active risk areas.
+- [`docs/agent-context/ARCHITECTURE.md`](file:///c:/Users/AbuZar/Desktop/Fyp/Workflow-Capture-SaaS/docs/agent-context/ARCHITECTURE.md) (and [`docs/ARCHITECTURE.md`](file:///c:/Users/AbuZar/Desktop/Fyp/Workflow-Capture-SaaS/docs/ARCHITECTURE.md)): Read before touching auth (`apps/web/src/lib/auth/`), the local HTTP bridge (`apps/desktop/src/main/http-bridge.js`), the runner daemon / engine (`packages/engine/`), or cloud APIs (`apps/web/src/app/api/v1/`).
 
-1. Summary of behavior implemented.
-2. Files created or changed.
-3. Commands and tests actually run, with pass/fail results.
-4. Known gaps, assumptions, or untested cases.
-5. Any deviations from the requested plan and why.
+## Nested Instructions
 
-## Risk and scope
+- Before editing `apps/web`, you **must** read [`apps/web/AGENTS.md`](file:///c:/Users/AbuZar/Desktop/Fyp/Workflow-Capture-SaaS/apps/web/AGENTS.md).
+- Check for nested `AGENTS.md` or `CLAUDE.md` in any package before making changes there.
 
-- For straightforward, low-risk changes, keep the process lightweight.
-- For major features, broad refactors, database/schema changes, authentication/authorization, secrets handling, tenant isolation, or destructive changes, inspect first and define acceptance criteria and a test plan.
-- Do not perform destructive operations or change production data as an unrequested side effect.
-- Keep unrelated work out of the change.
+## Context Docs Rule
 
-## Keeping context current
+Context documents (in `docs/agent-context/` and `docs/`) are updated **only when the task explicitly asks**. Do not edit or update context documentation on your own initiative.
 
-Update the agent-context documents when a meaningful feature, architectural decision, confirmed issue, or major project state change makes them inaccurate. Prefer concise durable facts over transient session notes. Do not treat this context as a substitute for inspecting current code.
+## Evidence & Verification Standard
+
+- **Never claim a test passed, a command ran, or code changed without concrete evidence.**
+- If a command was not run or cannot be run, state that clearly instead of implying success.
+- Distinguish verified facts from unverified assumptions.
+
+## Completion Report
+
+Every completed task must conclude with a report structured into these exact sections:
+
+1. **Summary**: High-level explanation of what was implemented or resolved.
+2. **Files changed**: Complete list of created, modified, or deleted files.
+3. **Commands run with actual results**: Exact commands executed and their output or exit status.
+4. **Known gaps**: Unhandled edge cases, missing test coverage, or deferred items.
+5. **Deviations from the prompt**: Any departure from the requested plan and the justification.
+6. **Anything the user must verify by hand**: Manual steps, visual checks, or browser interactions needed to confirm behavior.
