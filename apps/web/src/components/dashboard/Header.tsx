@@ -74,16 +74,16 @@ export function Header({
             ? 'text-emerald-300 hover:bg-emerald-500/10'
             : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
         }`}
-        title={isRunnerOnline ? 'Desktop worker online and ready' : 'Connect a desktop worker'}
+        title={isRunnerOnline ? 'Desktop app connected and ready' : 'Connect the ReFlow desktop app'}
       >
         <span
           aria-hidden="true"
           className={`h-2 w-2 flex-shrink-0 rounded-full ${isRunnerOnline ? 'bg-emerald-400' : 'bg-slate-500'}`}
         />
         <span className="hidden sm:inline">
-          {isRunnerOnline ? 'Worker online' : 'No worker connected'}
+          {isRunnerOnline ? 'Desktop app connected' : 'Desktop app not connected'}
         </span>
-        <span className="sr-only">{isRunnerOnline ? 'Worker online' : 'No worker connected'}</span>
+        <span className="sr-only">{isRunnerOnline ? 'Desktop app connected' : 'Desktop app not connected'}</span>
       </Link>
 
         <div className="relative" ref={dropdownRef}>
@@ -129,7 +129,7 @@ export function Header({
                   className="flex items-center gap-2 rounded-lg px-3 py-2 text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
                 >
                   <Cpu aria-hidden="true" className="h-3.5 w-3.5 text-slate-400" />
-                  <span>Desktop Workers</span>
+                  <span>Desktop connection</span>
                 </Link>
                 <Link
                   href="/"
