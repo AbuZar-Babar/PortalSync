@@ -35,12 +35,6 @@ export default function LoginPage() {
           <div className="h-2.5 w-2.5 rounded-full bg-emerald-200 transition-transform duration-200 group-hover:scale-110" />
           <span className="text-xl font-extrabold tracking-tight text-white">ReFlow.</span>
         </Link>
-        <h1 className="mb-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-          Welcome back
-        </h1>
-        <p className="mx-auto max-w-sm text-xs leading-6 text-zinc-400 sm:text-sm">
-          Sign in to access your automated browser routines and console.
-        </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4">
