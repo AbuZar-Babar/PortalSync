@@ -210,19 +210,18 @@ sequenceDiagram
 ## 3. Security & Reliability Architecture
 
 ### 3.1 Runner Authentication & Heartbeat Caching (`runner-auth.ts`)
-* **Format**: Supports `Bearer ps_live_<16-char-prefix>` and session cookies.
-* **In-Memory Caching (`orgPrefixCache`)**: Resolves prefix-to-UUID mappings with a 60-second in-memory cache, eliminating full-table scans of `wf_organizations` during 3-second runner polling loops.
-* **Heartbeat Write Throttling (`lastHeartbeatWriteCache`)**: Telemetry updates to `wf_organizations` are throttled to execute only on dedicated runner registration calls or at most once every 15 seconds per organization.
-* **Strict Tenant Isolation**: `?org_id=` query parameters provided by authenticated session users are verified against `wf_organization_members` with `.limit(20)` before allowing context override.
+* **Format**: Supports canonical `Bearer rf_live_<16hex_org>_<32hex_secret>` and session cookies.
+* **Cryptographic Hash Verification**: Inbound tokens are SHA-256 hashed and verified in constant time (`crypto.timingSafeEqual`) against `wf_organizations.runner_token_hash`.
+* **Heartbeat Write Throttling (`lastHeartbeatWriteCache`)**: Telemetry updates to `wf_organizations.runner_metadata` are throttled to execute only on dedicated runner registration calls or at most once every 15 seconds per organization.
+* **Strict Tenant Isolation**: All runner and session queries enforce authenticated `orgId` scoping with no request-body overrides.
 
 ### 3.2 Private Network Access (PNA) CORS Hardening (`http-bridge.js`)
 * Bridges browser contexts to local server `127.0.0.1:49152`.
 * Rejects arbitrary origin reflection. Origins are strictly checked against:
   * `http://localhost:*` and `http://127.0.0.1:*`
-  * `https://*.vercel.app`
+  * Configured cloud dashboard URL from `configManager` (e.g. `https://web-fawn-ten-55.vercel.app`)
   * `https://*.reflow.io`, `https://*.reflow.ai`, `https://*.reflow.app`, `https://*.reflow.dev`
-  * Configured cloud dashboard URL from `configManager`.
-* Unrecognized origins are restricted to `http://localhost:3000` with credential access disabled.
+* Wildcard `*.vercel.app` reflection has been eliminated. Unrecognized origins are restricted to `http://localhost:3000` with credential access disabled.
 
 ### 3.3 Server-Side Request Forgery (SSRF) Protection (`/api/v1/webhooks/test`)
 * Blocks loopback destinations (`127.0.0.1`, `localhost`).

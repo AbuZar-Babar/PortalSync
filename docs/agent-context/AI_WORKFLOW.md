@@ -92,7 +92,7 @@ Whenever a task touches authentication (`apps/web/src/lib/auth/`), runner tokens
 
 - [ ] **Wrong, short, and guessed tokens**:
   - Test rejection of incorrect token strings.
-  - Test rejection of short or truncated tokens (e.g., truncated `ps_live_` prefixes).
+  - Test rejection of short or truncated tokens (e.g., truncated `rf_live_` prefixes or missing secret).
   - Test rejection of guessed prefixes or fake UUID combinations.
 - [ ] **Cross-tenant organization ID spoofing**:
   - Test that passing another organization's ID in query parameters (`?org_id=`), headers, or request bodies (`org_id`, `orgId`) is rejected or ignored.

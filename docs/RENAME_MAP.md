@@ -40,7 +40,7 @@ All runner and cloud processes accept `REFLOW_*` environment variables as first-
 | Canonical Variable | Legacy Fallback | Default Value | Purpose |
 | :--- | :--- | :--- | :--- |
 | `REFLOW_CLOUD_URL` | `PORTALSYNC_CLOUD_URL` | `http://localhost:3000` | Web control plane URL for runner daemon and CLI |
-| `REFLOW_RUNNER_TOKEN` | `PORTALSYNC_RUNNER_TOKEN` | `""` | Runner Bearer token (`ps_live_<org_id>`) |
+| `REFLOW_RUNNER_TOKEN` | `PORTALSYNC_RUNNER_TOKEN` | `""` | Runner Bearer token (`rf_live_<16hex_org>_<32hex_secret>`) |
 | `REFLOW_CDP_PORT` | `PORTALSYNC_CDP_PORT` | `9222` | Local Chrome DevTools Protocol port |
 | `REFLOW_TARGET_FOLDER` | `PORTALSYNC_TARGET_FOLDER` | Resolved user downloads folder | Directory for storing downloaded workflow artifacts |
 | `REFLOW_ADMIN_EMAIL` | `PORTALSYNC_ADMIN_EMAIL` | Unset (skips seed) | Email address for local developer admin user |
@@ -124,5 +124,5 @@ await window.portalsync.getConfig();
 ## 9. Immutable Identifiers (Explicitly Preserved)
 
 The following prefixes and schemas were deliberately **preserved** without modification to maintain system integrity:
-1. **Runner Bearer Tokens:** The `ps_live_` token prefix (e.g., `ps_live_<org_id>`) remains intact across all database tables and authentication headers.
+1. **Runner Bearer Tokens:** Upgraded in Phase 3B to canonical `rf_live_<16hex_org>_<32hex_secret>` tokens backed by SHA-256 hash comparison against `runner_token_hash`. Legacy `ps_live_` prefixes have been deprecated.
 2. **Supabase Database Schema:** All table names (`wf_organizations`, `wf_workflows`, `wf_runs`, `wf_artifacts`, `wf_credentials`, `wf_audit_logs`, etc.) and column names remain unchanged.
