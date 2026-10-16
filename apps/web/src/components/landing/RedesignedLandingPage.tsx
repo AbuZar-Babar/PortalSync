@@ -11,7 +11,6 @@ import {
   CircleDot,
   Download,
   FileSearch,
-  GitBranch,
   Layers,
   LockKeyhole,
   Menu,
