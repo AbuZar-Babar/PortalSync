@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import {
   ArrowUpRight,
@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   Menu,
   X,
-  Download,
 } from 'lucide-react';
 import ProductLoopShowcase from '@/components/landing/ProductLoopShowcase';
 import RunningTicker from '@/components/landing/RunningTicker';
@@ -19,8 +18,11 @@ import WorkflowNodePipeline from '@/components/landing/WorkflowNodePipeline';
 import FeatureCapabilities from '@/components/landing/FeatureCapabilities';
 import PricingSection from '@/components/landing/PricingSection';
 import ScrollReveal from '@/components/landing/ScrollReveal';
+import { RobotMascot } from '@/components/landing/RobotMascot';
 import { AuthCard, PlanTier } from '@/components/auth/AuthCard';
 import { createClient } from '@/lib/supabase/client';
+
+const bgColors = ['#07080a', '#101218', '#151821', '#090b10'] as const;
 
 export default function LandingPage() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -28,6 +30,14 @@ export default function LandingPage() {
   const [selectedTier, setSelectedTier] = useState<PlanTier>('starter');
   const [currentUser, setCurrentUser] = useState<{ email?: string; id?: string } | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [scrollSection, setScrollSection] = useState<0 | 1 | 2 | 3>(0);
+
+  // Desktop Smooth Custom Cursor Refs (zero React re-renders on mousemove)
+  const dotRef = useRef<HTMLDivElement | null>(null);
+  const ringRef = useRef<HTMLDivElement | null>(null);
+  const mousePos = useRef({ x: -100, y: -100 });
+  const ringPos = useRef({ x: -100, y: -100 });
+  const isHovering = useRef(false);
 
   useEffect(() => {
     async function loadUser() {
@@ -44,6 +54,66 @@ export default function LandingPage() {
       }
     }
     loadUser();
+  }, []);
+
+  // Subtle Scroll-Based Background Color Transition Listener
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollMax = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+      const progress = window.scrollY / scrollMax;
+      if (progress < 0.22) {
+        setScrollSection(0);
+      } else if (progress < 0.50) {
+        setScrollSection(1);
+      } else if (progress < 0.78) {
+        setScrollSection(2);
+      } else {
+        setScrollSection(3);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Smooth Custom Cursor Loop (Desktop Only)
+  useEffect(() => {
+    let animationFrameId: number;
+
+    const onMouseMove = (e: MouseEvent) => {
+      mousePos.current = { x: e.clientX, y: e.clientY };
+      if (dotRef.current) {
+        dotRef.current.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
+      }
+
+      const target = e.target as HTMLElement | null;
+      const isInteractive = !!target?.closest('a, button, [role="button"], input, summary, [tabindex="0"]');
+      if (isInteractive !== isHovering.current) {
+        isHovering.current = isInteractive;
+        if (ringRef.current) {
+          ringRef.current.setAttribute('data-hover', isInteractive ? 'true' : 'false');
+        }
+      }
+    };
+
+    const renderCursor = () => {
+      ringPos.current.x += (mousePos.current.x - ringPos.current.x) * 0.18;
+      ringPos.current.y += (mousePos.current.y - ringPos.current.y) * 0.18;
+
+      if (ringRef.current) {
+        ringRef.current.style.transform = `translate3d(${ringPos.current.x}px, ${ringPos.current.y}px, 0)`;
+      }
+      animationFrameId = requestAnimationFrame(renderCursor);
+    };
+
+    window.addEventListener('mousemove', onMouseMove, { passive: true });
+    animationFrameId = requestAnimationFrame(renderCursor);
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      cancelAnimationFrame(animationFrameId);
+    };
   }, []);
 
   const handleSignOut = async () => {
@@ -65,10 +135,26 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050507] text-white selection:bg-white selection:text-black relative overflow-x-hidden">
+    <div
+      style={{ backgroundColor: bgColors[scrollSection] }}
+      className="min-h-screen flex flex-col text-[#f3f4f6] selection:bg-indigo-500/30 selection:text-indigo-200 overflow-x-hidden relative transition-colors duration-700 ease-out"
+    >
+      {/* Desktop Smooth Custom Cursor Follower */}
+      <div className="hidden lg:block pointer-events-none fixed inset-0 z-[100] overflow-hidden" aria-hidden="true">
+        <div
+          ref={dotRef}
+          className="w-2 h-2 -ml-1 -mt-1 rounded-full bg-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.8)] transition-transform duration-75 absolute top-0 left-0"
+        />
+        <div
+          ref={ringRef}
+          data-hover="false"
+          className="w-8 h-8 -ml-4 -mt-4 rounded-full border border-indigo-400/40 bg-indigo-500/[0.04] transition-[width,height,margin,border-color,background-color] duration-200 data-[hover=true]:w-12 data-[hover=true]:h-12 data-[hover=true]:-ml-6 data-[hover=true]:-mt-6 data-[hover=true]:border-cyan-400/60 data-[hover=true]:bg-cyan-400/10 absolute top-0 left-0"
+        />
+      </div>
+
       {/* Background Radial Ambient Glows */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[640px] bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(99,102,241,0.2),rgba(255,255,255,0))] pointer-events-none -z-10" />
-      <div className="absolute top-[400px] left-1/2 -translate-x-1/2 w-3/4 h-[400px] bg-[radial-gradient(circle,rgba(0,240,255,0.08)_0%,transparent_70%)] pointer-events-none -z-10 blur-3xl" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[640px] bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(99,102,241,0.18),rgba(255,255,255,0))] pointer-events-none -z-10" />
+      <div className="absolute top-[400px] left-1/2 -translate-x-1/2 w-3/4 h-[400px] bg-[radial-gradient(circle,rgba(0,240,255,0.06)_0%,transparent_70%)] pointer-events-none -z-10 blur-3xl" />
 
       {/* Top Floating Header Capsule */}
       <div className="fixed top-4 inset-x-0 z-40 max-w-5xl mx-auto px-4 sm:px-6">
@@ -253,7 +339,23 @@ export default function LandingPage() {
       </div>
 
       {/* Hero Section */}
-      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 pt-32 sm:pt-36 pb-12" id="main-content">
+      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 pt-32 sm:pt-36 pb-12 relative" id="main-content">
+        {/* Floating Mascot Companion with "Let's Go!" Bubble (Desktop Only) */}
+        <div className="hidden xl:flex flex-col items-center absolute right-8 2xl:right-16 top-28 z-20 select-none pointer-events-auto">
+          {/* Speech Bubble Popup */}
+          <div
+            className="relative mb-2.5 px-3.5 py-1.5 rounded-2xl bg-zinc-900/95 border border-indigo-500/40 shadow-[0_8px_24px_rgba(99,102,241,0.2)] backdrop-blur-md animate-bounce"
+            style={{ animationDuration: '3s' }}
+          >
+            <span className="text-xs font-bold tracking-wide text-white flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Let&apos;s Go!
+            </span>
+            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-zinc-900 border-r border-b border-indigo-500/40" />
+          </div>
+          <RobotMascot size="md" />
+        </div>
+
         <div className="flex flex-col items-center text-center max-w-5xl mx-auto" id="demo">
           {/* High-Impact Eyebrow Pill */}
           <ScrollReveal direction="up" delay={0}>
@@ -278,7 +380,7 @@ export default function LandingPage() {
             </p>
           </ScrollReveal>
 
-          {/* Primary CTA Row */}
+          {/* Primary CTA Row (Deduplicated: 1 Primary + 1 Secondary Scroll CTA) */}
           <ScrollReveal direction="up" delay={240}>
             <div className="flex flex-wrap items-center justify-center gap-3.5 mb-8">
               {currentUser ? (
@@ -305,15 +407,7 @@ export default function LandingPage() {
                 className="px-6 py-3.5 rounded-full border border-white/15 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 font-medium text-xs transition-all flex items-center gap-2 cursor-pointer shadow-sm group"
               >
                 <Layers className="w-3.5 h-3.5 text-cyan-400 group-hover:scale-110 transition-transform" />
-                <span>See How It Works ↓</span>
-              </a>
-
-              <a
-                href="#download"
-                className="px-6 py-3.5 rounded-full border border-cyan-500/20 bg-cyan-950/30 hover:bg-cyan-900/40 text-cyan-300 font-medium text-xs transition-all flex items-center gap-2 cursor-pointer shadow-sm group"
-              >
-                <Download className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Download Runner (Win &middot; Mac)</span>
+                <span>Explore How It Works ↓</span>
               </a>
             </div>
           </ScrollReveal>
@@ -332,7 +426,7 @@ export default function LandingPage() {
       <SocialProofStrip />
 
       {/* Upgraded Benefits Strip */}
-      <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 py-10">
+      <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 py-10 bg-transparent">
         <div className="border-t border-b border-white/10 py-10">
           <ScrollReveal direction="up" className="mb-4">
             <span className="font-mono text-[11px] uppercase tracking-widest text-zinc-500">
@@ -417,9 +511,9 @@ export default function LandingPage() {
       <PricingSection onSelectTier={(tier) => openAuth('signup', tier)} />
 
       {/* Bottom CTA Card */}
-      <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 py-16">
+      <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 py-16 bg-transparent">
         <ScrollReveal direction="up" distance={36}>
-          <div className="rounded-3xl bg-[#0a0a0e] border border-white/10 p-8 sm:p-14 text-center relative overflow-hidden">
+          <div className="rounded-3xl bg-zinc-950/70 border border-white/10 p-8 sm:p-14 text-center relative overflow-hidden backdrop-blur-md">
             {/* Subtle Glow Behind CTA */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 h-32 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -464,7 +558,7 @@ export default function LandingPage() {
       </section>
 
       {/* Comprehensive Architectural Footer */}
-      <footer className="w-full max-w-7xl mx-auto px-6 lg:px-12 py-12 border-t border-white/10 text-xs text-zinc-400">
+      <footer className="w-full max-w-7xl mx-auto px-6 lg:px-12 py-12 border-t border-white/10 text-xs text-zinc-400 bg-transparent">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-10 border-b border-white/10">
           {/* Col 1: Brand Info */}
           <div className="md:col-span-1 space-y-3">

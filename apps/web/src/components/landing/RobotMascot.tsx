@@ -1,6 +1,20 @@
-export default function RobotMascot() {
+interface RobotMascotProps {
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+}
+
+export function RobotMascot({ size = 'md', className = '' }: RobotMascotProps = {}) {
+  const sizeClasses =
+    size === 'sm'
+      ? 'w-48 h-56'
+      : size === 'lg'
+      ? 'w-72 h-80 sm:w-80 sm:h-92'
+      : 'w-64 h-72 sm:w-72 sm:h-80';
+
   return (
-    <div className="relative w-72 h-80 sm:w-80 sm:h-92 flex items-center justify-center drop-shadow-2xl animate-gentle-float select-none">
+    <div
+      className={`relative ${sizeClasses} flex items-center justify-center drop-shadow-2xl animate-gentle-float select-none ${className}`}
+    >
       <svg
         className="w-full h-full"
         fill="none"
@@ -109,3 +123,5 @@ export default function RobotMascot() {
     </div>
   );
 }
+
+export default RobotMascot;
