@@ -79,6 +79,7 @@ export default function DashboardOverviewPage() {
   const [recentRuns, setRecentRuns] = useState<ActivityRunItem[]>([]);
   const [allRuns, setAllRuns] = useState<DrawerRunItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [stoppingRunId, setStoppingRunId] = useState<string | null>(null);
 
   // Modals
