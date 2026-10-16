@@ -708,8 +708,14 @@ export default function SettingsPage() {
                       : JSON.parse(row.runner_metadata as string);
                     const orgPal = (parsedMeta.theme_settings as Record<string, unknown> | undefined)?.palette as string || parsedMeta.theme as string;
                     const orgMod = (parsedMeta.theme_settings as Record<string, unknown> | undefined)?.mode as string || parsedMeta.mode as string;
-                    if (orgPal) syncedPalette = orgPal;
-                    if (orgMod) syncedMode = orgMod;
+                    const validPalettes: ThemePaletteId[] = ['reflow-cyber', 'charcoal-indigo', 'emerald-matrix', 'slate-dark', 'crimson-rose', 'forest'];
+                    const validModes: InterfaceMode[] = ['dark', 'light', 'system'];
+                    if (orgPal && validPalettes.includes(orgPal as ThemePaletteId)) {
+                      syncedPalette = orgPal as ThemePaletteId;
+                    }
+                    if (orgMod && validModes.includes(orgMod as InterfaceMode)) {
+                      syncedMode = orgMod as InterfaceMode;
+                    }
                   } catch {}
                 }
 
