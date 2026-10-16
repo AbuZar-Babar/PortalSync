@@ -409,8 +409,8 @@ export default function RedesignedLandingPage() {
                       <ChevronDown className={'h-4 w-4 text-zinc-500 transition-transform duration-300 ' + (isActive ? 'rotate-180' : '')} />
                     </button>
 
-                    <div id={'story-detail-' + index} hidden={!isActive}>
-                      <div className="px-4 pb-5 sm:pl-[76px] sm:pr-5">
+                    <div id={'story-detail-' + index} aria-hidden={!isActive} className={'grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 ease-out ' + (isActive ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')}>
+                      <div className="min-h-0 overflow-hidden px-4 pb-5 sm:pl-[76px] sm:pr-5">
                         <p className="mb-4 text-sm leading-7 text-zinc-400">{item.description}</p>
                         <div className="rounded-lg border border-white/[0.08] bg-[#0a0e0c] p-4">
                           <div className="mb-3 flex items-center justify-between gap-3 text-[10px] text-zinc-500">
