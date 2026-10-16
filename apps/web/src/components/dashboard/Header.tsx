@@ -53,6 +53,20 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-20 flex h-14 select-none items-center justify-between border-b border-[var(--border-color,rgba(255,255,255,0.07))] bg-[var(--header-bg,#0a0e1a)] px-3 sm:px-5">
+      <div className="flex items-center gap-2 sm:gap-3">
+        {onRefresh && (
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/5 hover:text-[var(--foreground,#f8fafc)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-color,#00f0ff)]"
+            title="Refresh dashboard data"
+            aria-label="Refresh dashboard data"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin text-[var(--primary-color,#00f0ff)]' : ''}`} />
+          </button>
+        )}
+
       <Link
         href="/dashboard/runners"
         className={`flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-color,#00f0ff)] ${
@@ -71,20 +85,6 @@ export function Header({
         </span>
         <span className="sr-only">{isRunnerOnline ? 'Worker online' : 'No worker connected'}</span>
       </Link>
-
-      <div className="flex items-center gap-2 sm:gap-3">
-        {onRefresh && (
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/5 hover:text-[var(--foreground,#f8fafc)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-color,#00f0ff)]"
-            title="Refresh dashboard data"
-            aria-label="Refresh dashboard data"
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin text-[var(--primary-color,#00f0ff)]' : ''}`} />
-          </button>
-        )}
 
         <div className="relative" ref={dropdownRef}>
           <button
