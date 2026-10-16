@@ -80,8 +80,8 @@ function ProductWindow() {
   ];
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/[0.11] bg-[#0d1110] shadow-[0_35px_100px_rgba(0,0,0,0.4)]">
-      <div className="flex h-12 items-center justify-between border-b border-white/[0.08] bg-[#111614] px-4">
+    <div className="overflow-hidden rounded-2xl border border-white/[0.11] bg-[#0a0a0a] shadow-[0_35px_100px_rgba(0,0,0,0.4)]">
+      <div className="flex h-12 items-center justify-between border-b border-white/[0.08] bg-[#0d0d0d] px-4">
         <div className="flex gap-1.5" aria-hidden="true">
           <span className="h-2 w-2 rounded-full bg-zinc-600" />
           <span className="h-2 w-2 rounded-full bg-zinc-600" />
@@ -95,7 +95,7 @@ function ProductWindow() {
       </div>
 
       <div className="grid min-h-[330px] grid-cols-[118px_minmax(0,1fr)] sm:grid-cols-[150px_minmax(0,1fr)]">
-        <aside className="border-r border-white/[0.07] bg-[#101412] p-2.5 sm:p-3.5">
+        <aside className="border-r border-white/[0.07] bg-[#090909] p-2.5 sm:p-3.5">
           <p className="mb-3 px-1.5 text-[9px] font-bold uppercase tracking-[0.13em] text-zinc-600">Workspace</p>
           <div className="mb-1 flex items-center gap-2 rounded-lg bg-emerald-300/[0.09] px-2 py-2.5 text-[10px] text-emerald-200">
             <Layers className="h-3.5 w-3.5 shrink-0" />
@@ -123,7 +123,7 @@ function ProductWindow() {
             {steps.map((step, index) => {
               const Icon = step.icon;
               return (
-                <div key={step.name} className="grid grid-cols-[28px_minmax(0,1fr)_18px] items-center gap-2.5 rounded-lg border border-white/[0.08] bg-[#131816] p-2.5 sm:gap-3">
+                <div key={step.name} className="grid grid-cols-[28px_minmax(0,1fr)_18px] items-center gap-2.5 rounded-lg border border-white/[0.08] bg-[#111111] p-2.5 sm:gap-3">
                   <span className="grid h-7 w-7 place-items-center rounded-lg bg-emerald-300/[0.09] text-emerald-200">
                     <Icon className="h-3.5 w-3.5" />
                   </span>
@@ -178,11 +178,10 @@ export default function RedesignedLandingPage() {
   }, []);
 
   useEffect(() => {
-    const elements = Array.from(document.querySelectorAll<HTMLElement>('[data-story-index]'));
-    if (!('IntersectionObserver' in window) || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      return;
-    }
+    const elements = Array.from(document.querySelectorAll<HTMLElement>('[data-story-trigger]'));
+    if (!('IntersectionObserver' in window)) return;
 
+    // Keep the single feature showcase in sync with the chapter currently in view.
     const observer = new IntersectionObserver(
       (entries) => {
         const mostVisible = entries
@@ -190,11 +189,11 @@ export default function RedesignedLandingPage() {
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
 
         if (mostVisible) {
-          const index = Number((mostVisible.target as HTMLElement).dataset.storyIndex);
+          const index = Number((mostVisible.target as HTMLElement).dataset.storyTrigger);
           if (Number.isInteger(index)) setActiveStory(index);
         }
       },
-      { threshold: [0.25, 0.5, 0.7], rootMargin: '-18% 0px -18% 0px' },
+      { threshold: [0.2, 0.45, 0.7], rootMargin: '-24% 0px -24% 0px' },
     );
 
     elements.forEach((element) => observer.observe(element));
@@ -228,8 +227,8 @@ export default function RedesignedLandingPage() {
   ];
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-[#090b0b] text-zinc-100 selection:bg-emerald-200/30 selection:text-emerald-50">
-      <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-[#090b0b]/90 backdrop-blur-xl">
+    <div className="min-h-screen overflow-x-clip bg-[#050505] text-zinc-100 selection:bg-emerald-200/30 selection:text-emerald-50">
+      <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-[#050505]/90 backdrop-blur-xl">
         <div className="mx-auto flex min-h-[72px] max-w-7xl items-center justify-between gap-5 px-5 sm:px-8 lg:px-12">
           <Link href="/" className="flex items-center gap-2.5 rounded-lg text-lg font-bold tracking-tight text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-200" aria-label="ReFlow home">
             <BrandMark />
@@ -278,7 +277,7 @@ export default function RedesignedLandingPage() {
         </div>
 
         {isMobileMenuOpen && (
-          <div className="border-t border-white/[0.06] bg-[#0c100e] px-5 py-4 sm:hidden">
+          <div className="border-t border-white/[0.06] bg-[#080808] px-5 py-4 sm:hidden">
             <nav className="mx-auto flex max-w-7xl flex-col gap-1" aria-label="Mobile navigation">
               {navItems.map((item) => (
                 <Link key={item.href} href={item.href} onClick={() => setIsMobileMenuOpen(false)} className="rounded-lg px-3 py-3 text-sm text-zinc-300 hover:bg-white/[0.04]">
@@ -347,7 +346,7 @@ export default function RedesignedLandingPage() {
           </div>
         </section>
 
-        <section id="how-it-works" className="border-y border-white/[0.06] bg-[#0d100f]">
+        <section id="how-it-works" className="border-y border-white/[0.06] bg-[#080808]">
           <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-24 lg:px-12">
             <ScrollReveal direction="up" className="max-w-2xl">
               <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.17em] text-emerald-200">A simpler way to automate</p>
@@ -371,72 +370,103 @@ export default function RedesignedLandingPage() {
           </div>
         </section>
 
-        <section id="features" className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28 lg:px-12">
-          <div className="grid items-start gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:gap-20">
-            <ScrollReveal direction="left" className="lg:sticky lg:top-28">
+        <section id="features" className="relative bg-[#050505]">
+          <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28 lg:px-12">
+            <div className="max-w-2xl">
               <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.17em] text-emerald-200">Built around your process</p>
-              <h2 className="max-w-md text-3xl font-semibold leading-tight tracking-[-0.045em] text-white sm:text-5xl">Less repetition. More control.</h2>
-              <p className="mt-5 max-w-md text-sm leading-7 text-zinc-400 sm:text-base">ReFlow brings the steps of a browser task into one manageable workflow. Explore how each part fits together.</p>
-              <a href="#desktop-runner" className="mt-7 inline-flex items-center gap-2 text-sm font-semibold text-emerald-200 transition hover:text-emerald-100">
-                Explore the desktop runner <ArrowRight className="h-4 w-4" />
-              </a>
-            </ScrollReveal>
+              <h2 className="max-w-xl text-3xl font-semibold leading-tight tracking-[-0.045em] text-white sm:text-5xl">Less repetition. More control.</h2>
+              <p className="mt-5 max-w-xl text-sm leading-7 text-zinc-400 sm:text-base">Scroll through the workflow. One focused feature comes into view at a time, with the example changing as you move to the next step.</p>
+            </div>
 
-            <div className="space-y-3">
-              {STORY_ITEMS.map((item, index) => {
-                const Icon = item.icon;
-                const isActive = activeStory === index;
-                return (
-                  <article
-                    key={item.title}
-                    data-story-index={index}
-                    className={'overflow-hidden rounded-xl border transition-colors duration-300 ' + (isActive ? 'border-emerald-200/30 bg-[#111815]' : 'border-white/[0.09] bg-[#0e1210]')}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setActiveStory(index)}
-                      aria-expanded={isActive}
-                      aria-controls={'story-detail-' + index}
-                      className="grid w-full grid-cols-[40px_minmax(0,1fr)_20px] items-center gap-4 p-4 text-left sm:p-5"
-                    >
-                      <span className="grid h-10 w-10 place-items-center rounded-lg border border-emerald-200/10 bg-emerald-200/[0.07] text-emerald-200">
-                        <Icon className="h-5 w-5" />
-                      </span>
-                      <span>
-                        <span className="block text-sm font-semibold tracking-tight text-zinc-100 sm:text-base">{item.title}</span>
-                        <span className="mt-1 block text-xs leading-5 text-zinc-400">{item.summary}</span>
-                      </span>
-                      <ChevronDown className={'h-4 w-4 text-zinc-500 transition-transform duration-300 ' + (isActive ? 'rotate-180' : '')} />
-                    </button>
-
-                    <div id={'story-detail-' + index} aria-hidden={!isActive} className={'grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 ease-out ' + (isActive ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')}>
-                      <div className="min-h-0 overflow-hidden px-4 pb-5 sm:pl-[76px] sm:pr-5">
-                        <p className="mb-4 text-sm leading-7 text-zinc-400">{item.description}</p>
-                        <div className="rounded-lg border border-white/[0.08] bg-[#0a0e0c] p-4">
-                          <div className="mb-3 flex items-center justify-between gap-3 text-[10px] text-zinc-500">
-                            <span>{item.label}</span>
-                            <span className="rounded-md bg-emerald-200/[0.09] px-2 py-1 text-emerald-200">Example data</span>
-                          </div>
-                          {item.rows.map((row, rowIndex) => (
-                            <div key={row} className="flex items-center justify-between gap-3 border-t border-white/[0.06] py-2.5 text-[11px] text-zinc-300">
-                              <span>{row}</span>
-                              <span className="shrink-0 text-emerald-200">{index === 1 && rowIndex === 1 ? 'Excluded' : 'Ready'}</span>
+            <div className="mt-12 grid items-start gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+              <div className="sticky top-24 z-10 flex min-h-[min(72vh,680px)] items-center lg:top-28">
+                <article
+                  key={activeStory}
+                  className="story-card-enter w-full overflow-hidden rounded-2xl border border-white/[0.12] bg-[#0b0b0b] shadow-[0_28px_90px_rgba(0,0,0,0.55)]"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  {(() => {
+                    const item = STORY_ITEMS[activeStory];
+                    const Icon = item.icon;
+                    return (
+                      <>
+                        <div className="flex items-center justify-between gap-4 border-b border-white/[0.08] bg-[#080808] px-5 py-4 sm:px-7">
+                          <div className="flex items-center gap-3">
+                            <span className="grid h-11 w-11 place-items-center rounded-xl border border-emerald-200/15 bg-emerald-200/[0.06] text-emerald-200">
+                              <Icon className="h-5 w-5" />
+                            </span>
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">Step 0{activeStory + 1} / 04</p>
+                              <p className="mt-1 text-sm font-semibold text-zinc-100">{item.label}</p>
                             </div>
-                          ))}
-                          <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/[0.07]">
-                            <div className="h-full w-[72%] rounded-full bg-emerald-200/80" />
+                          </div>
+                          <span className="text-xs tabular-nums text-zinc-500">{String(activeStory + 1).padStart(2, '0')}<span className="px-1 text-zinc-700">/</span>04</span>
+                        </div>
+                        <div className="p-5 sm:p-7">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-200">ReFlow workflow</p>
+                          <h3 className="mt-3 text-2xl font-semibold tracking-tight text-white sm:text-3xl">{item.title}</h3>
+                          <p className="mt-3 max-w-xl text-sm leading-7 text-zinc-400 sm:text-base">{item.description}</p>
+
+                          <div className="mt-7 rounded-xl border border-white/[0.09] bg-[#060606] p-4 sm:p-5">
+                            <div className="mb-3 flex items-center justify-between gap-3 text-[10px] text-zinc-500">
+                              <span>{item.summary}</span>
+                              <span className="rounded-md border border-emerald-200/10 bg-emerald-200/[0.06] px-2 py-1 text-emerald-200">Example</span>
+                            </div>
+                            {item.rows.map((row, rowIndex) => (
+                              <div key={row} className="flex items-center gap-3 border-t border-white/[0.07] py-3 text-xs text-zinc-300 sm:text-sm">
+                                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/[0.05] text-[10px] text-zinc-500">{String(rowIndex + 1).padStart(2, '0')}</span>
+                                <span className="min-w-0 flex-1">{row}</span>
+                                <Check className="h-4 w-4 shrink-0 text-emerald-200/80" />
+                              </div>
+                            ))}
+                            <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/[0.07]">
+                              <div className="h-full rounded-full bg-emerald-200/80 transition-[width] duration-500" style={{ width: ((activeStory + 1) / STORY_ITEMS.length) * 100 + '%' }} />
+                            </div>
+                          </div>
+
+                          <div className="mt-5 flex items-center justify-between gap-4 text-[10px] text-zinc-500">
+                            <span>One step at a time</span>
+                            <span className="flex items-center gap-2 text-emerald-200"><span className="h-1.5 w-1.5 rounded-full bg-emerald-200" /> Scroll to continue</span>
                           </div>
                         </div>
+                      </>
+                    );
+                  })()}
+                </article>
+              </div>
+
+              <div className="relative">
+                {STORY_ITEMS.map((item, index) => (
+                  <div key={item.title} data-story-trigger={index} className="flex min-h-[72vh] items-center py-12 lg:min-h-[82vh]">
+                    <div className={'w-full border-l pl-6 transition-[border-color,opacity,transform] duration-500 sm:pl-8 ' + (activeStory === index ? 'border-emerald-200/70 opacity-100 translate-x-0' : 'border-white/[0.12] opacity-55 translate-x-1')}>
+                      <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-200/80">0{index + 1} / 04</p>
+                      <h3 className="max-w-md text-2xl font-semibold leading-tight tracking-[-0.04em] text-white sm:text-4xl">{item.title}</h3>
+                      <p className="mt-4 max-w-md text-sm leading-7 text-zinc-400 sm:text-base">{item.summary}</p>
+                      <p className="mt-4 max-w-md text-sm leading-7 text-zinc-500">{item.description}</p>
+                      <div className="mt-7 flex items-center gap-2 text-xs text-zinc-500">
+                        <span className={'h-1.5 w-1.5 rounded-full transition-colors ' + (activeStory === index ? 'bg-emerald-200' : 'bg-zinc-700')} />
+                        {activeStory === index ? 'Showing this step' : 'Scroll to explore'}
                       </div>
                     </div>
-                  </article>
-                );
-              })}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
+          <style jsx>{`
+            @keyframes story-enter {
+              from { opacity: 0; transform: translate3d(0, 22px, 0) scale(0.985); filter: blur(5px); }
+              to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); }
+            }
+            .story-card-enter { animation: story-enter 620ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+            @media (prefers-reduced-motion: reduce) {
+              .story-card-enter { animation: none; }
+            }
+          `}</style>
         </section>
 
-        <section id="desktop-runner" className="border-y border-white/[0.06] bg-[#0d100f]">
+        <section id="desktop-runner" className="border-y border-white/[0.06] bg-[#080808]">
           <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 py-20 sm:px-8 sm:py-24 lg:grid-cols-2 lg:gap-20 lg:px-12">
             <div>
               <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.17em] text-emerald-200">Workspace + desktop runner</p>
@@ -451,7 +481,7 @@ export default function RedesignedLandingPage() {
               </ul>
             </div>
 
-            <div className="rounded-2xl border border-white/[0.09] bg-[#101513] p-5 sm:p-7">
+            <div className="rounded-2xl border border-white/[0.09] bg-[#0c0c0c] p-5 sm:p-7">
               <div className="flex items-center gap-3 border-b border-white/[0.08] pb-5">
                 <span className="grid h-12 w-12 place-items-center rounded-xl border border-emerald-200/15 bg-emerald-200/[0.07] text-emerald-200"><Monitor className="h-6 w-6" /></span>
                 <div>
@@ -460,12 +490,12 @@ export default function RedesignedLandingPage() {
                 </div>
               </div>
               <div className="mt-5 space-y-3">
-                <a href="/api/v1/runners/download?type=installer&os=windows" download="ReFlow-Worker-Setup-1.0.0.exe" className="group flex items-center gap-4 rounded-xl border border-white/[0.09] bg-[#0c100e] p-4 transition hover:border-emerald-200/30 hover:bg-white/[0.025]">
+                <a href="/api/v1/runners/download?type=installer&os=windows" download="ReFlow-Worker-Setup-1.0.0.exe" className="group flex items-center gap-4 rounded-xl border border-white/[0.09] bg-[#080808] p-4 transition hover:border-emerald-200/30 hover:bg-white/[0.025]">
                   <span className="grid h-10 w-10 place-items-center rounded-lg bg-white/[0.04] text-zinc-200"><Download className="h-5 w-5" /></span>
                   <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-zinc-100">Windows</span><span className="mt-1 block text-xs text-zinc-500">Windows installer (.exe)</span></span>
                   <ArrowUpRight className="h-4 w-4 text-zinc-500 transition group-hover:text-emerald-200" />
                 </a>
-                <a href="/api/v1/runners/download?type=installer&os=mac" download="ReFlow-Worker-1.0.0.dmg" className="group flex items-center gap-4 rounded-xl border border-white/[0.09] bg-[#0c100e] p-4 transition hover:border-emerald-200/30 hover:bg-white/[0.025]">
+                <a href="/api/v1/runners/download?type=installer&os=mac" download="ReFlow-Worker-1.0.0.dmg" className="group flex items-center gap-4 rounded-xl border border-white/[0.09] bg-[#080808] p-4 transition hover:border-emerald-200/30 hover:bg-white/[0.025]">
                   <span className="grid h-10 w-10 place-items-center rounded-lg bg-white/[0.04] text-zinc-200"><Download className="h-5 w-5" /></span>
                   <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-zinc-100">macOS</span><span className="mt-1 block text-xs text-zinc-500">macOS package (.dmg)</span></span>
                   <ArrowUpRight className="h-4 w-4 text-zinc-500 transition group-hover:text-emerald-200" />
@@ -481,7 +511,7 @@ export default function RedesignedLandingPage() {
         </div>
 
         <section id="get-started" className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24 lg:px-12">
-          <div className="relative overflow-hidden rounded-2xl border border-emerald-200/20 bg-[#101714] px-6 py-16 text-center sm:px-12">
+          <div className="relative overflow-hidden rounded-2xl border border-emerald-200/20 bg-[#0c0c0c] px-6 py-16 text-center sm:px-12">
             <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-[-280px] h-[560px] w-[560px] -translate-x-1/2 rounded-full bg-emerald-300/[0.08] blur-3xl" />
             <div className="relative mx-auto max-w-2xl">
               <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.17em] text-emerald-200">Start with one workflow</p>
