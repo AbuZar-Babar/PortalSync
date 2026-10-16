@@ -85,7 +85,7 @@ export default function DashboardOverviewPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   // Load and calculate overview metrics
-  const loadOverviewData = useCallback(async (isSilent = false) => {
+  const loadOverviewData = useCallback(async () => {
     if (!orgId) return;
     try {
       setLoadError(null);
@@ -226,7 +226,7 @@ export default function DashboardOverviewPage() {
           filter: `org_id=eq.${orgId}`
         },
         () => {
-          void loadOverviewData(true);
+          void loadOverviewData();
         }
       )
       .subscribe();
@@ -248,7 +248,7 @@ export default function DashboardOverviewPage() {
     if (!hasActiveRuns || !orgId) return;
 
     const interval = setInterval(() => {
-      void loadOverviewData(true);
+      void loadOverviewData();
     }, 3000);
 
     return () => clearInterval(interval);
