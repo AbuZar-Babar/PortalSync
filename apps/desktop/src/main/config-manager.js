@@ -3,42 +3,14 @@ const path = require('path');
 const os = require('os');
 
 function resolveDefaultDownloadFolder() {
-  const legacyDownloads = path.join(os.homedir(), 'Downloads', 'PortalSync');
-  if (fs.existsSync(legacyDownloads)) {
-    return legacyDownloads;
-  }
-  if (process.platform === 'win32') {
-    const legacyWinDownloads = 'C:\\FlowMind\\Downloads';
-    if (fs.existsSync(legacyWinDownloads)) {
-      return legacyWinDownloads;
-    }
-  }
   return path.join(os.homedir(), 'Downloads', 'ReFlow');
 }
 
 class ConfigManager {
   constructor() {
-    this.legacyConfigDir = path.join(os.homedir(), '.portalsync');
     this.configDir = path.join(os.homedir(), '.reflow');
     this.configFile = path.join(this.configDir, 'config.json');
     this.defaultTargetFolder = resolveDefaultDownloadFolder();
-    this._migrateAndEnsureDir();
-  }
-
-  _migrateAndEnsureDir() {
-    // One-time migration from ~/.portalsync to ~/.reflow
-    if (!fs.existsSync(this.configDir) && fs.existsSync(this.legacyConfigDir)) {
-      try {
-        fs.mkdirSync(this.configDir, { recursive: true });
-        const legacyFile = path.join(this.legacyConfigDir, 'config.json');
-        if (fs.existsSync(legacyFile)) {
-          fs.copyFileSync(legacyFile, this.configFile);
-          console.log('[Migration] Migrated legacy .portalsync config to .reflow');
-        }
-      } catch (err) {
-        console.warn('[Migration] Failed migrating .portalsync config:', err.message);
-      }
-    }
     this._ensureDir();
   }
 

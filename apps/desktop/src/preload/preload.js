@@ -20,13 +20,11 @@ const reflowBridge = {
   },
   startRecording: (options) => ipcRenderer.invoke('start-recording', options),
   stopRecording: () => ipcRenderer.invoke('stop-recording'),
-  resetRecording: () => ipcRenderer.invoke('reset-recording'),
   getRecordingStatus: () => ipcRenderer.invoke('get-recording-status'),
   onRecordingUpdate: (callback) => {
     ipcRenderer.on('recorder-update', (event, data) => callback(data));
   },
 };
 
-// Expose canonical ReFlow API and legacy portalsync alias
+// Expose canonical ReFlow API
 contextBridge.exposeInMainWorld('reflow', reflowBridge);
-contextBridge.exposeInMainWorld('portalsync', reflowBridge);

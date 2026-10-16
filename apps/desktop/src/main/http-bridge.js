@@ -82,7 +82,6 @@ class HttpBridge {
 
       const isTrusted =
         /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(rawOrigin) ||
-        /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(rawOrigin) ||
         /^https:\/\/([a-z0-9-]+\.)?reflow\.(io|ai|app|dev)$/i.test(rawOrigin) ||
         (configuredOrigin && rawOrigin === configuredOrigin);
 
@@ -184,16 +183,6 @@ class HttpBridge {
         if ((pathname === '/record/stop' || pathname === '/api/record/stop') && req.method === 'POST') {
           try {
             const result = await this.stopRecording();
-            return this.sendJson(req, res, 200, result);
-          } catch (err) {
-            return this.sendJson(req, res, 500, { error: err.message });
-          }
-        }
-
-        // 6. Reset / Clear Recording State Endpoint
-        if ((pathname === '/record/reset' || pathname === '/api/record/reset') && req.method === 'POST') {
-          try {
-            const result = await this.resetRecording();
             return this.sendJson(req, res, 200, result);
           } catch (err) {
             return this.sendJson(req, res, 500, { error: err.message });
@@ -378,7 +367,7 @@ class HttpBridge {
 
     const config = configManager.get();
     const outputDir = path.join(
-      config.targetFolder || (fs.existsSync(path.join(os.homedir(), 'Downloads', 'PortalSync')) ? path.join(os.homedir(), 'Downloads', 'PortalSync') : path.join(os.homedir(), 'Downloads', 'ReFlow')),
+      config.targetFolder || path.join(os.homedir(), 'Downloads', 'ReFlow'),
       'Recordings'
     );
     if (!fs.existsSync(outputDir)) {
@@ -524,37 +513,6 @@ class HttpBridge {
       actionCount: this.actions.length,
       actions: this.actions,
       recipe: this.lastRecipe
-    };
-  }
-
-  async resetRecording() {
-    if (this._stoppingPromise) {
-      try { await this._stoppingPromise; } catch {}
-      this._stoppingPromise = null;
-    }
-    if (this.activeRecorder && this.activeRecorder.isRecording) {
-      try {
-        await this.activeRecorder.stop();
-      } catch {}
-      this.activeRecorder = null;
-    }
-
-    this.isRecording = false;
-    this.isStopping = false;
-    this._stoppingPromise = null;
-    this.completedRecording = false;
-    this.actions = [];
-    this.lastRecipe = null;
-    this.sessionMeta = null;
-    this.notifyStatus();
-
-    return {
-      success: true,
-      message: 'Recording state reset cleanly',
-      isRecording: false,
-      completedRecording: false,
-      actionCount: 0,
-      actions: []
     };
   }
 
