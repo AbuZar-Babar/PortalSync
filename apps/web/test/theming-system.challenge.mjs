@@ -13,7 +13,7 @@ test('Theme Palettes & CSS Variables Integrity in globals.css', async (t) => {
   const css = fs.readFileSync(cssPath, 'utf8');
 
   const EXPECTED_PALETTES = [
-    'flowmind-cyber',
+    'reflow-cyber',
     'charcoal-indigo',
     'emerald-matrix',
     'slate-dark',
@@ -73,7 +73,7 @@ test('Theme Palettes & CSS Variables Integrity in globals.css', async (t) => {
 
 test('DOM Theme Application Logic & LocalStorage Synchronization', async (t) => {
   const VALID_THEMES = [
-    'flowmind-cyber',
+    'reflow-cyber',
     'charcoal-indigo',
     'emerald-matrix',
     'slate-dark',
@@ -119,7 +119,7 @@ test('DOM Theme Application Logic & LocalStorage Synchronization', async (t) => 
     localStorageMap['wf_dashboard_mode'] = mode;
     localStorageMap['workflow_capture_theme'] = palette;
     localStorageMap['workflow_capture_mode'] = mode;
-    localStorageMap['flowmind_theme'] = palette;
+    localStorageMap['reflow_theme'] = palette;
 
     dispatchedEvents.push({
       type: 'workflow-capture-theme-change',
@@ -151,11 +151,11 @@ test('DOM Theme Application Logic & LocalStorage Synchronization', async (t) => 
     const storage = {};
     const events = [];
 
-    simulateApplyThemeToDOM(root, storage, events, 'flowmind-cyber', 'dark');
-    assert.ok(root.classList.has('theme-flowmind-cyber'));
+    simulateApplyThemeToDOM(root, storage, events, 'reflow-cyber', 'dark');
+    assert.ok(root.classList.has('theme-reflow-cyber'));
 
     simulateApplyThemeToDOM(root, storage, events, 'crimson-rose', 'light');
-    assert.ok(!root.classList.has('theme-flowmind-cyber'), 'Old theme class should be removed');
+    assert.ok(!root.classList.has('theme-reflow-cyber'), 'Old theme class should be removed');
     assert.ok(root.classList.has('theme-crimson-rose'), 'New theme class should be present');
     assert.ok(root.classList.has('light'), 'Light mode class should be added');
     assert.ok(!root.classList.has('dark'), 'Dark mode class should be removed');

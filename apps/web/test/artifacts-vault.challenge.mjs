@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 
 // Read the actual implementation file
 const artifactsPagePath = path.resolve(__dirname, '../src/app/dashboard/artifacts/page.tsx');
-const pageCode = fs.readFileSync(artifactsPagePath, 'utf8');
+const pageCode = fs.readFileSync(artifactsPagePath, 'utf8').replace(/\r\n/g, '\n');
 
 // Helper to extract a top-level function from TypeScript code
 function extractFunction(code, funcName) {
@@ -84,7 +84,7 @@ const buildFolderTree = extractWithDependencies(
 
 // Extract ZIP generator routines
 const crcStart = pageCode.indexOf('const CRC_TABLE = new Uint32Array(256);');
-const crcEnd = pageCode.indexOf('// ==========================================\n// Folder Tree Data Structures');
+const crcEnd = pageCode.indexOf('// Folder Tree Data Structures');
 const zipModuleCode = pageCode.slice(crcStart, crcEnd);
 const transpiledZip = ts.transpileModule(zipModuleCode, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
@@ -513,7 +513,7 @@ describe('Milestone M4 Empirical Challenge: Outputs & Invoices Vault', () => {
     });
 
     test('createZipArchive produces a 100% valid PKWARE Store Mode ZIP stream', async () => {
-      const file1 = new TextEncoder().encode('Hello FlowMind Artifact 1');
+      const file1 = new TextEncoder().encode('Hello ReFlow Artifact 1');
       const file2 = new TextEncoder().encode('{"status":"verified","count":42}');
 
       const entries = [

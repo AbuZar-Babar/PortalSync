@@ -264,26 +264,10 @@ function sanitizePortalName(rawName) {
  */
 
 function resolveDefaultDownloadFolder() {
-  const legacyDownloads = path.join(os.homedir(), 'Downloads', 'PortalSync');
-  if (fs.existsSync(legacyDownloads)) {
-    return legacyDownloads;
-  }
-  if (process.platform === 'win32') {
-    const legacyWinDownloads = 'C:\\FlowMind\\Downloads';
-    if (fs.existsSync(legacyWinDownloads)) {
-      return legacyWinDownloads;
-    }
-  }
   return path.join(os.homedir(), 'Downloads', 'ReFlow');
 }
 
 function resolveDefaultInvoiceFolder() {
-  if (process.platform === 'win32') {
-    const legacyWinInvoices = 'C:\\FlowMind\\Invoices';
-    if (fs.existsSync(legacyWinInvoices)) {
-      return legacyWinInvoices;
-    }
-  }
   return path.join(os.homedir(), 'Documents', 'ReFlow', 'Invoices');
 }
 

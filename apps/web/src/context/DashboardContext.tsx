@@ -7,7 +7,6 @@ import { DrawerRunItem } from '@/components/dashboard/RunDetailsDrawer';
 
 export type ThemePaletteId =
   | 'reflow-cyber'
-  | 'flowmind-cyber'
   | 'charcoal-indigo'
   | 'emerald-matrix'
   | 'slate-dark'
@@ -17,14 +16,11 @@ export type ThemePaletteId =
 export type InterfaceMode = 'dark' | 'light' | 'system';
 
 export const LEGACY_THEME_MAP: Record<string, ThemePaletteId> = {
-  'flowmind-cyber': 'reflow-cyber',
-  'theme-flowmind-cyber': 'reflow-cyber',
   'theme-reflow-cyber': 'reflow-cyber',
 };
 
 export const VALID_THEME_PALETTES: ThemePaletteId[] = [
   'reflow-cyber',
-  'flowmind-cyber',
   'charcoal-indigo',
   'emerald-matrix',
   'slate-dark',
@@ -48,12 +44,8 @@ export function applyThemeToDOM(palette: ThemePaletteId, mode: InterfaceMode): v
   root.setAttribute('data-theme-mode', mode);
 
   VALID_THEME_PALETTES.forEach((p) => root.classList.remove(`theme-${p}`));
-  root.classList.remove('theme-flowmind-cyber');
   root.classList.remove('theme-reflow-cyber');
   root.classList.add(`theme-${palette}`);
-  if (palette === 'reflow-cyber') {
-    root.classList.add('theme-flowmind-cyber');
-  }
 
   if (resolvedMode === 'light') {
     root.classList.remove('dark');
@@ -69,7 +61,6 @@ export function applyThemeToDOM(palette: ThemePaletteId, mode: InterfaceMode): v
     localStorage.setItem('wf_dashboard_mode', mode);
     localStorage.setItem('workflow_capture_theme', palette);
     localStorage.setItem('workflow_capture_mode', mode);
-    localStorage.setItem('flowmind_theme', palette);
     localStorage.setItem('workflow_capture_palette', palette);
   } catch {}
 
@@ -130,8 +121,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     try {
       const rawStoredTheme = localStorage.getItem('reflow_theme') ||
         localStorage.getItem('wf_dashboard_theme') ||
-        localStorage.getItem('workflow_capture_theme') ||
-        localStorage.getItem('flowmind_theme');
+        localStorage.getItem('workflow_capture_theme');
       const resolved = rawStoredTheme ? (LEGACY_THEME_MAP[rawStoredTheme] || (rawStoredTheme as ThemePaletteId)) : null;
       if (resolved && VALID_THEME_PALETTES.includes(resolved)) {
         initialTheme = resolved;

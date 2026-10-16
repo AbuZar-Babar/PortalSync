@@ -54,17 +54,14 @@ export async function GET(request: NextRequest) {
   const isPortable = rawType === 'portable' || rawType === 'zip';
 
   let primaryFileName = 'ReFlow-Worker-Setup-1.0.0.exe';
-  let legacyFileName = 'FlowMind-Worker-Setup-1.0.0.exe';
 
   if (isMac) {
     primaryFileName = 'ReFlow-Worker-1.0.0.dmg';
-    legacyFileName = 'FlowMind-Worker-1.0.0.dmg';
   } else if (isPortable) {
     primaryFileName = 'ReFlow-Worker-Portable-1.0.0.exe';
-    legacyFileName = 'FlowMind-Worker-Portable-1.0.0.exe';
   }
 
-  const binaryPath = findBinaryPath(primaryFileName) || findBinaryPath(legacyFileName);
+  const binaryPath = findBinaryPath(primaryFileName);
   const fileName = binaryPath ? path.basename(binaryPath) : primaryFileName;
 
   if (binaryPath) {

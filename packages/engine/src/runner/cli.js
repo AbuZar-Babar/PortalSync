@@ -21,21 +21,6 @@ const { resolveDefaultDownloadFolder, resolvePortalStorageDir } = require('./ded
 
 // CLI Version & Package Info
 
-const warnedCliEnvKeys = new Set();
-function getCliEnv(reflowKey, legacyKey, fallback = '') {
-  if (process.env[reflowKey] !== undefined) {
-    return process.env[reflowKey];
-  }
-  if (process.env[legacyKey] !== undefined) {
-    if (!warnedCliEnvKeys.has(legacyKey)) {
-      console.warn(`[Deprecation Warning] ${legacyKey} is deprecated. Please use ${reflowKey} instead.`);
-      warnedCliEnvKeys.add(legacyKey);
-    }
-    return process.env[legacyKey];
-  }
-  return fallback;
-}
-
 const PKG_VERSION = '1.0.0';
 
 /**
@@ -236,9 +221,9 @@ ${colors.bold}EXAMPLES:${colors.reset}
  */
 async function runDoctor(options) {
   const port = options.port || 9222;
-  const cloudUrl = options.cloudUrl || getCliEnv('REFLOW_CLOUD_URL', 'PORTALSYNC_CLOUD_URL', 'http://localhost:3000');
-  const token = options.token || getCliEnv('REFLOW_RUNNER_TOKEN', 'PORTALSYNC_RUNNER_TOKEN', '');
-  const targetFolder = options.targetFolder || getCliEnv('REFLOW_TARGET_FOLDER', 'PORTALSYNC_TARGET_FOLDER') || resolveDefaultDownloadFolder();
+  const cloudUrl = options.cloudUrl || process.env.REFLOW_CLOUD_URL || 'http://localhost:3000';
+  const token = options.token || process.env.REFLOW_RUNNER_TOKEN || '';
+  const targetFolder = options.targetFolder || process.env.REFLOW_TARGET_FOLDER || resolveDefaultDownloadFolder();
 
   console.log(`\n${colors.bold}========================================${colors.reset}`);
   console.log(`${colors.bold}${colors.cyan} ReFlow Desktop Runner Doctor${colors.reset}`);
@@ -359,10 +344,10 @@ async function runDoctor(options) {
  */
 async function runListen(options) {
   const port = options.port || 9222;
-  const cloudUrl = options.cloudUrl || getCliEnv('REFLOW_CLOUD_URL', 'PORTALSYNC_CLOUD_URL', 'http://localhost:3000');
-  const token = options.token || getCliEnv('REFLOW_RUNNER_TOKEN', 'PORTALSYNC_RUNNER_TOKEN', '');
+  const cloudUrl = options.cloudUrl || process.env.REFLOW_CLOUD_URL || 'http://localhost:3000';
+  const token = options.token || process.env.REFLOW_RUNNER_TOKEN || '';
   const pollIntervalSeconds = options.pollInterval || 10;
-  const targetFolder = options.targetFolder || getCliEnv('REFLOW_TARGET_FOLDER', 'PORTALSYNC_TARGET_FOLDER') || resolveDefaultDownloadFolder();
+  const targetFolder = options.targetFolder || process.env.REFLOW_TARGET_FOLDER || resolveDefaultDownloadFolder();
 
   if (!token) {
     log.warn('No runner token provided. Set --token or REFLOW_RUNNER_TOKEN to claim organization runs.');
@@ -404,9 +389,9 @@ async function runWorkflow(workflowId, options) {
   }
 
   const port = options.port || 9222;
-  const cloudUrl = options.cloudUrl || getCliEnv('REFLOW_CLOUD_URL', 'PORTALSYNC_CLOUD_URL', 'http://localhost:3000');
-  const token = options.token || getCliEnv('REFLOW_RUNNER_TOKEN', 'PORTALSYNC_RUNNER_TOKEN', '');
-  const targetFolder = options.targetFolder || getCliEnv('REFLOW_TARGET_FOLDER', 'PORTALSYNC_TARGET_FOLDER') || resolveDefaultDownloadFolder();
+  const cloudUrl = options.cloudUrl || process.env.REFLOW_CLOUD_URL || 'http://localhost:3000';
+  const token = options.token || process.env.REFLOW_RUNNER_TOKEN || '';
+  const targetFolder = options.targetFolder || process.env.REFLOW_TARGET_FOLDER || resolveDefaultDownloadFolder();
 
   const daemon = new RunnerDaemon({
     cdpPort: port,

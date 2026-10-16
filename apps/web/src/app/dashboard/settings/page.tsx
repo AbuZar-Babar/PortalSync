@@ -59,7 +59,6 @@ export type SettingsTab =
 
 export type ThemePaletteId =
   | 'reflow-cyber'
-  | 'flowmind-cyber'
   | 'charcoal-indigo'
   | 'emerald-matrix'
   | 'slate-dark'
@@ -648,15 +647,13 @@ export default function SettingsPage() {
       try {
         const rawTheme = localStorage.getItem('reflow_theme') ||
           localStorage.getItem('wf_dashboard_theme') ||
-          localStorage.getItem('workflow_capture_theme') ||
-          localStorage.getItem('flowmind_theme');
-        let savedTheme: ThemePaletteId | null = (rawTheme === 'flowmind-cyber' || rawTheme === 'theme-flowmind-cyber' || rawTheme === 'theme-reflow-cyber')
+          localStorage.getItem('workflow_capture_theme');
+        let savedTheme: ThemePaletteId | null = (rawTheme === 'theme-reflow-cyber')
           ? 'reflow-cyber'
           : (rawTheme as ThemePaletteId | null);
         if (savedTheme) {
           const validPalettes: ThemePaletteId[] = [
             'reflow-cyber',
-            'flowmind-cyber',
             'charcoal-indigo',
             'emerald-matrix',
             'slate-dark',
@@ -664,7 +661,7 @@ export default function SettingsPage() {
             'forest'
           ];
           if (validPalettes.includes(savedTheme)) {
-            initial.themes.palette = savedTheme === 'flowmind-cyber' ? 'reflow-cyber' : savedTheme;
+            initial.themes.palette = savedTheme;
           }
         }
         const savedMode = (localStorage.getItem('wf_dashboard_mode') ||
@@ -863,7 +860,6 @@ export default function SettingsPage() {
       localStorage.setItem('workflow_capture_theme', settings.themes.palette);
       localStorage.setItem('workflow_capture_mode', settings.themes.mode);
       localStorage.setItem('reflow_theme', settings.themes.palette);
-      localStorage.setItem('flowmind_theme', settings.themes.palette);
 
       // 2. Persist backwards-compatible runner configuration
       const runnerConfig = {
@@ -1755,7 +1751,7 @@ export default function SettingsPage() {
                               color: theme.primaryColor
                             }}
                           >
-                            FlowMind
+                            ReFlow
                           </span>
                         </div>
 
@@ -2601,7 +2597,7 @@ export default function SettingsPage() {
                     className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-cyan-400/50 transition-colors"
                   />
                   <p className="text-[11px] text-slate-500">
-                    Used to sign requests with header <code className="text-cyan-400">x-reflow-signature</code> (and legacy <code className="text-cyan-400">x-flowmind-signature</code>) for tamper-proof verification.
+                    Used to sign requests with header <code className="text-cyan-400">x-reflow-signature</code> for tamper-proof verification.
                   </p>
                 </div>
 

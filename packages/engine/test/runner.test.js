@@ -229,11 +229,11 @@ test('CloudClient - registerArtifact preserves null cloud_storage_path when loca
     file_name: 'local_invoice.pdf',
     file_size_bytes: 1234,
     sha256_hash: 'hash_local_only',
-    storage_path: 'C:/Downloads/PortalSync/local_invoice.pdf',
+    storage_path: 'C:/Downloads/ReFlow/local_invoice.pdf',
     cloud_storage_path: null,
   });
 
-  assert.strictEqual(artifactPayload.storage_path, 'C:/Downloads/PortalSync/local_invoice.pdf');
+  assert.strictEqual(artifactPayload.storage_path, 'C:/Downloads/ReFlow/local_invoice.pdf');
   assert.strictEqual(artifactPayload.cloud_storage_path, null);
   assert.strictEqual(artifact.cloud_storage_path, null);
 });
@@ -415,14 +415,11 @@ test('sanitizePortalName - strips illegal characters, traversals, and reserved n
 
 test('resolvePortalStorageDir - resolves path with sanitized portal subdirectory', () => {
   const defaultDir = resolvePortalStorageDir();
-  const legacyBase = path.join(os.homedir(), 'Downloads', 'PortalSync');
-  const expectedDefaultBase = fs.existsSync(legacyBase)
-    ? path.join(legacyBase, 'DefaultPortal')
-    : path.join(os.homedir(), 'Downloads', 'ReFlow', 'DefaultPortal');
+  const expectedDefaultBase = path.join(os.homedir(), 'Downloads', 'ReFlow', 'DefaultPortal');
   assert.strictEqual(defaultDir, expectedDefaultBase);
 
   // Custom baseDir and portalName
-  const customBase = path.join(os.tmpdir(), 'PortalSyncTest');
+  const customBase = path.join(os.tmpdir(), 'ReFlowTest');
   const resolved = resolvePortalStorageDir(customBase, 'Acme / Supplier: 2026');
   assert.strictEqual(resolved, path.join(customBase, 'Acme _ Supplier_ 2026'));
 
@@ -780,7 +777,7 @@ test('Adversarial - Malicious portal names cannot escape target storage director
 
 test('Adversarial - Daemon restarts cleanly recognize previously downloaded files and avoid duplicate registrations', async () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'runner-restart-dedup-'));
-  const portalDir = path.join(tmpDir, 'PortalSync', 'Acme_Supplier');
+  const portalDir = path.join(tmpDir, 'ReFlow', 'Acme_Supplier');
   fs.mkdirSync(portalDir, { recursive: true });
 
   // Simulate an invoice saved on Run 1 yesterday
