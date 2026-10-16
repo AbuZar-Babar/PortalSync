@@ -59,7 +59,6 @@ export type SettingsTab =
 
 export type ThemePaletteId =
   | 'reflow-cyber'
-  | 'flowmind-cyber'
   | 'charcoal-indigo'
   | 'emerald-matrix'
   | 'slate-dark'
@@ -648,15 +647,13 @@ export default function SettingsPage() {
       try {
         const rawTheme = localStorage.getItem('reflow_theme') ||
           localStorage.getItem('wf_dashboard_theme') ||
-          localStorage.getItem('workflow_capture_theme') ||
-          localStorage.getItem('flowmind_theme');
-        let savedTheme: ThemePaletteId | null = (rawTheme === 'flowmind-cyber' || rawTheme === 'theme-flowmind-cyber' || rawTheme === 'theme-reflow-cyber')
+          localStorage.getItem('workflow_capture_theme');
+        let savedTheme: ThemePaletteId | null = (rawTheme === 'theme-reflow-cyber')
           ? 'reflow-cyber'
           : (rawTheme as ThemePaletteId | null);
         if (savedTheme) {
           const validPalettes: ThemePaletteId[] = [
             'reflow-cyber',
-            'flowmind-cyber',
             'charcoal-indigo',
             'emerald-matrix',
             'slate-dark',
@@ -664,7 +661,7 @@ export default function SettingsPage() {
             'forest'
           ];
           if (validPalettes.includes(savedTheme)) {
-            initial.themes.palette = savedTheme === 'flowmind-cyber' ? 'reflow-cyber' : savedTheme;
+            initial.themes.palette = savedTheme;
           }
         }
         const savedMode = (localStorage.getItem('wf_dashboard_mode') ||
@@ -694,7 +691,7 @@ export default function SettingsPage() {
         const supabase = createClient();
         void supabase
           .from('wf_organizations')
-          .select('name, slug, stripe_subscription_id')
+          .select('*')
           .eq('id', orgId)
           .limit(1)
           .then(({ data, error }) => {
@@ -704,11 +701,13 @@ export default function SettingsPage() {
                 let syncedPalette = prev.themes.palette;
                 let syncedMode = prev.themes.mode;
 
-                if (row.stripe_subscription_id) {
+                if (row.runner_metadata) {
                   try {
-                    const parsedMeta = JSON.parse(row.stripe_subscription_id);
-                    const orgPal = parsedMeta.theme_settings?.palette || parsedMeta.theme;
-                    const orgMod = parsedMeta.theme_settings?.mode || parsedMeta.mode;
+                    const parsedMeta = typeof row.runner_metadata === 'object' && row.runner_metadata !== null
+                      ? row.runner_metadata as Record<string, unknown>
+                      : JSON.parse(row.runner_metadata as string);
+                    const orgPal = (parsedMeta.theme_settings as Record<string, unknown> | undefined)?.palette as string || parsedMeta.theme as string;
+                    const orgMod = (parsedMeta.theme_settings as Record<string, unknown> | undefined)?.mode as string || parsedMeta.mode as string;
                     if (orgPal) syncedPalette = orgPal;
                     if (orgMod) syncedMode = orgMod;
                   } catch {}
@@ -863,7 +862,6 @@ export default function SettingsPage() {
       localStorage.setItem('workflow_capture_theme', settings.themes.palette);
       localStorage.setItem('workflow_capture_mode', settings.themes.mode);
       localStorage.setItem('reflow_theme', settings.themes.palette);
-      localStorage.setItem('flowmind_theme', settings.themes.palette);
 
       // 2. Persist backwards-compatible runner configuration
       const runnerConfig = {
@@ -911,17 +909,19 @@ export default function SettingsPage() {
       if (orgId) {
         const supabase = createClient();
 
-        // Fetch current stripe_subscription_id to preserve heartbeat and runner telemetry
+        // Fetch current runner_metadata to preserve heartbeat and runner telemetry
         let existingMeta: Record<string, unknown> = {};
         const { data: currentOrg } = await supabase
           .from('wf_organizations')
-          .select('stripe_subscription_id')
+          .select('*')
           .eq('id', orgId)
           .maybeSingle();
 
-        if (currentOrg?.stripe_subscription_id) {
+        if (currentOrg?.runner_metadata) {
           try {
-            existingMeta = JSON.parse(currentOrg.stripe_subscription_id);
+            existingMeta = typeof currentOrg.runner_metadata === 'object' && currentOrg.runner_metadata !== null
+              ? currentOrg.runner_metadata as Record<string, unknown>
+              : JSON.parse(currentOrg.runner_metadata as string);
           } catch {}
         }
 
@@ -941,13 +941,13 @@ export default function SettingsPage() {
           }
         };
 
-        // Update supported columns: name, slug, and stripe_subscription_id metadata
+        // Update supported columns: name, slug, and runner_metadata
         const { error: orgErr } = await supabase
           .from('wf_organizations')
           .update({
             name: settings.general.orgName,
             slug: settings.general.orgSlug,
-            stripe_subscription_id: JSON.stringify(updatedMeta)
+            runner_metadata: updatedMeta
           })
           .eq('id', orgId);
 
@@ -1755,7 +1755,7 @@ export default function SettingsPage() {
                               color: theme.primaryColor
                             }}
                           >
-                            FlowMind
+                            ReFlow
                           </span>
                         </div>
 
@@ -2601,7 +2601,7 @@ export default function SettingsPage() {
                     className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-cyan-400/50 transition-colors"
                   />
                   <p className="text-[11px] text-slate-500">
-                    Used to sign requests with header <code className="text-cyan-400">x-reflow-signature</code> (and legacy <code className="text-cyan-400">x-flowmind-signature</code>) for tamper-proof verification.
+                    Used to sign requests with header <code className="text-cyan-400">x-reflow-signature</code> for tamper-proof verification.
                   </p>
                 </div>
 

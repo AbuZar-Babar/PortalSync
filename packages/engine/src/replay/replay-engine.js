@@ -17,8 +17,7 @@ const {
   AutomationError
 } = require('../utils/errors');
 const { dispatchAction } = require('./action-executors');
-const { calculateDelay } = require('./human-mouse');
-const { getActiveBotConfig } = require('../api/bot-config-controller');
+const { getActiveBotConfig } = require('../shared/bot-config');
 const { resolveTargetUrl, extractWorkflowStartUrl, isInternalBrowserUrl } = require('../utils/url-helper');
 const logger = require('../utils/logger');
 const { detectLoginSequence, isSessionAuthenticated } = require('../shared/auth-detector');
@@ -374,14 +373,14 @@ class ReplayEngine extends EventEmitter {
     if (!page || page.isClosed()) return;
     try {
       await page.evaluate(() => {
-        if (typeof window.__flowmindStopReplayGuard === 'function') {
-          window.__flowmindStopReplayGuard();
+        if (typeof window.__reflowStopReplayGuard === 'function') {
+          window.__reflowStopReplayGuard();
         }
-        const host = document.getElementById('__flowmind-replay-guard');
+        const host = document.getElementById('__reflow-replay-guard');
         if (host) host.remove();
-        window.__flowmindInterventionAttached = false;
-        window.__flowmindReplayPaused = false;
-        window.__flowmindReplayLocked = false;
+        window.__reflowInterventionAttached = false;
+        window.__reflowReplayPaused = false;
+        window.__reflowReplayLocked = false;
       }).catch(() => {});
     } catch {}
   }
@@ -398,7 +397,7 @@ class ReplayEngine extends EventEmitter {
     if (!page || page.isClosed() || this._guardPages.has(page)) return;
 
     try {
-      await page.exposeFunction('__flowmindReportIntervention', (eventDetail) => {
+      await page.exposeFunction('__reflowReportIntervention', (eventDetail) => {
         this._handleHumanIntervention(eventDetail);
       });
     } catch (err) {
@@ -408,56 +407,56 @@ class ReplayEngine extends EventEmitter {
     }
 
     for (const [name, handler] of [
-      ['__flowmindResumeReplay', () => this.resume()],
-      ['__flowmindStopReplay', () => this.abort()],
-      ['__flowmindSetReplayLock', (locked) => this.setLocked(locked)]
+      ['__reflowResumeReplay', () => this.resume()],
+      ['__reflowStopReplay', () => this.abort()],
+      ['__reflowSetReplayLock', (locked) => this.setLocked(locked)]
     ]) {
       try { await page.exposeFunction(name, handler); } catch {}
     }
 
     const injectionScript = `
       (function() {
-        window.__flowmindAutomatedActionActive = false;
-        window.__flowmindAutomatedSince = 0;
-        window.__flowmindReplayPaused = ${this.isPaused};
-        window.__flowmindReplayLocked = ${this.isLocked};
-        if (window.__flowmindInterventionAttached) { window.__flowmindUpdateReplayGuard && window.__flowmindUpdateReplayGuard(); return; }
-        window.__flowmindInterventionAttached = true;
+        window.__reflowAutomatedActionActive = false;
+        window.__reflowAutomatedSince = 0;
+        window.__reflowReplayPaused = ${this.isPaused};
+        window.__reflowReplayLocked = ${this.isLocked};
+        if (window.__reflowInterventionAttached) { window.__reflowUpdateReplayGuard && window.__reflowUpdateReplayGuard(); return; }
+        window.__reflowInterventionAttached = true;
         var host = null;
         if (window === window.top) {
           host = document.createElement('div');
-          host.id = '__flowmind-replay-guard';
+          host.id = '__reflow-replay-guard';
           host.style.cssText = 'all:initial;position:fixed;top:18px;right:18px;z-index:2147483647;font:13px/1.4 Inter,system-ui,sans-serif;color:#eef2ff;';
           var shadow = host.attachShadow({mode:'open'});
           shadow.innerHTML = '<style>*{box-sizing:border-box} .card{width:270px;padding:12px 14px;background:#20283a;border:1px solid #39445b;border-radius:15px;box-shadow:0 12px 34px #10162655;display:flex;gap:10px;align-items:center}.dot{width:9px;height:9px;border-radius:50%;background:#42d392;box-shadow:0 0 12px #42d39288;flex:none}.paused .dot{background:#f5a742;box-shadow:0 0 12px #f5a74288}.copy{flex:1;min-width:0}.title{font-weight:700;font-size:12px}.sub{color:#aab5ca;font-size:11px;margin-top:2px}.actions{display:flex;gap:6px;margin-top:9px}.actions[hidden]{display:none}button{border:1px solid #46536e;border-radius:7px;background:#2b354b;color:#eef2ff;padding:5px 9px;font:600 11px system-ui;cursor:pointer}button:hover{background:#394660}.lock{margin-top:8px}.lock.on{border-color:#ed7777;color:#ffb3b3}.stop{color:#ffb3b3}</style><div class="card"><i class="dot"></i><div class="copy"><div class="title"></div><div class="sub"></div><button class="lock"></button><div class="actions" hidden><button class="resume">Resume</button><button class="stop">Stop</button></div></div></div>';
           if (document.documentElement) document.documentElement.appendChild(host);
           else document.addEventListener('DOMContentLoaded', function(){ if(document.documentElement) document.documentElement.appendChild(host); }, {once:true});
-          shadow.querySelector('.resume').addEventListener('click', () => window.__flowmindResumeReplay && window.__flowmindResumeReplay());
-          shadow.querySelector('.stop').addEventListener('click', () => window.__flowmindStopReplay && window.__flowmindStopReplay());
-          shadow.querySelector('.lock').addEventListener('click', () => window.__flowmindSetReplayLock && window.__flowmindSetReplayLock(!window.__flowmindReplayLocked));
-          window.__flowmindReplayGuardHost = host;
-          window.__flowmindUpdateReplayGuard = function() {
+          shadow.querySelector('.resume').addEventListener('click', () => window.__reflowResumeReplay && window.__reflowResumeReplay());
+          shadow.querySelector('.stop').addEventListener('click', () => window.__reflowStopReplay && window.__reflowStopReplay());
+          shadow.querySelector('.lock').addEventListener('click', () => window.__reflowSetReplayLock && window.__reflowSetReplayLock(!window.__reflowReplayLocked));
+          window.__reflowReplayGuardHost = host;
+          window.__reflowUpdateReplayGuard = function() {
             var card=shadow.querySelector('.card'), actions=shadow.querySelector('.actions');
-            card.classList.toggle('paused', !!window.__flowmindReplayPaused);
-            shadow.querySelector('.title').textContent=window.__flowmindReplayPaused?'Workflow paused':'Automation running';
-            shadow.querySelector('.sub').textContent=window.__flowmindReplayPaused
-              ? (window.__flowmindReplayLocked?'Input blocked. Resume when ready.':'Workflow paused. Resume when ready.')
-              : (window.__flowmindReplayLocked?'Input lock is on':'Interact with the site to pause');
+            card.classList.toggle('paused', !!window.__reflowReplayPaused);
+            shadow.querySelector('.title').textContent=window.__reflowReplayPaused?'Workflow paused':'Automation running';
+            shadow.querySelector('.sub').textContent=window.__reflowReplayPaused
+              ? (window.__reflowReplayLocked?'Input blocked. Resume when ready.':'Workflow paused. Resume when ready.')
+              : (window.__reflowReplayLocked?'Input lock is on':'Interact with the site to pause');
             var lock=shadow.querySelector('.lock');
-            lock.textContent=window.__flowmindReplayLocked?'Input lock: On':'Input lock: Off';
-            lock.classList.toggle('on', !!window.__flowmindReplayLocked);
-            actions.hidden=!window.__flowmindReplayPaused;
+            lock.textContent=window.__reflowReplayLocked?'Input lock: On':'Input lock: Off';
+            lock.classList.toggle('on', !!window.__reflowReplayLocked);
+            actions.hidden=!window.__reflowReplayPaused;
           };
-          window.__flowmindUpdateReplayGuard();
+          window.__reflowUpdateReplayGuard();
         }
         var onHumanInput = function(evt) {
           if (host && evt.composedPath().includes(host)) return;
-          var expected = window.__flowmindAutomatedTarget;
-          var expectedKey = window.__flowmindAutomatedKey;
+          var expected = window.__reflowAutomatedTarget;
+          var expectedKey = window.__reflowAutomatedKey;
           var now = Date.now();
 
           var isAutomated = false;
-          if (window.__flowmindAutomatedActionActive) {
+          if (window.__reflowAutomatedActionActive) {
             if (expected && (expected === evt.target || (expected.contains && expected.contains(evt.target)))) {
               isAutomated = true;
             } else if (!expected && expectedKey && (evt.key === expectedKey || evt.code === expectedKey)) {
@@ -465,9 +464,9 @@ class ReplayEngine extends EventEmitter {
             }
           }
 
-          if (!isAutomated && window.__flowmindAutomatedUntil && now < window.__flowmindAutomatedUntil) {
-            var recentTarget = window.__flowmindAutomatedRecentTarget;
-            var recentKey = window.__flowmindAutomatedRecentKey;
+          if (!isAutomated && window.__reflowAutomatedUntil && now < window.__reflowAutomatedUntil) {
+            var recentTarget = window.__reflowAutomatedRecentTarget;
+            var recentKey = window.__reflowAutomatedRecentKey;
             if (recentTarget && (recentTarget === evt.target || (recentTarget.contains && recentTarget.contains(evt.target)))) {
               isAutomated = true;
             } else if (!recentTarget && recentKey && (evt.key === recentKey || evt.code === recentKey)) {
@@ -477,29 +476,29 @@ class ReplayEngine extends EventEmitter {
 
           if (isAutomated) return;
 
-          if (window.__flowmindReplayLocked) {
+          if (window.__reflowReplayLocked) {
             if (evt.cancelable) evt.preventDefault();
             evt.stopImmediatePropagation(); evt.stopPropagation();
           }
-          if (window.__flowmindReplayPaused) return;
-          window.__flowmindReplayPaused = true;
-          window.__flowmindUpdateReplayGuard && window.__flowmindUpdateReplayGuard();
+          if (window.__reflowReplayPaused) return;
+          window.__reflowReplayPaused = true;
+          window.__reflowUpdateReplayGuard && window.__reflowUpdateReplayGuard();
           var now = Date.now();
-          if (typeof window.__flowmindReportIntervention === 'function') {
-            window.__flowmindReportIntervention({
+          if (typeof window.__reflowReportIntervention === 'function') {
+            window.__reflowReportIntervention({
               type: evt.type,
               key: evt.key || null,
               tagName: evt.target && evt.target.tagName || null,
-              locked: !!window.__flowmindReplayLocked,
+              locked: !!window.__reflowReplayLocked,
               time: now
             });
           }
         };
-        window.__flowmindReplayInputHandler=onHumanInput;
+        window.__reflowReplayInputHandler=onHumanInput;
         ['pointerdown','mousedown','click','pointerup','mouseup','keydown','keypress','keyup','wheel','touchstart','touchmove','contextmenu','dragstart','dragover','drop'].forEach(function(type){window.addEventListener(type,onHumanInput,{capture:true,passive:false});});
-        window.__flowmindStopReplayGuard=function(){
+        window.__reflowStopReplayGuard=function(){
           ['pointerdown','mousedown','click','pointerup','mouseup','keydown','keypress','keyup','wheel','touchstart','touchmove','contextmenu','dragstart','dragover','drop'].forEach(function(type){window.removeEventListener(type,onHumanInput,true);});
-          if(host)host.remove(); window.__flowmindInterventionAttached=false;
+          if(host)host.remove(); window.__reflowInterventionAttached=false;
         };
       })();
     `;
@@ -522,9 +521,9 @@ class ReplayEngine extends EventEmitter {
       for (const frame of page.frames()) {
         if (!frame || (typeof frame.isDetached === 'function' && frame.isDetached())) continue;
         await frame.evaluate((state) => {
-          window.__flowmindReplayPaused=state.paused;
-          window.__flowmindReplayLocked=state.locked;
-          window.__flowmindUpdateReplayGuard && window.__flowmindUpdateReplayGuard();
+          window.__reflowReplayPaused=state.paused;
+          window.__reflowReplayLocked=state.locked;
+          window.__reflowUpdateReplayGuard && window.__reflowUpdateReplayGuard();
         }, { paused: this.isPaused, locked: this.isLocked }).catch(() => {});
       }
     }
@@ -535,7 +534,7 @@ class ReplayEngine extends EventEmitter {
       if (page.isClosed()) continue;
       for (const frame of page.frames()) {
         if (!frame || (typeof frame.isDetached === 'function' && frame.isDetached())) continue;
-        await frame.evaluate(() => window.__flowmindStopReplayGuard && window.__flowmindStopReplayGuard()).catch(() => {});
+        await frame.evaluate(() => window.__reflowStopReplayGuard && window.__reflowStopReplayGuard()).catch(() => {});
       }
       const identifier = this._guardScriptIds.get(page);
       if (identifier) await page.removeScriptToEvaluateOnNewDocument(identifier).catch(() => {});
@@ -575,32 +574,32 @@ class ReplayEngine extends EventEmitter {
         }
 
         await this.page.evaluate((active, target, key) => {
-          window.__flowmindAutomatedActionActive = active;
+          window.__reflowAutomatedActionActive = active;
           if (active) {
-            window.__flowmindAutomatedTarget = target || null;
-            window.__flowmindAutomatedKey = key || null;
-            window.__flowmindAutomatedSince = Date.now();
+            window.__reflowAutomatedTarget = target || null;
+            window.__reflowAutomatedKey = key || null;
+            window.__reflowAutomatedSince = Date.now();
           } else {
-            window.__flowmindAutomatedUntil = Date.now() + 150;
-            window.__flowmindAutomatedRecentTarget = window.__flowmindAutomatedTarget || null;
-            window.__flowmindAutomatedRecentKey = window.__flowmindAutomatedKey || null;
-            window.__flowmindAutomatedTarget = null;
-            window.__flowmindAutomatedKey = null;
+            window.__reflowAutomatedUntil = Date.now() + 150;
+            window.__reflowAutomatedRecentTarget = window.__reflowAutomatedTarget || null;
+            window.__reflowAutomatedRecentKey = window.__reflowAutomatedKey || null;
+            window.__reflowAutomatedTarget = null;
+            window.__reflowAutomatedKey = null;
           }
         }, !!isActive, targetHandle, expectedKey).catch(async () => {
           if (targetHandle) {
             await targetHandle.evaluate((el, active) => {
-              window.__flowmindAutomatedActionActive = active;
+              window.__reflowAutomatedActionActive = active;
               if (active) {
-                window.__flowmindAutomatedTarget = el;
-                window.__flowmindAutomatedKey = null;
-                window.__flowmindAutomatedSince = Date.now();
+                window.__reflowAutomatedTarget = el;
+                window.__reflowAutomatedKey = null;
+                window.__reflowAutomatedSince = Date.now();
               } else {
-                window.__flowmindAutomatedUntil = Date.now() + 150;
-                window.__flowmindAutomatedRecentTarget = el;
-                window.__flowmindAutomatedRecentKey = null;
-                window.__flowmindAutomatedTarget = null;
-                window.__flowmindAutomatedKey = null;
+                window.__reflowAutomatedUntil = Date.now() + 150;
+                window.__reflowAutomatedRecentTarget = el;
+                window.__reflowAutomatedRecentKey = null;
+                window.__reflowAutomatedTarget = null;
+                window.__reflowAutomatedKey = null;
               }
             }, !!isActive).catch(() => {});
           }
@@ -660,11 +659,8 @@ class ReplayEngine extends EventEmitter {
       }
 
       // Apply pre-action delay if configured
-      if (this.botConfig?.timing?.preActionDelayMs > 0) {
-        const preDelay = calculateDelay(
-          Math.round(this.botConfig.timing.preActionDelayMs * 0.7),
-          Math.round(this.botConfig.timing.preActionDelayMs * 1.3)
-        );
+      const preDelay = ActionDispatcher.calculatePreActionDelay(this.botConfig);
+      if (preDelay > 0) {
         await new Promise(r => setTimeout(r, preDelay));
       }
 
@@ -728,28 +724,10 @@ class ReplayEngine extends EventEmitter {
       );
 
       // Deep clone the action so we don't mutate the original recording
-      const actionToDispatch = { ...action };
-      if (actionToDispatch.type === 'TYPE' && typeof actionToDispatch.value === 'string') {
-        const match = actionToDispatch.value.match(/^{{secret:([^}]+)}}$/);
-        if (match && this.secretResolver) {
-          logger.info(`Injecting secret [${match[1]}] for action #${index + 1}...`);
-          actionToDispatch.value = await this.secretResolver(match[1]);
-        }
-      }
+      const actionToDispatch = await ActionDispatcher.resolveActionSecrets(action, this.secretResolver, index);
 
       // Look ahead to check if the next action targets an option inside a dropdown
-      const nextAction = (this.recording && this.recording.actions)
-        ? this.recording.actions[index + 1]
-        : null;
-
-      const isNextActionOption = Boolean(
-        nextAction && (
-          nextAction.target?.candidates?.some(c => c.value && (c.value.includes('option') || c.value.includes('pseudo-checkbox'))) ||
-          nextAction.target?.fingerprint?.tagName === 'mat-option' ||
-          nextAction.target?.fingerprint?.tagName === 'mat-pseudo-checkbox' ||
-          nextAction.target?.fingerprint?.role === 'option'
-        )
-      );
+      const isNextActionOption = ActionDispatcher.isNextActionOption(this.recording, index + 1);
 
       await this._waitWhilePaused();
       await this._setAutomatedAction(true, elementHandle);
@@ -784,13 +762,7 @@ class ReplayEngine extends EventEmitter {
       logger.action(index + 1, action.type, candidate.value, `score=${scorePercent}%`);
 
       // Calculate humanized post-action timing delay
-      let postDelay = DEFAULT_TIMEOUTS.POST_ACTION_DELAY_MS;
-      if (this.botConfig?.timing) {
-        const minD = this.botConfig.timing.minActionDelayMs || 200;
-        const maxD = this.botConfig.timing.maxActionDelayMs || 600;
-        postDelay = calculateDelay(minD, maxD, 'gaussian');
-      }
-
+      const postDelay = ActionDispatcher.calculatePostActionDelay(this.botConfig);
       await new Promise(r => setTimeout(r, postDelay));
 
       return { success: true, confidenceScore, candidate };
@@ -1276,10 +1248,7 @@ class ReplayEngine extends EventEmitter {
             await new Promise(r => setTimeout(r, 100));
           }
         } else if (action.timeDeltaMs && this.speed > 0) {
-          const maxPacing = (this.botConfig?.timing?.maxActionDelayMs && this.botConfig.timing.maxActionDelayMs > 1000)
-            ? Math.max(this.botConfig.timing.maxActionDelayMs * 3, 15000)
-            : 15000;
-          const delay = Math.min(Math.round(action.timeDeltaMs / this.speed), maxPacing);
+          const delay = ActionDispatcher.calculatePacingDelay(action, this.speed, this.botConfig);
           if (delay > 0) {
             logger.info(`Pacing step #${action.index + 1}: waiting ${delay}ms for page/data to settle...`);
             const end = Date.now() + delay;
@@ -1319,14 +1288,11 @@ class ReplayEngine extends EventEmitter {
         await this._waitWhilePaused();
 
         // Deep clone the action to safely inject secrets
-        const actionToDispatch = { ...action };
-        if (actionToDispatch.type === 'TYPE' && typeof actionToDispatch.value === 'string') {
-          const match = actionToDispatch.value.match(/^{{secret:([^}]+)}}$/);
-          if (match && this.secretResolver) {
-            logger.info(`Injecting secret [${match[1]}] for action #${actionToDispatch.index + 1}...`);
-            actionToDispatch.value = await this.secretResolver(match[1]);
-          }
-        }
+        const actionToDispatch = await ActionDispatcher.resolveActionSecrets(
+          action,
+          this.secretResolver,
+          action.index !== undefined ? action.index : i
+        );
 
         // 2. Perform action via Puppeteer with humanization config
         await this._setAutomatedAction(true, elementHandle);
@@ -1350,13 +1316,7 @@ class ReplayEngine extends EventEmitter {
         logger.action(action.index + 1, action.type, candidate.value, detail);
 
         // Calculate humanized post-action timing delay
-        let postDelay = DEFAULT_TIMEOUTS.POST_ACTION_DELAY_MS;
-        if (this.botConfig?.timing) {
-          const minD = this.botConfig.timing.minActionDelayMs || 200;
-          const maxD = this.botConfig.timing.maxActionDelayMs || 600;
-          postDelay = calculateDelay(minD, maxD, 'gaussian');
-        }
-
+        const postDelay = ActionDispatcher.calculatePostActionDelay(this.botConfig);
         await new Promise(r => setTimeout(r, postDelay));
       }
 

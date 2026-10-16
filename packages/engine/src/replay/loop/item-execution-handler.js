@@ -14,6 +14,60 @@ const { isLoginAction, detectLoginSequence, isSessionAuthenticated } = require('
 const { evaluateItemFilter: sharedEvaluateItemFilter, evaluateFilterPreview } = require('../../shared/item-filter');
 const logger = require('../../utils/logger');
 
+function _createCellParser() {
+  const EXPANDER_GLYPH_REGEX = /^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/i;
+  const DOCUMENT_ID_REGEX = /\b((?:SI|INV|DR|TX|CM|PO|SO|BILL|REC|ORD)-\d+(?:[-_]\w+)*|\b\d{4,10}\b)/i;
+
+  const cleanCellText = (val) => {
+    if (val == null) return '';
+    let s = String(val).trim().replace(/\s+/g, ' ');
+    if (EXPANDER_GLYPH_REGEX.test(s)) return '';
+    s = s.replace(/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+/, '').trim();
+    s = s.replace(/[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/, '').trim();
+    return s;
+  };
+
+  const isControlOrExpanderCell = (cellEl) => {
+    if (!cellEl || typeof cellEl !== 'object') return false;
+    if (
+      cellEl.classList?.contains('x-grid-cell-special') ||
+      cellEl.classList?.contains('x-grid-cell-row-checker') ||
+      cellEl.classList?.contains('x-selmodel-column') ||
+      cellEl.classList?.contains('ant-table-selection-column') ||
+      cellEl.classList?.contains('mat-column-select') ||
+      (typeof cellEl.querySelector === 'function' && cellEl.querySelector(
+        '.x-grid-row-checker, input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"], .mat-pseudo-checkbox'
+      ))
+    ) {
+      return true;
+    }
+    if (
+      cellEl.classList?.contains('x-grid-row-expander') ||
+      cellEl.classList?.contains('ant-table-row-expand-icon') ||
+      cellEl.classList?.contains('dt-control') ||
+      cellEl.classList?.contains('details-control') ||
+      cellEl.classList?.contains('tree-node-toggle') ||
+      cellEl.classList?.contains('expander') ||
+      cellEl.classList?.contains('expand-btn') ||
+      cellEl.classList?.contains('mat-expansion-indicator') ||
+      (typeof cellEl.querySelector === 'function' && cellEl.querySelector(
+        'button[aria-expanded], [aria-expanded], .expander, .expand-btn, [class*="chevron" i], [class*="expander" i], [class*="tree-toggle" i], [class*="dt-control" i]'
+      ))
+    ) {
+      return true;
+    }
+    const raw = (cellEl.innerText || cellEl.textContent || '').trim();
+    if (raw && EXPANDER_GLYPH_REGEX.test(raw) && raw.length <= 4) {
+      return true;
+    }
+    return false;
+  };
+
+  return { EXPANDER_GLYPH_REGEX, DOCUMENT_ID_REGEX, cleanCellText, isControlOrExpanderCell };
+}
+
+const CELL_PARSER_SRC = _createCellParser.toString();
+
 class ItemExecutionHandler {
   constructor(options = {}) {
     this.maxItemRetries = Number.isInteger(options.maxItemRetries) ? Math.max(0, options.maxItemRetries) : 1;
@@ -100,7 +154,7 @@ class ItemExecutionHandler {
     }
 
     try {
-      const itemsWithFields = await page.evaluate(({ collection, items }) => {
+      const itemsWithFields = await page.evaluate(({ collection, items, cellParserSrc }) => {
         const visible = (el) => {
           if (!el || !(el instanceof Element)) return false;
           const style = getComputedStyle(el);
@@ -151,53 +205,10 @@ class ItemExecutionHandler {
           }
         }
 
-        const EXPANDER_GLYPH_REGEX = /^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/i;
-        const DOCUMENT_ID_REGEX = /\b((?:SI|INV|DR|TX|CM|PO|SO|BILL|REC|ORD)-\d+(?:[-_]\w+)*|\b\d{4,10}\b)/i;
-
-        const cleanCellText = (val) => {
-          if (val == null) return '';
-          let s = String(val).trim().replace(/\s+/g, ' ');
-          if (EXPANDER_GLYPH_REGEX.test(s)) return '';
-          s = s.replace(/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+/, '').trim();
-          s = s.replace(/[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/, '').trim();
-          return s;
-        };
-
-        const isControlOrExpanderCell = (cellEl) => {
-          if (!cellEl || typeof cellEl !== 'object') return false;
-          if (
-            cellEl.classList?.contains('x-grid-cell-special') ||
-            cellEl.classList?.contains('x-grid-cell-row-checker') ||
-            cellEl.classList?.contains('x-selmodel-column') ||
-            cellEl.classList?.contains('ant-table-selection-column') ||
-            cellEl.classList?.contains('mat-column-select') ||
-            (typeof cellEl.querySelector === 'function' && cellEl.querySelector(
-              '.x-grid-row-checker, input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"], .mat-pseudo-checkbox'
-            ))
-          ) {
-            return true;
-          }
-          if (
-            cellEl.classList?.contains('x-grid-row-expander') ||
-            cellEl.classList?.contains('ant-table-row-expand-icon') ||
-            cellEl.classList?.contains('dt-control') ||
-            cellEl.classList?.contains('details-control') ||
-            cellEl.classList?.contains('tree-node-toggle') ||
-            cellEl.classList?.contains('expander') ||
-            cellEl.classList?.contains('expand-btn') ||
-            cellEl.classList?.contains('mat-expansion-indicator') ||
-            (typeof cellEl.querySelector === 'function' && cellEl.querySelector(
-              'button[aria-expanded], [aria-expanded], .expander, .expand-btn, [class*="chevron" i], [class*="expander" i], [class*="tree-toggle" i], [class*="dt-control" i]'
-            ))
-          ) {
-            return true;
-          }
-          const raw = (cellEl.innerText || cellEl.textContent || '').trim();
-          if (raw && EXPANDER_GLYPH_REGEX.test(raw) && raw.length <= 4) {
-            return true;
-          }
-          return false;
-        };
+        const { EXPANDER_GLYPH_REGEX, DOCUMENT_ID_REGEX, cleanCellText, isControlOrExpanderCell } =
+          typeof _createCellParser === 'function'
+            ? _createCellParser()
+            : (new Function('return (' + cellParserSrc + ')()'))();
 
         function extractFieldsFromElement(el) {
           const fields = {};
@@ -363,7 +374,7 @@ class ItemExecutionHandler {
           });
         }
         return result;
-      }, { collection: discovery.collection, items: discovery.items });
+      }, { collection: discovery.collection, items: discovery.items, cellParserSrc: CELL_PARSER_SRC });
 
       return itemsWithFields;
     } catch (err) {
@@ -425,54 +436,11 @@ class ItemExecutionHandler {
         };
       }
 
-      const itemRecord = await itemEl.evaluate((el) => {
-        const EXPANDER_GLYPH_REGEX = /^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/i;
-        const DOCUMENT_ID_REGEX = /\b((?:SI|INV|DR|TX|CM|PO|SO|BILL|REC|ORD)-\d+(?:[-_]\w+)*|\b\d{4,10}\b)/i;
-
-        const cleanCellText = (val) => {
-          if (val == null) return '';
-          let s = String(val).trim().replace(/\s+/g, ' ');
-          if (EXPANDER_GLYPH_REGEX.test(s)) return '';
-          s = s.replace(/^[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+/, '').trim();
-          s = s.replace(/[▸►▶▼▽▾+\-±›❯»⮞⌄v><\u25B6\u25BC\u25B8\u25BE\u276F\u203A\s]+$/, '').trim();
-          return s;
-        };
-
-        const isControlOrExpanderCell = (cellEl) => {
-          if (!cellEl || typeof cellEl !== 'object') return false;
-          if (
-            cellEl.classList?.contains('x-grid-cell-special') ||
-            cellEl.classList?.contains('x-grid-cell-row-checker') ||
-            cellEl.classList?.contains('x-selmodel-column') ||
-            cellEl.classList?.contains('ant-table-selection-column') ||
-            cellEl.classList?.contains('mat-column-select') ||
-            (typeof cellEl.querySelector === 'function' && cellEl.querySelector(
-              '.x-grid-row-checker, input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"], .mat-pseudo-checkbox'
-            ))
-          ) {
-            return true;
-          }
-          if (
-            cellEl.classList?.contains('x-grid-row-expander') ||
-            cellEl.classList?.contains('ant-table-row-expand-icon') ||
-            cellEl.classList?.contains('dt-control') ||
-            cellEl.classList?.contains('details-control') ||
-            cellEl.classList?.contains('tree-node-toggle') ||
-            cellEl.classList?.contains('expander') ||
-            cellEl.classList?.contains('expand-btn') ||
-            cellEl.classList?.contains('mat-expansion-indicator') ||
-            (typeof cellEl.querySelector === 'function' && cellEl.querySelector(
-              'button[aria-expanded], [aria-expanded], .expander, .expand-btn, [class*="chevron" i], [class*="expander" i], [class*="tree-toggle" i], [class*="dt-control" i]'
-            ))
-          ) {
-            return true;
-          }
-          const raw = (cellEl.innerText || cellEl.textContent || '').trim();
-          if (raw && EXPANDER_GLYPH_REGEX.test(raw) && raw.length <= 4) {
-            return true;
-          }
-          return false;
-        };
+      const itemRecord = await itemEl.evaluate((el, cellParserSrc) => {
+        const { EXPANDER_GLYPH_REGEX, DOCUMENT_ID_REGEX, cleanCellText, isControlOrExpanderCell } =
+          typeof _createCellParser === 'function'
+            ? _createCellParser()
+            : (new Function('return (' + cellParserSrc + ')()'))();
 
         const fullText = (el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ');
         let cellEls = Array.from(el.querySelectorAll('td, [role="gridcell"]'));
@@ -552,7 +520,7 @@ class ItemExecutionHandler {
         }
 
         return record;
-      });
+      }, CELL_PARSER_SRC);
 
       const actualVal = itemRecord[rawFilter.column] || itemRecord[rawFilter.field] || itemRecord.Type || itemRecord.label || itemRecord.fullText || '';
       const evalResult = ConditionEvaluator.evaluate(itemRecord, rawFilter);
@@ -1492,6 +1460,8 @@ class ItemExecutionHandler {
     manifest.skippedFilter = preview.skippedFilterCount;
     manifest.skippedLimitCount = preview.skippedLimitCount;
     manifest.skippedLimit = preview.skippedLimitCount;
+    manifest.skippedDuplicateCount = 0;
+    manifest.skippedDuplicate = 0;
     manifest.itemsSkipped = preview.skippedFilterCount + preview.skippedLimitCount;
 
     const currentPage = 1;

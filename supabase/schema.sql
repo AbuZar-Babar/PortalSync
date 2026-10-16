@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS public.wf_organizations (
     slug TEXT UNIQUE NOT NULL,
     stripe_customer_id TEXT,
     stripe_subscription_id TEXT,
+    runner_metadata JSONB DEFAULT '{}'::jsonb,
+    runner_token_hash TEXT,
     plan_tier TEXT DEFAULT 'starter' CHECK (plan_tier IN ('starter', 'pro', 'business', 'enterprise')),
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );

@@ -7,7 +7,6 @@ import { DrawerRunItem } from '@/components/dashboard/RunDetailsDrawer';
 
 export type ThemePaletteId =
   | 'reflow-cyber'
-  | 'flowmind-cyber'
   | 'charcoal-indigo'
   | 'emerald-matrix'
   | 'slate-dark'
@@ -17,14 +16,11 @@ export type ThemePaletteId =
 export type InterfaceMode = 'dark' | 'light' | 'system';
 
 export const LEGACY_THEME_MAP: Record<string, ThemePaletteId> = {
-  'flowmind-cyber': 'reflow-cyber',
-  'theme-flowmind-cyber': 'reflow-cyber',
   'theme-reflow-cyber': 'reflow-cyber',
 };
 
 export const VALID_THEME_PALETTES: ThemePaletteId[] = [
   'reflow-cyber',
-  'flowmind-cyber',
   'charcoal-indigo',
   'emerald-matrix',
   'slate-dark',
@@ -48,12 +44,8 @@ export function applyThemeToDOM(palette: ThemePaletteId, mode: InterfaceMode): v
   root.setAttribute('data-theme-mode', mode);
 
   VALID_THEME_PALETTES.forEach((p) => root.classList.remove(`theme-${p}`));
-  root.classList.remove('theme-flowmind-cyber');
   root.classList.remove('theme-reflow-cyber');
   root.classList.add(`theme-${palette}`);
-  if (palette === 'reflow-cyber') {
-    root.classList.add('theme-flowmind-cyber');
-  }
 
   if (resolvedMode === 'light') {
     root.classList.remove('dark');
@@ -69,7 +61,6 @@ export function applyThemeToDOM(palette: ThemePaletteId, mode: InterfaceMode): v
     localStorage.setItem('wf_dashboard_mode', mode);
     localStorage.setItem('workflow_capture_theme', palette);
     localStorage.setItem('workflow_capture_mode', mode);
-    localStorage.setItem('flowmind_theme', palette);
     localStorage.setItem('workflow_capture_palette', palette);
   } catch {}
 
@@ -130,8 +121,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     try {
       const rawStoredTheme = localStorage.getItem('reflow_theme') ||
         localStorage.getItem('wf_dashboard_theme') ||
-        localStorage.getItem('workflow_capture_theme') ||
-        localStorage.getItem('flowmind_theme');
+        localStorage.getItem('workflow_capture_theme');
       const resolved = rawStoredTheme ? (LEGACY_THEME_MAP[rawStoredTheme] || (rawStoredTheme as ThemePaletteId)) : null;
       if (resolved && VALID_THEME_PALETTES.includes(resolved)) {
         initialTheme = resolved;
@@ -194,74 +184,95 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
       setUserEmail(user.email || null);
 
-      // Fetch user's organization memberships
+      // Fetch user's organization memberships (unjoined to guarantee it never fails on relation/cache)
       const { data: members, error: memberError } = await supabase
         .from('wf_organization_members')
-        .select('org_id, role, wf_organizations(name, slug, stripe_subscription_id)')
+        .select('org_id, role')
         .eq('user_id', user.id);
 
       if (memberError) {
-        console.error('Error fetching org membership:', memberError);
+        const errDetail = memberError.message || (memberError as any).code || JSON.stringify(memberError);
+        console.error('Error fetching org membership:', errDetail);
       }
 
-      if (!members || members.length === 0) {
+      // ONLY redirect to onboarding if the query succeeded without error AND user has 0 memberships
+      if (!memberError && (!members || members.length === 0)) {
         router.push('/onboarding');
         return;
       }
 
-      // 1. Determine active organization: saved preference -> org with active runner -> first membership
+      // 1. Determine active organization
       const savedOrgId = typeof window !== 'undefined' ? localStorage.getItem('wf_active_org_id') : null;
-      let activeMember = savedOrgId ? members.find((m) => m.org_id === savedOrgId) : null;
-
-      if (!activeMember) {
-        activeMember = members.find((m) => {
-          const org = m.wf_organizations as { stripe_subscription_id?: string | null } | null;
-          if (org?.stripe_subscription_id) {
-            try {
-              const meta = JSON.parse(org.stripe_subscription_id);
-              if (meta.last_ping_at) {
-                const diff = (Date.now() - new Date(meta.last_ping_at).getTime()) / 1000;
-                return diff < 120;
-              }
-            } catch {}
-          }
-          return false;
-        });
+      let activeOrgId: string | null = null;
+      if (savedOrgId && members && members.some((m) => m.org_id === savedOrgId)) {
+        activeOrgId = savedOrgId;
+      } else if (members && members.length > 0) {
+        activeOrgId = members[0].org_id;
+      } else if (savedOrgId) {
+        activeOrgId = savedOrgId;
       }
 
-      if (!activeMember) {
-        activeMember = members[0];
+      if (!activeOrgId) {
+        // If query errored and no org was cached, exit gracefully without redirecting to onboarding
+        return;
       }
 
-      const activeOrgId = activeMember.org_id;
-      const orgRecord = activeMember.wf_organizations as { name?: string; slug?: string; stripe_subscription_id?: string | null } | null;
       setOrgId(activeOrgId);
-      setOrganizationName(orgRecord?.name || 'My Organization');
       if (typeof window !== 'undefined') {
         localStorage.setItem('wf_active_org_id', activeOrgId);
       }
 
-      if (orgRecord?.stripe_subscription_id) {
+      // 2. Fetch organization row with fallback
+      let orgRecord: { id: string; name?: string; slug?: string; plan_tier?: string; runner_metadata?: any } = {
+        id: activeOrgId,
+        name: 'Workspace',
+        slug: 'workspace',
+        plan_tier: 'starter',
+        runner_metadata: {},
+      };
+
+      try {
+        const { data: orgData, error: orgError } = await supabase
+          .from('wf_organizations')
+          .select('*')
+          .eq('id', activeOrgId)
+          .maybeSingle();
+
+        if (!orgError && orgData) {
+          orgRecord = orgData;
+        }
+      } catch (e) {
+        console.warn('Notice fetching organization details:', e);
+      }
+
+      setOrganizationName(orgRecord.name || 'My Organization');
+
+      // 3. Parse runner_metadata
+      let parsedMeta: Record<string, unknown> = {};
+      if (orgRecord.runner_metadata) {
         try {
-          const parsed = JSON.parse(orgRecord.stripe_subscription_id);
-          const orgPalette = (parsed.theme_settings?.palette || parsed.theme) as ThemePaletteId | undefined;
-          const orgMode = (parsed.theme_settings?.mode || parsed.mode) as InterfaceMode | undefined;
-          if (orgPalette && VALID_THEME_PALETTES.includes(orgPalette)) {
-            setThemeState(orgPalette);
-            const resolvedMode = (orgMode && ['dark', 'light', 'system'].includes(orgMode)) ? orgMode : 'dark';
-            setModeState(resolvedMode);
-            applyThemeToDOM(orgPalette, resolvedMode);
-          }
+          parsedMeta = typeof orgRecord.runner_metadata === 'object' && orgRecord.runner_metadata !== null
+            ? orgRecord.runner_metadata as Record<string, unknown>
+            : JSON.parse(orgRecord.runner_metadata as string);
         } catch {}
       }
 
-      const defaultToken = `ps_live_${activeOrgId.replace(/-/g, '').slice(0, 16)}`;
+      const orgPalette = ((parsedMeta.theme_settings as Record<string, unknown> | undefined)?.palette || parsedMeta.theme) as ThemePaletteId | undefined;
+      const orgMode = ((parsedMeta.theme_settings as Record<string, unknown> | undefined)?.mode || parsedMeta.mode) as InterfaceMode | undefined;
+      if (orgPalette && VALID_THEME_PALETTES.includes(orgPalette)) {
+        setThemeState(orgPalette);
+        const resolvedMode = (orgMode && ['dark', 'light', 'system'].includes(orgMode)) ? orgMode : 'dark';
+        setModeState(resolvedMode);
+        applyThemeToDOM(orgPalette, resolvedMode);
+      }
+
+      const defaultToken = (parsedMeta.token as string) || `rf_live_${activeOrgId.replace(/-/g, '').slice(0, 16)}`;
       setRunnerToken(defaultToken);
 
       // Check online status via /api/v1/runners (authenticated by token) or organization metadata
       let online = false;
       try {
-        const res = await fetch(`/api/v1/runners?org_id=${activeOrgId}`, {
+        const res = await fetch(`/api/v1/runners`, {
           cache: 'no-store',
           headers: {
             'x-runner-token': defaultToken,
@@ -271,22 +282,14 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         if (res.ok) {
           const data = await res.json();
           online = !!data.is_online;
-        } else if (orgRecord?.stripe_subscription_id) {
-          const parsed = JSON.parse(orgRecord.stripe_subscription_id);
-          if (parsed.last_ping_at) {
-            const diffSeconds = (Date.now() - new Date(parsed.last_ping_at).getTime()) / 1000;
-            online = diffSeconds < 60;
-          }
+        } else if (parsedMeta?.last_ping_at) {
+          const diffSeconds = (Date.now() - new Date(parsedMeta.last_ping_at as string).getTime()) / 1000;
+          online = diffSeconds < 60;
         }
       } catch {
-        if (orgRecord?.stripe_subscription_id) {
-          try {
-            const parsed = JSON.parse(orgRecord.stripe_subscription_id);
-            if (parsed.last_ping_at) {
-              const diffSeconds = (Date.now() - new Date(parsed.last_ping_at).getTime()) / 1000;
-              online = diffSeconds < 60;
-            }
-          } catch {}
+        if (parsedMeta?.last_ping_at) {
+          const diffSeconds = (Date.now() - new Date(parsedMeta.last_ping_at as string).getTime()) / 1000;
+          online = diffSeconds < 60;
         }
       }
       setIsRunnerOnline(online);
@@ -294,7 +297,6 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       console.error('Dashboard context error:', err);
     } finally {
       setLoading(false);
-      setIsRefreshing(false);
     }
   }, [router]);
 
@@ -314,12 +316,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }
 
     const supabase = createClient();
-    const resolvedToken = runnerToken || `ps_live_${orgId.replace(/-/g, '').slice(0, 16)}`;
+    const resolvedToken = runnerToken || `rf_live_${orgId.replace(/-/g, '').slice(0, 16)}`;
 
     // Heartbeat poller for runner status every 5 seconds with direct DB fallback
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/v1/runners?org_id=${orgId}`, {
+        const res = await fetch(`/api/v1/runners`, {
           cache: 'no-store',
           headers: {
             'x-runner-token': resolvedToken,
@@ -335,15 +337,17 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           // Direct Supabase query fallback
           const { data: directOrg } = await supabase
             .from('wf_organizations')
-            .select('stripe_subscription_id')
+            .select('runner_metadata')
             .eq('id', orgId)
             .maybeSingle();
 
-          if (directOrg?.stripe_subscription_id && isMounted) {
+          if (directOrg?.runner_metadata && isMounted) {
             try {
-              const meta = JSON.parse(directOrg.stripe_subscription_id);
-              if (meta.last_ping_at) {
-                const diff = (Date.now() - new Date(meta.last_ping_at).getTime()) / 1000;
+              const meta = typeof directOrg.runner_metadata === 'object'
+                ? directOrg.runner_metadata as Record<string, unknown>
+                : JSON.parse(directOrg.runner_metadata as string);
+              if (meta?.last_ping_at) {
+                const diff = (Date.now() - new Date(meta.last_ping_at as string).getTime()) / 1000;
                 setIsRunnerOnline(diff < 60);
               }
             } catch {}
@@ -365,11 +369,13 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         },
         (payload) => {
           if (!isMounted) return;
-          const updated = payload.new as { stripe_subscription_id?: string | null } | undefined;
-          if (updated?.stripe_subscription_id) {
+          const updated = payload.new as { runner_metadata?: Record<string, unknown> | string | null } | undefined;
+          if (updated?.runner_metadata) {
             try {
-              const meta = JSON.parse(updated.stripe_subscription_id);
-              if (meta.last_ping_at) {
+              const meta = typeof updated.runner_metadata === 'object'
+                ? updated.runner_metadata
+                : JSON.parse(updated.runner_metadata);
+              if (meta?.last_ping_at) {
                 const diff = (Date.now() - new Date(meta.last_ping_at).getTime()) / 1000;
                 setIsRunnerOnline(diff < 60);
               }
@@ -444,14 +450,16 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           const supabase = createClient();
           const { data: directOrg } = await supabase
             .from('wf_organizations')
-            .select('stripe_subscription_id')
+            .select('runner_metadata')
             .eq('id', orgId)
             .maybeSingle();
 
           let existingMeta: Record<string, unknown> = {};
-          if (directOrg?.stripe_subscription_id) {
+          if (directOrg?.runner_metadata) {
             try {
-              existingMeta = JSON.parse(directOrg.stripe_subscription_id);
+              existingMeta = typeof directOrg.runner_metadata === 'object'
+                ? directOrg.runner_metadata as Record<string, unknown>
+                : JSON.parse(directOrg.runner_metadata as string);
             } catch {}
           }
 
@@ -465,7 +473,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           await supabase
             .from('wf_organizations')
             .update({
-              stripe_subscription_id: JSON.stringify(updatedMeta),
+              runner_metadata: updatedMeta,
             })
             .eq('id', orgId);
         } catch (err) {
@@ -496,7 +504,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         mode,
         setTheme,
         setMode,
-        saveThemePreferences
+        saveThemePreferences,
       }}
     >
       {children}

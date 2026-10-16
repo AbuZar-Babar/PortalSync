@@ -145,7 +145,7 @@ export default function RunnersPage() {
       } else if (runnerToken && !isRevoked) {
         setCurrentToken(runnerToken);
       } else if (!isRevoked) {
-        const defaultToken = `ps_live_${orgId.replace(/-/g, '').slice(0, 16)}`;
+        const defaultToken = `rf_live_${orgId.replace(/-/g, '').slice(0, 16)}`;
         setCurrentToken(defaultToken);
       }
     }, 0);
@@ -214,10 +214,10 @@ export default function RunnersPage() {
 
       // 2. Fetch registered runners and live heartbeat from /api/v1/runners
       let apiRunners: ConnectedWorker[] = [];
-      const resolvedToken = currentToken || runnerToken || `ps_live_${orgId.replace(/-/g, '').slice(0, 16)}`;
+      const resolvedToken = currentToken || runnerToken || `rf_live_${orgId.replace(/-/g, '').slice(0, 16)}`;
 
       try {
-        const res = await fetch(`/api/v1/runners?org_id=${orgId}`, {
+        const res = await fetch(`/api/v1/runners`, {
           cache: 'no-store',
           headers: {
             'x-runner-token': resolvedToken,
@@ -266,13 +266,15 @@ export default function RunnersPage() {
         try {
           const { data: orgDirect } = await supabase
             .from('wf_organizations')
-            .select('id, name, stripe_subscription_id')
+            .select('*')
             .eq('id', orgId)
             .maybeSingle();
 
-          if (orgDirect?.stripe_subscription_id) {
+          if (orgDirect?.runner_metadata) {
             try {
-              const meta = JSON.parse(orgDirect.stripe_subscription_id);
+              const meta = typeof orgDirect.runner_metadata === 'object' && orgDirect.runner_metadata !== null
+                ? orgDirect.runner_metadata as Record<string, unknown>
+                : JSON.parse(orgDirect.runner_metadata as string);
               const lastPingMs = meta.last_ping_at ? new Date(meta.last_ping_at).getTime() : 0;
               const diffSeconds = lastPingMs > 0 ? (Date.now() - lastPingMs) / 1000 : 999999;
               const isOnline = diffSeconds < 60 || isRunnerOnline;
@@ -480,26 +482,25 @@ export default function RunnersPage() {
     setIsRegenerating(true);
 
     try {
-      const randomSuffix = Math.random().toString(36).substring(2, 9);
-      const newToken = `ps_live_${orgId.replace(/-/g, '').slice(0, 12)}_${randomSuffix}`;
+      const res = await fetch('/api/v1/runners', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'rotate' }),
+      });
+
+      let newToken = '';
+      if (res.ok) {
+        const json = await res.json();
+        newToken = json.token;
+      } else {
+        const randomSuffix = Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
+        newToken = `rf_live_${orgId.replace(/-/g, '').slice(0, 16)}_${randomSuffix}`;
+      }
 
       // Save to localStorage override
       if (typeof window !== 'undefined') {
         localStorage.setItem(`wf_runner_token_override_${orgId}`, newToken);
         localStorage.removeItem(`wf_runner_token_revoked_${orgId}`);
-      }
-
-      // Attempt to save to Supabase if table exists
-      try {
-        const supabase = createClient();
-        await supabase.from('wf_runner_tokens').insert({
-          org_id: orgId,
-          token: newToken,
-          label: 'Desktop Worker (Regenerated)',
-          created_at: new Date().toISOString(),
-        });
-      } catch {
-        // Fallback persisted in localStorage
       }
 
       setCurrentToken(newToken);
@@ -578,7 +579,7 @@ export default function RunnersPage() {
     // Step 1: Token Validation
     const tokenStart = Date.now();
     await new Promise((r) => setTimeout(r, 350));
-    const isFormatValid = currentToken.startsWith('ps_live_') && currentToken.length > 10;
+    const isFormatValid = currentToken.startsWith('rf_live_') && currentToken.length > 10;
     const tokenLatency = Date.now() - tokenStart;
 
     let tokenResult: DiagnosticResult;
@@ -598,14 +599,14 @@ export default function RunnersPage() {
         status: 'success',
         message: 'Cryptographically valid pairing token bound to organization.',
         latencyMs: tokenLatency,
-        details: `Format: ps_live_*** | Org: ${organizationName}`,
+        details: `Format: rf_live_*** | Org: ${organizationName}`,
       };
     } else {
       tokenResult = {
         step: 'token',
         name: 'Pairing Token & Cryptographic Signature',
         status: 'error',
-        message: 'Invalid pairing token format. Expected ps_live_<org_id>',
+        message: 'Invalid pairing token format. Expected rf_live_<org_id>_<secret>',
         latencyMs: tokenLatency,
         remediation: 'Click "Regenerate Token" to create a standard pairing key.',
       };
@@ -616,7 +617,7 @@ export default function RunnersPage() {
     // Step 2: Chrome CDP Port 9222 Accessibility via /api/v1/runners/diagnostics
     let cdpResult: DiagnosticResult;
     try {
-      const res = await fetch('/api/v1/runners/diagnostics?port=9222', {
+      const res = await fetch('/api/v1/runners/diagnostics', {
         method: 'GET',
         headers: {
           'X-Runner-Token': currentToken,
@@ -737,8 +738,8 @@ export default function RunnersPage() {
 
   // Commands for quick copy
   const terminalDoctorCmd = 'npm run runner:doctor';
-  const terminalListenCmd = `npm run runner:listen -- --token ${currentToken || 'ps_live_token'}`;
-  const dockerCmd = `docker run -d --net=host -e WORKER_TOKEN=${currentToken || 'ps_live_token'} reflow/worker:latest`;
+  const terminalListenCmd = `npm run runner:listen -- --token ${currentToken || 'rf_live_token'}`;
+  const dockerCmd = `docker run -d --net=host -e WORKER_TOKEN=${currentToken || 'rf_live_token'} reflow/worker:latest`;
   const chromeWindowsCmd = `& "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --remote-debugging-port=9222 --user-data-dir="C:\\ChromeDebug"`;
   const chromeMacCmd = `/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --remote-debugging-port=9222 --user-data-dir=/tmp/ChromeDebug`;
 

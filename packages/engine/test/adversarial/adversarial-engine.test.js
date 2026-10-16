@@ -171,7 +171,7 @@ function createTestDOM(elements) {
   return {
     rootNodes,
     mockDoc,
-    createPage: (url = 'https://portal.flowmind.test') => ({
+    createPage: (url = 'https://portal.reflow.test') => ({
       url: () => url,
       isClosed: () => false,
       keyboard: {
@@ -894,13 +894,13 @@ test('Compound Boolean Filter: Prototype pollution resistance', () => {
 // SUITE 5: Multi-Tab Manager
 // ============================================================================
 test('Multi-Tab Manager: Configures CDP download behavior on new secondary tabs', async () => {
-  const tabManager = new TabManager({ downloadsDir: 'C:\\FlowMind\\Downloads' });
+  const tabManager = new TabManager({ downloadsDir: 'C:\\ReFlow\\Downloads' });
 
   let cdpCommands = [];
   const mockTarget = {
     type: () => 'page',
     page: async () => ({
-      url: () => 'https://portal.flowmind.test/export',
+      url: () => 'https://portal.reflow.test/export',
       isClosed: () => false
     }),
     createCDPSession: async () => ({
@@ -924,7 +924,7 @@ test('Multi-Tab Manager: Configures CDP download behavior on new secondary tabs'
   const downloadCmd = cdpCommands.find(c => c.cmd === 'Page.setDownloadBehavior');
   assert.ok(downloadCmd, 'CDP command Page.setDownloadBehavior must be dispatched');
   assert.strictEqual(downloadCmd.params.behavior, 'allow');
-  assert.strictEqual(downloadCmd.params.downloadPath, 'C:\\FlowMind\\Downloads');
+  assert.strictEqual(downloadCmd.params.downloadPath, 'C:\\ReFlow\\Downloads');
 });
 
 test('Multi-Tab Manager: Cleans up auxiliary tabs while protecting primary portal and dashboard tabs', async () => {

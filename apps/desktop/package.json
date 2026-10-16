@@ -14,7 +14,8 @@
     "build:mac:zip": "electron-builder --mac zip --x64 --publish never",
     "build:mac:dmg": "electron-builder --mac dmg --x64 --publish never",
     "build:all": "node scripts/build-all.js",
-    "dist": "electron-builder --publish never"
+    "dist": "electron-builder --publish never",
+    "test": "node test/test-http-bridge.js"
   },
   "build": {
     "appId": "com.reflow.worker",
@@ -42,9 +43,7 @@
       {
         "name": "ReFlow Worker Protocol",
         "schemes": [
-          "reflow",
-          "flowmind",
-          "portalsync"
+          "reflow"
         ]
       }
     ],

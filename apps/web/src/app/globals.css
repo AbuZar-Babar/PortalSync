@@ -26,9 +26,7 @@
 
 /* 1. ReFlow Cyber (Default Neon) */
 [data-theme="reflow-cyber"],
-.theme-reflow-cyber,
-[data-theme="flowmind-cyber"],
-.theme-flowmind-cyber {
+.theme-reflow-cyber {
   --canvas-bg: #060913;
   --surface-bg: #0c101d;
   --surface-hover: #11182c;
@@ -172,8 +170,8 @@
   --glow-color: rgba(var(--primary-rgb), 0.15);
 }
 
-[data-mode="light"][data-theme="flowmind-cyber"],
-.light.theme-flowmind-cyber {
+[data-mode="light"][data-theme="reflow-cyber"],
+.light.theme-reflow-cyber {
   --canvas-bg: #f0f9ff;
   --surface-bg: #ffffff;
   --primary-color: #0284c7;
@@ -249,15 +247,15 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --color-flowmind-canvas: var(--canvas-bg);
-  --color-flowmind-surface: var(--surface-bg);
-  --color-flowmind-sidebar: var(--sidebar-bg);
-  --color-flowmind-header: var(--header-bg);
-  --color-flowmind-border: var(--border-color);
-  --color-flowmind-cyan: var(--primary-color);
-  --color-flowmind-sky: #38bdf8;
-  --color-flowmind-indigo: var(--accent-color);
-  --color-flowmind-emerald: #10b981;
+  --color-reflow-canvas: var(--canvas-bg);
+  --color-reflow-surface: var(--surface-bg);
+  --color-reflow-sidebar: var(--sidebar-bg);
+  --color-reflow-header: var(--header-bg);
+  --color-reflow-border: var(--border-color);
+  --color-reflow-cyan: var(--primary-color);
+  --color-reflow-sky: #38bdf8;
+  --color-reflow-indigo: var(--accent-color);
+  --color-reflow-emerald: #10b981;
 }
 
 body {
@@ -268,11 +266,10 @@ body {
 }
 
 /* ========================================================
-   FlowMind Design Tokens & Ambient Theme Adaptation
+   ReFlow Design Tokens & Ambient Theme Adaptation
    ======================================================== */
 
-.bg-reflow-canvas,
-.bg-flowmind-canvas {
+.bg-reflow-canvas {
   background-color: var(--canvas-bg);
   background-image: 
     radial-gradient(at 10% 12%, rgba(var(--primary-rgb), 0.08) 0px, transparent 50%),

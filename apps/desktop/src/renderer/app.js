@@ -1,4 +1,4 @@
-const clientBridge = window.reflow || window.portalsync;
+const clientBridge = window.reflow;
 document.addEventListener('DOMContentLoaded', async () => {
   // -------------------------------------------------------------
   // SVG ICONS CONSTANTS

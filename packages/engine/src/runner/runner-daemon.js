@@ -91,7 +91,7 @@ class RunnerDaemon {
     this.cdpPort = options.cdpPort || 9222;
     this.cdpHost = options.cdpHost || '127.0.0.1';
     this.pollIntervalMs = options.pollIntervalMs || 3000;
-    this.targetFolder = options.targetFolder || process.env.REFLOW_TARGET_FOLDER || process.env.PORTALSYNC_TARGET_FOLDER || resolveDefaultDownloadFolder();
+    this.targetFolder = options.targetFolder || process.env.REFLOW_TARGET_FOLDER || resolveDefaultDownloadFolder();
     this.hitlTimeoutMs = options.hitlTimeoutMs || 90000;
 
     this.logger = options.logger || {

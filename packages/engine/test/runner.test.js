@@ -27,16 +27,16 @@ const { parseCliArgs } = require('../src/runner/cli');
 test('CloudClient - configuration and header generation', () => {
   const client = new CloudClient({
     baseUrl: 'http://example.com/api///',
-    token: 'ps_live_test_org_123',
+    token: 'rf_live_test_org_123_secret0000000000000000',
     timeoutMs: 5000,
   });
 
   assert.strictEqual(client.baseUrl, 'http://example.com/api');
-  assert.strictEqual(client.token, 'ps_live_test_org_123');
+  assert.strictEqual(client.token, 'rf_live_test_org_123_secret0000000000000000');
 
   const headers = client._getHeaders();
-  assert.strictEqual(headers['Authorization'], 'Bearer ps_live_test_org_123');
-  assert.strictEqual(headers['x-runner-token'], 'ps_live_test_org_123');
+  assert.strictEqual(headers['Authorization'], 'Bearer rf_live_test_org_123_secret0000000000000000');
+  assert.strictEqual(headers['x-runner-token'], 'rf_live_test_org_123_secret0000000000000000');
   assert.strictEqual(headers['Content-Type'], 'application/json');
 });
 
@@ -61,13 +61,13 @@ test('CloudClient - getPendingRuns', async () => {
 
   const client = new CloudClient({
     baseUrl: 'http://localhost:3000',
-    token: 'ps_live_org_abc',
+    token: 'rf_live_org_abc_secret0000000000000000',
     fetch: mockFetch
   });
 
   const runs = await client.getPendingRuns();
   assert.match(calledUrl, /^http:\/\/localhost:3000\/api\/v1\/runs\?status=pending(&_t=\d+)?$/);
-  assert.strictEqual(calledHeaders['Authorization'], 'Bearer ps_live_org_abc');
+  assert.strictEqual(calledHeaders['Authorization'], 'Bearer rf_live_org_abc_secret0000000000000000');
   assert.strictEqual(runs.length, 2);
   assert.strictEqual(runs[0].id, 'run_1');
 });
@@ -88,7 +88,7 @@ test('CloudClient - claimRun (pending -> running)', async () => {
 
   const client = new CloudClient({
     baseUrl: 'http://localhost:3000',
-    token: 'ps_live_org_abc',
+    token: 'rf_live_org_abc_secret0000000000000000',
     fetch: mockFetch
   });
 
@@ -113,7 +113,7 @@ test('CloudClient - updateRunProgress and updateRunStatus', async () => {
 
   const client = new CloudClient({
     baseUrl: 'http://localhost:3000',
-    token: 'ps_live_org_abc',
+    token: 'rf_live_org_abc_secret0000000000000000',
     fetch: mockFetch
   });
 
@@ -144,7 +144,7 @@ test('CloudClient - registerArtifact', async () => {
 
   const client = new CloudClient({
     baseUrl: 'http://localhost:3000',
-    token: 'ps_live_org_abc',
+    token: 'rf_live_org_abc_secret0000000000000000',
     fetch: mockFetch
   });
 
@@ -188,7 +188,7 @@ test('CloudClient - uploadArtifact uploads base64 file and returns cloud_storage
 
   const client = new CloudClient({
     baseUrl: 'http://localhost:3000',
-    token: 'ps_live_org_abc',
+    token: 'rf_live_org_abc_secret0000000000000000',
     fetch: mockFetch,
   });
 
@@ -221,7 +221,7 @@ test('CloudClient - registerArtifact preserves null cloud_storage_path when loca
 
   const client = new CloudClient({
     baseUrl: 'http://localhost:3000',
-    token: 'ps_live_org_abc',
+    token: 'rf_live_org_abc_secret0000000000000000',
     fetch: mockFetch,
   });
 
@@ -229,11 +229,11 @@ test('CloudClient - registerArtifact preserves null cloud_storage_path when loca
     file_name: 'local_invoice.pdf',
     file_size_bytes: 1234,
     sha256_hash: 'hash_local_only',
-    storage_path: 'C:/Downloads/PortalSync/local_invoice.pdf',
+    storage_path: 'C:/Downloads/ReFlow/local_invoice.pdf',
     cloud_storage_path: null,
   });
 
-  assert.strictEqual(artifactPayload.storage_path, 'C:/Downloads/PortalSync/local_invoice.pdf');
+  assert.strictEqual(artifactPayload.storage_path, 'C:/Downloads/ReFlow/local_invoice.pdf');
   assert.strictEqual(artifactPayload.cloud_storage_path, null);
   assert.strictEqual(artifact.cloud_storage_path, null);
 });
@@ -254,7 +254,7 @@ test('CloudClient - getWorkflow', async () => {
 
   const client = new CloudClient({
     baseUrl: 'http://localhost:3000',
-    token: 'ps_live_org_abc',
+    token: 'rf_live_org_abc_secret0000000000000000',
     fetch: mockFetch
   });
 
@@ -276,7 +276,7 @@ test('CloudClient - handles 401 Unauthorized cleanly', async () => {
 
   const client = new CloudClient({
     baseUrl: 'http://localhost:3000',
-    token: 'ps_live_invalid',
+    token: 'rf_live_invalid_secret0000000000000000',
     fetch: mockFetch
   });
 
@@ -415,14 +415,11 @@ test('sanitizePortalName - strips illegal characters, traversals, and reserved n
 
 test('resolvePortalStorageDir - resolves path with sanitized portal subdirectory', () => {
   const defaultDir = resolvePortalStorageDir();
-  const legacyBase = path.join(os.homedir(), 'Downloads', 'PortalSync');
-  const expectedDefaultBase = fs.existsSync(legacyBase)
-    ? path.join(legacyBase, 'DefaultPortal')
-    : path.join(os.homedir(), 'Downloads', 'ReFlow', 'DefaultPortal');
+  const expectedDefaultBase = path.join(os.homedir(), 'Downloads', 'ReFlow', 'DefaultPortal');
   assert.strictEqual(defaultDir, expectedDefaultBase);
 
   // Custom baseDir and portalName
-  const customBase = path.join(os.tmpdir(), 'PortalSyncTest');
+  const customBase = path.join(os.tmpdir(), 'ReFlowTest');
   const resolved = resolvePortalStorageDir(customBase, 'Acme / Supplier: 2026');
   assert.strictEqual(resolved, path.join(customBase, 'Acme _ Supplier_ 2026'));
 
@@ -628,11 +625,11 @@ test('RunnerDaemon - pollOnce claims run and executes', async () => {
 // 5. CLI Argument Parsing Tests
 // ==========================================
 test('CLI - parseCliArgs extracts commands and flags correctly', () => {
-  const parsed1 = parseCliArgs(['doctor', '--port', '9333', '--cloud-url', 'http://cloud.test', '--token', 'ps_live_abc']);
+  const parsed1 = parseCliArgs(['doctor', '--port', '9333', '--cloud-url', 'http://cloud.test', '--token', 'rf_live_abc']);
   assert.strictEqual(parsed1.command, 'doctor');
   assert.strictEqual(parsed1.options.port, 9333);
   assert.strictEqual(parsed1.options.cloudUrl, 'http://cloud.test');
-  assert.strictEqual(parsed1.options.token, 'ps_live_abc');
+  assert.strictEqual(parsed1.options.token, 'rf_live_abc');
 
   const parsed2 = parseCliArgs(['doctor', '--help']);
   assert.strictEqual(parsed2.command, 'doctor');
@@ -662,7 +659,7 @@ test('Adversarial - claimRun handles 409 Conflict race condition gracefully', as
 
   const client = new CloudClient({
     baseUrl: 'http://localhost:3000',
-    token: 'ps_live_runner_2',
+    token: 'rf_live_runner_2_secret0000000000000000',
     fetch: mockFetch
   });
 
@@ -780,7 +777,7 @@ test('Adversarial - Malicious portal names cannot escape target storage director
 
 test('Adversarial - Daemon restarts cleanly recognize previously downloaded files and avoid duplicate registrations', async () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'runner-restart-dedup-'));
-  const portalDir = path.join(tmpDir, 'PortalSync', 'Acme_Supplier');
+  const portalDir = path.join(tmpDir, 'ReFlow', 'Acme_Supplier');
   fs.mkdirSync(portalDir, { recursive: true });
 
   // Simulate an invoice saved on Run 1 yesterday

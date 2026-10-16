@@ -53,7 +53,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen flex bg-flowmind-canvas text-[var(--foreground,#f8fafc)] selection:bg-[rgba(var(--primary-rgb,0,240,255),0.2)] selection:text-[var(--primary-color,#00f0ff)]">
+    <div className="min-h-screen flex bg-reflow-canvas text-[var(--foreground,#f8fafc)] selection:bg-[rgba(var(--primary-rgb,0,240,255),0.2)] selection:text-[var(--primary-color,#00f0ff)]">
       {/* Persistent Left Sidebar */}
       <Sidebar isRunnerOnline={isRunnerOnline} />
 
@@ -69,7 +69,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         />
 
         {/* Dynamic Route Content */}
-        <main className="flex-1 overflow-y-auto bg-flowmind-canvas p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto bg-reflow-canvas p-6 lg:p-8">
           <div className="max-w-7xl mx-auto">
             {children}
           </div>

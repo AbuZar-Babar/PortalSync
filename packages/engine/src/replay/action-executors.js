@@ -21,8 +21,15 @@ async function ensureInteractable(elementHandle, action) {
       (el.className && typeof el.className === 'string' && el.className.includes('backdrop'))
     );
 
-    const rectBefore = el.getBoundingClientRect();
-    const wasInViewport = rectBefore.top >= 0 && rectBefore.bottom <= window.innerHeight && rectBefore.left >= 0 && rectBefore.right <= window.innerWidth;
+    let wasInViewport = true;
+    try {
+      if (typeof el.getBoundingClientRect === 'function') {
+        const rectBefore = el.getBoundingClientRect();
+        const winH = typeof window !== 'undefined' ? window.innerHeight : 800;
+        const winW = typeof window !== 'undefined' ? window.innerWidth : 1280;
+        wasInViewport = rectBefore.top >= 0 && rectBefore.bottom <= winH && rectBefore.left >= 0 && rectBefore.right <= winW;
+      }
+    } catch {}
 
     if (el.scrollIntoView && !isBackdrop) {
       try {

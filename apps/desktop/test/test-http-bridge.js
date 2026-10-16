@@ -149,6 +149,21 @@ async function runTests() {
     assert.strictEqual(res.headers['access-control-allow-private-network'], 'true');
   });
 
+  // 5b. OPTIONS preflight from untrusted arbitrary Vercel domain
+  await test('OPTIONS preflight from untrusted arbitrary Vercel domain does not allow the origin', async () => {
+    const res = await makeRequest({
+      method: 'OPTIONS',
+      path: '/health',
+      headers: {
+        Origin: 'https://arbitrary-attacker.vercel.app',
+        'Access-Control-Request-Method': 'GET',
+      },
+    });
+
+    assert.strictEqual(res.statusCode, 204);
+    assert.notStrictEqual(res.headers['access-control-allow-origin'], 'https://arbitrary-attacker.vercel.app');
+  });
+
   // 6. GET /health
   await test('GET /health returns 200 with status ok and CORS headers', async () => {
     const res = await makeRequest({
@@ -222,6 +237,17 @@ async function runTests() {
     assert.strictEqual(res.statusCode, 404);
     assert.strictEqual(res.json.error, 'Not Found');
     assert.strictEqual(res.json.path, '/unknown-endpoint');
+  });
+
+  // 10b. Verification that dead /record/reset is 404
+  await test('POST /record/reset returns 404 (removed dead endpoint)', async () => {
+    const res = await makeRequest({
+      method: 'POST',
+      path: '/record/reset',
+    });
+
+    assert.strictEqual(res.statusCode, 404);
+    assert.strictEqual(res.json.error, 'Not Found');
   });
 
   // 11. Status Change Listener

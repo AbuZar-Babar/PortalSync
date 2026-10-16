@@ -49,7 +49,7 @@ The packaging configuration in [`apps/desktop/package.json`](./package.json) is 
 - **`arch: ["x64"]`**: Explicitly targets 64-bit Intel x86_64 architecture (`darwin-x64`).
 - **`target: ["dmg", "zip"]`**: Generates both an interactive disk image installer (`.dmg`) and a standalone compressed bundle (`.zip`).
 - **`assets/icon.icns`**: High-resolution multi-size Apple Icon Image.
-- **`schemes: ["flowmind", "portalsync"]`**: Protocol schemes for deep-link activation.
+- **`schemes: ["reflow"]`**: Protocol schemes for deep-link activation.
 
 ---
 

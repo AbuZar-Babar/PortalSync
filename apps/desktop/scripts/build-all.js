@@ -17,7 +17,7 @@ const platform = process.platform;
 const desktopRoot = path.resolve(__dirname, '..');
 
 console.log('====================================================');
-console.log('  FlowMind Worker — Cross-Platform Build Runner');
+console.log('  ReFlow Worker — Cross-Platform Build Runner');
 console.log(`  Current Host OS: ${platform} (${process.arch})`);
 console.log('====================================================\n');
 

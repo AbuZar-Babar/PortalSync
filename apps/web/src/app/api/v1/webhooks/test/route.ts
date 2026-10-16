@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
       timestamp: new Date().toISOString(),
       source: 'Workflow-Capture-SaaS Control Plane',
       organization_id: auth.success ? auth.context.orgId : 'test_organization',
-      message: 'Authentic webhook ping verification from FlowMind Workspace',
+      message: 'Authentic webhook ping verification from ReFlow Workspace',
       version: '1.0.0',
     };
 
@@ -152,8 +152,6 @@ export async function POST(req: NextRequest) {
       'User-Agent': 'ReFlow-Webhook-Verifier/1.0 (ReFlow Cloud Control Plane)',
       'X-ReFlow-Delivery': 'test-ping',
       'X-ReFlow-Event': 'workflow.test_ping',
-      'X-FlowMind-Delivery': 'test-ping',
-      'X-FlowMind-Event': 'workflow.test_ping',
     };
 
     if (secret && typeof secret === 'string' && secret.trim().length > 0) {
@@ -161,7 +159,6 @@ export async function POST(req: NextRequest) {
       hmac.update(payloadString);
       const signature = hmac.digest('hex');
       headers['X-ReFlow-Signature'] = `sha256=${signature}`;
-      headers['X-FlowMind-Signature'] = `sha256=${signature}`;
       headers['X-Hub-Signature-256'] = `sha256=${signature}`;
     }
 
