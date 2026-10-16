@@ -289,6 +289,19 @@ export function AuthCard({
         </div>
       )}
 
+      {!isModal && (
+        <div key={activeTab} className="auth-panel-enter mb-6 text-center">
+          <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+            {activeTab === 'signin' ? 'Welcome back' : 'Create your account'}
+          </h1>
+          <p className="mx-auto mt-2 max-w-sm text-xs leading-6 text-zinc-400 sm:text-sm">
+            {activeTab === 'signin'
+              ? 'Sign in to access your automated browser routines and workspace.'
+              : 'Set up your workspace and turn repetitive browser tasks into reusable workflows.'}
+          </p>
+        </div>
+      )}
+
       {/* Prominent Tab Switcher Header */}
       <div className="relative mb-6 flex gap-1.5 rounded-xl border border-white/[0.09] bg-[#050505] p-1.5" role="tablist">
         <button
@@ -550,7 +563,7 @@ export function AuthCard({
                   value={signUpConfirmPassword}
                   onChange={(e) => setSignUpConfirmPassword(e.target.value)}
                   placeholder="Re-enter password"
-                  className={`w-full pl-10 pr-10 py-2 bg-[#050508] border rounded-xl text-white placeholder-zinc-500 focus:outline-none transition text-sm ${
+                  className={`w-full pl-10 pr-10 py-2 bg-[#050505] border rounded-xl text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-200/[0.08] transition duration-200 text-sm ${
                     signUpConfirmPassword && signUpConfirmPassword !== signUpPassword
                       ? 'border-red-500/50 focus:border-red-500'
                       : 'border-white/10 focus:border-emerald-200/60'
@@ -570,7 +583,7 @@ export function AuthCard({
             <button
               type="submit"
               disabled={signUpLoading}
-              className="w-full mt-3 py-3 px-4 rounded-full bg-emerald-200 hover:bg-emerald-100 text-[#07120d] font-bold text-xs uppercase tracking-wider shadow-[0_8px_24px_rgba(110,231,183,0.10)] transition duration-200 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-100/20 bg-emerald-200 px-4 py-3 text-xs font-bold uppercase tracking-wider text-[#07120d] shadow-[0_8px_24px_rgba(110,231,183,0.10)] transition duration-200 hover:-translate-y-0.5 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
             >
               {signUpLoading ? (
                 <>
