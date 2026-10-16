@@ -18,7 +18,7 @@ const {
 } = require('../utils/errors');
 const { dispatchAction } = require('./action-executors');
 const { calculateDelay } = require('./human-mouse');
-const { getActiveBotConfig } = require('../api/bot-config-controller');
+const { getActiveBotConfig } = require('../shared/bot-config');
 const { resolveTargetUrl, extractWorkflowStartUrl, isInternalBrowserUrl } = require('../utils/url-helper');
 const logger = require('../utils/logger');
 const { detectLoginSequence, isSessionAuthenticated } = require('../shared/auth-detector');

@@ -8,7 +8,6 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
-const { db } = require('../../database/db');
 const DownloadManager = require('../download-manager');
 const DocumentDataExtractor = require('../../shared/document-data-extractor');
 const logger = require('../../utils/logger');
@@ -21,6 +20,7 @@ class ArtifactDownloadManager {
     this.workflowName = opts.workflowName || 'workflow';
     this.userId = opts.userId || null;
     this.forceRedownload = opts.forceRedownload === true;
+    this._downloadedRecords = [];
 
     this.runsDir = opts.runsDir || path.resolve(process.cwd(), 'recordings', 'runs', this.runId);
     this.downloadsDir = path.join(this.runsDir, 'downloads');
@@ -204,15 +204,20 @@ class ArtifactDownloadManager {
         downloadedAt: new Date().toISOString()
       };
 
-      const existingInDb = db.findOne('downloads', d =>
+      const allRecords = this._getManifestDownloads();
+      const existingRecord = allRecords.find(d =>
         d.workflowId === this.workflowId &&
         d.fileHash === fileHash &&
         (d.filePath === relativeFilePath || (relativeRunPath && d.runPath === relativeRunPath))
       );
 
-      let savedRecord = existingInDb;
-      if (!existingInDb) {
-        savedRecord = db.insert('downloads', downloadRecord);
+      let savedRecord = existingRecord;
+      if (!existingRecord) {
+        if (!downloadRecord.id) {
+          downloadRecord.id = `dl_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        }
+        this._downloadedRecords.push(downloadRecord);
+        savedRecord = downloadRecord;
       }
 
       this.syncWorkflowDownloadsManifest(savedRecord || downloadRecord);
@@ -220,7 +225,7 @@ class ArtifactDownloadManager {
       logger.info(`[ArtifactDownloadManager] Download organized: "${targetFilename}" -> ${relativeRunPath || relativeFilePath} (${fileSizeBytes} bytes)`);
 
       return {
-        id: (savedRecord || downloadRecord).id,
+        id: (savedRecord || downloadRecord).id || `dl_${Date.now()}`,
         filename: targetFilename,
         path: destPath,
         relativePath: relativeFilePath,
@@ -244,6 +249,24 @@ class ArtifactDownloadManager {
         sizeBytes: fs.existsSync(sourcePath) ? fs.statSync(sourcePath).size : 0
       };
     }
+  }
+
+  _getManifestDownloads() {
+    const records = [...this._downloadedRecords];
+    try {
+      const manifestPath = path.join(this.workflowDownloadsBaseDir, 'manifest.json');
+      if (fs.existsSync(manifestPath)) {
+        const data = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+        if (Array.isArray(data.downloads)) {
+          for (const d of data.downloads) {
+            if (!records.some(r => r.fileHash === d.fileHash && r.filePath === d.filePath)) {
+              records.push(d);
+            }
+          }
+        }
+      }
+    } catch { }
+    return records;
   }
 
   syncWorkflowDownloadsManifest(downloadRecord) {
@@ -289,9 +312,9 @@ class ArtifactDownloadManager {
   checkIfAlreadyDownloaded(itemKey, invoiceNumber = null, itemFields = {}, contentHash = null) {
     if (!itemKey && !invoiceNumber && !contentHash) return { isDuplicate: false };
 
-    // 1. Database check
+    // 1. Manifest / in-memory check
     if (this.workflowId) {
-      const records = db.find('downloads', d =>
+      const records = this._getManifestDownloads().filter(d =>
         d.workflowId === this.workflowId && (
           (contentHash && d.fileHash === contentHash) ||
           (itemKey && d.itemKey === itemKey) ||

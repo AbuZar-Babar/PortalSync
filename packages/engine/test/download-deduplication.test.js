@@ -6,16 +6,11 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const assert = require('assert');
-const { JsonDB } = require('../src/database/db');
 const LoopReplayRunner = require('../src/replay/loop-replay-runner');
-const runController = require('../src/api/run-controller');
 
 console.log('\n🧪 Starting Download Organization & Deduplication Test Suite...\n');
 
 const TEST_DIR = path.resolve(__dirname, 'scratch_test_downloads');
-const TEST_DB_PATH = path.join(TEST_DIR, 'test-db.json');
-
-const { db } = require('../src/database/db');
 
 // Cleanup helper
 function cleanup() {
@@ -38,14 +33,6 @@ function cleanup() {
   if (fs.existsSync(testGenericWf)) {
     fs.rmSync(testGenericWf, { recursive: true, force: true });
   }
-  if (db && db.state && Array.isArray(db.state.downloads)) {
-    db.state.downloads = db.state.downloads.filter(d =>
-      d.workflowId !== 'wf_sample_portal_999' &&
-      d.workflowId !== 'wf_oil_portal_123' &&
-      d.workflowId !== 'wf_sample_generic'
-    );
-    db.save();
-  }
 }
 
 cleanup();
@@ -54,18 +41,9 @@ fs.mkdirSync(TEST_DIR, { recursive: true });
 async function runTests() {
   try {
     // -------------------------------------------------------------
-    // Test 1: JsonDB schema includes downloads collection
+    // Test 1: Runner directory hierarchy & slug generation
     // -------------------------------------------------------------
-    console.log('🔹 Test 1: JsonDB schema includes downloads collection');
-    const testDb = new JsonDB(TEST_DB_PATH);
-    assert(Array.isArray(testDb.state.downloads), 'Default schema must include downloads array');
-    assert.strictEqual(testDb.find('downloads').length, 0, 'Downloads collection should start empty');
-    console.log('  ✅ Schema initialization passed\n');
-
-    // -------------------------------------------------------------
-    // Test 2: Runner directory hierarchy & slug generation
-    // -------------------------------------------------------------
-    console.log('🔹 Test 2: Runner directory hierarchy & slug generation');
+    console.log('🔹 Test 1: Runner directory hierarchy & slug generation');
     const runner = new LoopReplayRunner({
       runId: 'test_run_123',
       workflowId: 'wf_city_mart_999',
@@ -87,9 +65,9 @@ async function runTests() {
     console.log('  ✅ Directory hierarchy & slug generation passed\n');
 
     // -------------------------------------------------------------
-    // Test 3: processAndStoreDownload: hash, copy & manifest sync
+    // Test 2: processAndStoreDownload: hash, copy & manifest sync
     // -------------------------------------------------------------
-    console.log('🔹 Test 3: processAndStoreDownload creates files, DB records & manifest.json');
+    console.log('🔹 Test 2: processAndStoreDownload creates files & manifest.json');
     
     // Create simulated downloaded file in runner staging area
     runner.initDirectories();
@@ -116,9 +94,9 @@ async function runTests() {
     console.log('  ✅ processAndStoreDownload passed\n');
 
     // -------------------------------------------------------------
-    // Test 4: checkIfAlreadyDownloaded detects existing items
+    // Test 3: checkIfAlreadyDownloaded detects existing items
     // -------------------------------------------------------------
-    console.log('🔹 Test 4: checkIfAlreadyDownloaded detects duplicate item before clicking');
+    console.log('🔹 Test 3: checkIfAlreadyDownloaded detects duplicate item before clicking');
     
     // Query with the key used above
     const checkDuplicate = runner.checkIfAlreadyDownloaded('invoice:#001');
@@ -145,9 +123,9 @@ async function runTests() {
     console.log('  ✅ Duplicate detection passed\n');
 
     // -------------------------------------------------------------
-    // Test 5: forceRedownload bypass
+    // Test 4: forceRedownload bypass
     // -------------------------------------------------------------
-    console.log('🔹 Test 5: forceRedownload bypasses skipping');
+    console.log('🔹 Test 4: forceRedownload bypasses skipping');
     const normalRunner = new LoopReplayRunner({
       workflowId: 'wf_city_mart_999',
       forceRedownload: false
@@ -162,84 +140,9 @@ async function runTests() {
     console.log('  ✅ forceRedownload option passed\n');
 
     // -------------------------------------------------------------
-    // Test 6: REST API listDownloads and getWorkflowDownloads
+    // Test 5: Run/<timestamp>/<domain>/<Category>/<filename> hierarchy
     // -------------------------------------------------------------
-    console.log('🔹 Test 6: REST API listDownloads and getWorkflowDownloads');
-    let listStatus = 0;
-    let listJson = null;
-    const mockResList = {
-      writeHead: (s) => { listStatus = s; },
-      end: (data) => { listJson = JSON.parse(data); }
-    };
-    runController.listDownloads({ user: { id: 'user_tester' } }, mockResList);
-    assert.strictEqual(listStatus, 200);
-    assert(listJson && listJson.success === true);
-    assert(Array.isArray(listJson.downloads));
-
-    let wfStatus = 0;
-    let wfJson = null;
-    const mockResWf = {
-      writeHead: (s) => { wfStatus = s; },
-      end: (data) => { wfJson = JSON.parse(data); }
-    };
-    runController.getWorkflowDownloads({ user: { id: 'user_tester' } }, mockResWf, 'wf_city_mart_999');
-    assert.strictEqual(wfStatus, 200);
-    assert(wfJson && wfJson.workflowId === 'wf_city_mart_999');
-    assert(wfJson.downloads.length >= 1);
-    console.log('  ✅ REST API endpoints passed\n');
-
-    // -------------------------------------------------------------
-    // Test 7: Export all downloads ZIP
-    // -------------------------------------------------------------
-    console.log('🔹 Test 7: exportAllDownloadsZip creates and streams ZIP archive');
-    let zipStatus = 0;
-    let zipHeaders = {};
-    await new Promise((resolve, reject) => {
-      const mockResZip = {
-        writeHead: (s, h) => { zipStatus = s; zipHeaders = h; },
-        on: () => mockResZip,
-        once: () => mockResZip,
-        emit: () => {},
-        write: () => true,
-        end: () => resolve()
-      };
-      try {
-        runController.exportAllDownloadsZip({ user: { id: 'user_tester' } }, mockResZip);
-      } catch (err) {
-        reject(err);
-      }
-    });
-    assert.strictEqual(zipStatus, 200);
-    assert.strictEqual(zipHeaders['Content-Type'], 'application/zip');
-    console.log('  ✅ exportAllDownloadsZip archive passed\n');
-
-    // -------------------------------------------------------------
-    // Test 8: Delete Download
-    // -------------------------------------------------------------
-    console.log('🔹 Test 8: deleteDownload removes artifact from disk and db');
-    let delStatus = 0;
-    let delJson = null;
-    const mockResDel = {
-      writeHead: (s) => { delStatus = s; },
-      end: (data) => { delJson = JSON.parse(data); }
-    };
-    runController.deleteDownload({ user: { id: 'user_tester', role: 'admin' } }, mockResDel, stored.id);
-    assert.strictEqual(delStatus, 200);
-    assert(delJson && delJson.success === true);
-    assert.strictEqual(delJson.id, stored.id);
-
-    // Verify deleted from db
-    const checkDb = db.findOne('downloads', d => d.id === stored.id);
-    assert.strictEqual(checkDb, null);
-
-    // Verify file removed from disk
-    assert(!fs.existsSync(stored.path));
-    console.log('  ✅ deleteDownload passed\n');
-
-    // -------------------------------------------------------------
-    // Test 9: Run/<timestamp>/<domain>/<Category>/<filename> hierarchy
-    // -------------------------------------------------------------
-    console.log('🔹 Test 9: Run/<timestamp>/<domain>/<Category>/<filename> hierarchy creation');
+    console.log('🔹 Test 5: Run/<timestamp>/<domain>/<Category>/<filename> hierarchy creation');
     const runRunner = new LoopReplayRunner({
       runId: 'run_test_run_hierarchy',
       workflowId: 'wf_oil_portal_123',
@@ -293,9 +196,9 @@ async function runTests() {
     console.log('  ✅ Run/<timestamp>/<domain>/<Category>/<filename> hierarchy passed\n');
 
     // -------------------------------------------------------------
-    // Test 10: Generic filename differentiation (InvoiceMainReport.pdf)
+    // Test 6: Generic filename differentiation (InvoiceMainReport.pdf)
     // -------------------------------------------------------------
-    console.log('🔹 Test 10: Generic filename differentiation (InvoiceMainReport.pdf)');
+    console.log('🔹 Test 6: Generic filename differentiation (InvoiceMainReport.pdf)');
     const genericRunner = new LoopReplayRunner({
       runId: 'run_test_generic_diff',
       workflowId: 'wf_sample_generic',
@@ -305,7 +208,7 @@ async function runTests() {
     });
     genericRunner.initDirectories();
 
-    // 10a: First invoice downloads as InvoiceMainReport.pdf with fields
+    // 6a: First invoice downloads as InvoiceMainReport.pdf with fields
     const file1Path = path.join(genericRunner.downloadsDir, 'InvoiceMainReport.pdf');
     fs.writeFileSync(file1Path, 'PDF content invoice 1 DR-1468-260921182926', 'utf8');
     const stored1 = genericRunner.processAndStoreDownload(
@@ -317,7 +220,7 @@ async function runTests() {
     assert.strictEqual(stored1.filename, 'DR-1468-260921182926_2026-09-21.pdf');
     assert(fs.existsSync(stored1.path));
 
-    // 10b: Second invoice downloads also as InvoiceMainReport.pdf, but content is DIFFERENT (different invoice inside)
+    // 6b: Second invoice downloads also as InvoiceMainReport.pdf, but content is DIFFERENT (different invoice inside)
     fs.writeFileSync(file1Path, 'PDF content invoice 2 DR-1468-26091913502 - totally different inside', 'utf8');
     const stored2 = genericRunner.processAndStoreDownload(
       file1Path,
@@ -330,13 +233,13 @@ async function runTests() {
     assert(fs.existsSync(stored2.path));
     assert(fs.existsSync(stored1.path), 'Previous invoice file must not be overwritten');
 
-    // 10c: Third download arrives late without explicit item context, but with generic filename
+    // 6c: Third download arrives late without explicit item context, but with generic filename
     fs.writeFileSync(file1Path, 'PDF content invoice 3 completely unassociated with item context', 'utf8');
     const stored3 = genericRunner.processAndStoreDownload(file1Path);
     assert(stored3.filename.startsWith('InvoiceMainReport_'), 'Must be disambiguated with content hash');
     assert.notStrictEqual(stored3.fileHash, stored2.fileHash);
 
-    // 10d: Check deduplication recognizes content difference
+    // 6d: Check deduplication recognizes content difference
     const dedupeDiff = genericRunner.checkIfAlreadyDownloaded('invoice:DR-99999', null, {}, 'unknown_hash_123');
     assert.strictEqual(dedupeDiff.isDuplicate, false, 'Different content hash must not be marked as duplicate');
 

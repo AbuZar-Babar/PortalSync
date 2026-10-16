@@ -14,8 +14,6 @@ const LoopDetector = require('../shared/loop-detector');
 const ItemDiscovery = require('../shared/item-discovery');
 const ActionGeneralizer = require('../shared/action-generalizer');
 const logger = require('../utils/logger');
-const { db } = require('../database/db');
-const { decryptSecret } = require('../auth/secret-util');
 const { resolveTargetUrl, extractWorkflowStartUrl } = require('../utils/url-helper');
 const {
   normalizeItemFilter,
@@ -26,12 +24,7 @@ const {
 } = require('../shared/item-filter');
 const { ConditionEvaluator } = require('../shared/condition-evaluator');
 const { PageInspector } = require('../shared/page-inspector');
-const { IntentCompiler } = require('../engine/intent-compiler');
-const { SemanticResolver } = require('./semantic-resolver');
 const DownloadManager = require('./download-manager');
-const PaginationManager = require('./pagination-manager');
-const ResultValidator = require('./result-validator');
-const FilterEngine = require('../shared/filter-engine');
 const { detectLoginSequence, isSessionAuthenticated, isLoginAction } = require('../shared/auth-detector');
 const ArtifactDownloadManager = require('./loop/artifact-download-manager');
 const GridSelectionAdapter = require('./loop/grid-selection-adapter');
@@ -145,12 +138,7 @@ class LoopReplayRunner {
     this.runTimestamp = this.downloadManager.runTimestamp;
     this.runDomainDir = this.downloadManager.runDomainDir;
     this.executionDownloadsDir = this.downloadManager.getDirectory();
-    this.paginationManager = new PaginationManager({ maxPages: options.maxPages || 25 });
-    this.resultValidator = new ResultValidator({
-      executionId: this.runId,
-      workflowId: this.workflowId,
-      workflowName: this.workflowName
-    });
+    this.secretResolver = options.secretResolver || null;
 
     this.artifactDownloadManager = new ArtifactDownloadManager({
       runId: this.runId,
@@ -293,7 +281,7 @@ class LoopReplayRunner {
    * 1. Validates existence and completion.
    * 2. Calculates SHA256 checksum.
    * 3. Moves/copies file into structured folder: downloads/<workflow-slug>/<YYYY-MM-DD>/<filename>
-   * 4. Persists metadata record in db.json ('downloads' collection)
+   * 4. Tracks download record in artifact download manager
    * 5. Appends record to workflow downloads manifest: downloads/<workflow-slug>/manifest.json
    */
   processAndStoreDownload(sourcePath, itemKey = null, itemLabel = null, itemFields = {}) {
@@ -609,19 +597,8 @@ class LoopReplayRunner {
       const page = this.replayEngine.tabManager?.getPrimaryPage() || this.replayEngine.page || (await browser.pages())[0];
       this.replayEngine.page = page;
 
-      // Set up the secret resolver using the workflow's userId
-      this.replayEngine.secretResolver = async (secretId) => {
-        const secret = db.findOne('secrets', s => s.id === secretId && s.userId === workflow.userId);
-        if (secret && secret.encryptedData) {
-          try {
-            return decryptSecret(secret.encryptedData);
-          } catch (e) {
-            logger.warn(`Failed to decrypt secret [${secretId}]: ${e.message}`);
-          }
-        }
-        logger.warn(`Secret [${secretId}] not found or could not be decrypted.`);
-        return `{{secret:${secretId}}}`;
-      };
+      // Set up the secret resolver
+      this.replayEngine.secretResolver = this.secretResolver || (async (secretId) => `{{secret:${secretId}}}`);
 
       // Setup CDP download interception
       await this.configureDownloadInterception(page);
@@ -983,19 +960,8 @@ class LoopReplayRunner {
       const initialPages = await browser.pages().catch(() => []);
       const initialPageUrls = new Set(initialPages.map(p => p.url()));
 
-      // Set up the secret resolver using the workflow's userId
-      this.replayEngine.secretResolver = async (secretId) => {
-        const secret = db.findOne('secrets', s => s.id === secretId && s.userId === workflow.userId);
-        if (secret && secret.encryptedData) {
-          try {
-            return decryptSecret(secret.encryptedData);
-          } catch (e) {
-            logger.warn(`Failed to decrypt secret [${secretId}]: ${e.message}`);
-          }
-        }
-        logger.warn(`Secret [${secretId}] not found or could not be decrypted. Falling back to placeholder.`);
-        return `{{secret:${secretId}}}`;
-      };
+      // Set up the secret resolver
+      this.replayEngine.secretResolver = this.secretResolver || (async (secretId) => `{{secret:${secretId}}}`);
 
       // Setup CDP download interception
       await this.configureDownloadInterception(page);

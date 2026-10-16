@@ -16,7 +16,6 @@ const path = require('path');
 const crypto = require('crypto');
 const zlib = require('zlib');
 const logger = require('../utils/logger');
-const { db } = require('../database/db');
 
 function formatRunTimestamp(date = new Date()) {
   if (typeof date === 'string') {
@@ -548,27 +547,6 @@ class DownloadManager {
 
     this.files.push(record);
     this._saveManifest();
-
-    // Also persist to JsonDB downloads collection if available
-    try {
-      if (db && typeof db.insert === 'function') {
-        db.insert('downloads', {
-          id: `dl_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-          runId: this.executionId,
-          workflowId: this.workflowId,
-          filename: record.filename,
-          size: record.size,
-          path: record.filePath,
-          runPath: record.runPath,
-          portalDomain: this.portalDomain,
-          runTimestamp: this.runTimestamp,
-          category: record.category,
-          status: 'COMPLETED',
-          itemId: record.itemId,
-          createdAt: record.downloadedAt
-        });
-      }
-    } catch {}
 
     logger.success(`[DownloadManager] Download verified: "${record.filename}" (${record.size} bytes)`);
     return record;
