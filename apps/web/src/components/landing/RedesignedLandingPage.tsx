@@ -4,10 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowDown,
-  ArrowRight,
   ArrowUpRight,
   Check,
-  ChevronDown,
   CircleDot,
   Download,
   FileSearch,
