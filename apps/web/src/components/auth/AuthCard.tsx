@@ -260,12 +260,12 @@ export function AuthCard({
   };
 
   return (
-    <div className={`bg-[#09090d]/95 border border-white/15 rounded-2xl sm:rounded-3xl shadow-2xl p-6 sm:p-8 backdrop-blur-xl relative ${isModal ? 'w-full max-w-md' : ''}`}>
+    <div className={`relative rounded-2xl border border-white/[0.11] bg-[#090909]/95 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.48)] backdrop-blur-xl sm:rounded-3xl sm:p-8 ${isModal ? 'w-full max-w-md' : ''}`}>
       {isModal && onClose && (
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-white/5 transition cursor-pointer"
+          className="absolute right-4 top-4 rounded-lg border border-transparent p-1.5 text-zinc-500 transition duration-200 hover:border-white/10 hover:bg-white/[0.05] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-200 cursor-pointer"
           aria-label="Close"
         >
           <X className="w-5 h-5" />
@@ -274,14 +274,14 @@ export function AuthCard({
 
       {/* Existing Session Notification Banner */}
       {currentUserEmail && (
-        <div className="mb-5 p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs flex items-center justify-between gap-3">
+        <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-emerald-200/15 bg-emerald-200/[0.05] p-3 text-xs text-emerald-100">
           <div className="flex items-center gap-2 truncate">
             <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse flex-shrink-0" />
             <span className="truncate">Signed in as <strong>{currentUserEmail}</strong></span>
           </div>
           <Link
             href="/dashboard"
-            className="flex items-center gap-1 font-bold text-cyan-300 hover:text-white px-2.5 py-1 rounded-md bg-cyan-500/20 hover:bg-cyan-500/30 transition text-[11px] shrink-0"
+            className="flex items-center gap-1 font-bold rounded-md border border-emerald-200/10 bg-emerald-200/[0.08] px-2.5 py-1 text-[11px] text-emerald-100 transition hover:bg-emerald-200/[0.14] hover:text-white shrink-0"
           >
             <span>Dashboard</span>
             <ExternalLink className="w-3 h-3" />
@@ -290,7 +290,7 @@ export function AuthCard({
       )}
 
       {/* Prominent Tab Switcher Header */}
-      <div className="flex bg-[#050508] p-1.5 rounded-xl border border-white/10 mb-6 gap-1.5" role="tablist">
+      <div className="relative mb-6 flex gap-1.5 rounded-xl border border-white/[0.09] bg-[#050505] p-1.5" role="tablist">
         <button
           type="button"
           role="tab"
@@ -301,8 +301,8 @@ export function AuthCard({
           }}
           className={`flex-1 py-2.5 px-4 rounded-lg font-bold text-xs sm:text-sm transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 ${
             activeTab === 'signin'
-              ? 'bg-white text-zinc-950 shadow-md'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5'
+              ? 'border border-emerald-200/20 bg-emerald-200 text-[#07120d] shadow-[0_4px_18px_rgba(110,231,183,0.10)]'
+              : 'border border-transparent text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100'
           }`}
         >
           <Lock className="w-3.5 h-3.5" />
@@ -319,8 +319,8 @@ export function AuthCard({
           }}
           className={`flex-1 py-2.5 px-4 rounded-lg font-bold text-xs sm:text-sm transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 ${
             activeTab === 'signup'
-              ? 'bg-white text-zinc-950 shadow-md'
-              : 'text-zinc-400 hover:text-white hover:bg-white/5'
+              ? 'border border-emerald-200/20 bg-emerald-200 text-[#07120d] shadow-[0_4px_18px_rgba(110,231,183,0.10)]'
+              : 'border border-transparent text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100'
           }`}
         >
           <Building className="w-3.5 h-3.5" />
@@ -330,7 +330,7 @@ export function AuthCard({
 
       {/* Selected Subscription Plan Banner */}
       {activeTab === 'signup' && selectedPlan && (
-        <div className="mb-5 p-3 rounded-xl bg-white/[0.04] border border-white/15 flex items-center justify-between text-xs">
+        <div className="mb-5 flex items-center justify-between rounded-xl border border-white/[0.09] bg-white/[0.025] p-3 text-xs">
           <div className="flex items-center gap-2.5">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
             <div>
@@ -350,7 +350,7 @@ export function AuthCard({
 
       {/* TAB 1: SIGN IN */}
       {activeTab === 'signin' && (
-        <div>
+        <div className="auth-panel-enter">
           {signInError && (
             <div className="mb-5 p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs sm:text-sm flex items-start gap-3">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -363,7 +363,7 @@ export function AuthCard({
                       setForgotEmail(signInEmail);
                       setShowForgotModal(true);
                     }}
-                    className="block mt-1.5 text-xs font-semibold text-cyan-400 hover:text-cyan-300 underline cursor-pointer"
+                    className="mt-1.5 block text-xs font-semibold text-emerald-200 underline decoration-emerald-200/40 underline-offset-4 transition hover:text-emerald-100 cursor-pointer"
                   >
                     Reset your password now →
                   </button>
@@ -386,7 +386,7 @@ export function AuthCard({
                   value={signInEmail}
                   onChange={(e) => setSignInEmail(e.target.value)}
                   placeholder="ap-team@acmecorp.com"
-                  className="w-full pl-10 pr-4 py-2.5 bg-[#050508] border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-white/40 transition text-sm"
+                  className="w-full pl-10 pr-4 py-2.5 bg-[#050505] border border-white/[0.10] rounded-xl text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-200/60 focus:ring-2 focus:ring-emerald-200/[0.08] transition duration-200 text-sm"
                 />
               </div>
             </div>
@@ -400,7 +400,7 @@ export function AuthCard({
                     setForgotEmail(signInEmail);
                     setShowForgotModal(true);
                   }}
-                  className="text-xs font-medium text-cyan-400 hover:text-cyan-300 transition cursor-pointer"
+                  className="text-xs font-medium text-emerald-200 transition hover:text-emerald-100 cursor-pointer"
                 >
                   Forgot password?
                 </button>
@@ -416,7 +416,7 @@ export function AuthCard({
                   value={signInPassword}
                   onChange={(e) => setSignInPassword(e.target.value)}
                   placeholder="••••••••••••"
-                  className="w-full pl-10 pr-10 py-2.5 bg-[#050508] border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-white/40 transition text-sm"
+                  className="w-full pl-10 pr-10 py-2.5 bg-[#050505] border border-white/[0.10] rounded-xl text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-200/60 focus:ring-2 focus:ring-emerald-200/[0.08] transition duration-200 text-sm"
                 />
                 <button
                   type="button"
@@ -433,7 +433,7 @@ export function AuthCard({
             <button
               type="submit"
               disabled={signInLoading}
-              className="w-full mt-3 py-3 px-4 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs uppercase tracking-wider shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-100/20 bg-emerald-200 px-4 py-3 text-xs font-bold uppercase tracking-wider text-[#07120d] shadow-[0_8px_24px_rgba(110,231,183,0.10)] transition duration-200 hover:-translate-y-0.5 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
             >
               {signInLoading ? (
                 <>
@@ -453,7 +453,7 @@ export function AuthCard({
 
       {/* TAB 2: CREATE ACCOUNT */}
       {activeTab === 'signup' && (
-        <div>
+        <div className="auth-panel-enter">
           {signUpError && (
             <div className="mb-5 p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs sm:text-sm flex items-start gap-3">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -485,7 +485,7 @@ export function AuthCard({
                   value={signUpCompany}
                   onChange={(e) => setSignUpCompany(e.target.value)}
                   placeholder="Acme Logistics"
-                  className="w-full pl-10 pr-4 py-2 bg-[#050508] border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-white/40 transition text-sm"
+                  className="w-full pl-10 pr-4 py-2 bg-[#050505] border border-white/[0.10] rounded-xl text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-200/60 focus:ring-2 focus:ring-emerald-200/[0.08] transition duration-200 text-sm"
                 />
               </div>
             </div>
@@ -503,7 +503,7 @@ export function AuthCard({
                   value={signUpEmail}
                   onChange={(e) => setSignUpEmail(e.target.value)}
                   placeholder="name@company.com"
-                  className="w-full pl-10 pr-4 py-2 bg-[#050508] border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-white/40 transition text-sm"
+                  className="w-full pl-10 pr-4 py-2 bg-[#050505] border border-white/[0.10] rounded-xl text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-200/60 focus:ring-2 focus:ring-emerald-200/[0.08] transition duration-200 text-sm"
                 />
               </div>
             </div>
@@ -522,7 +522,7 @@ export function AuthCard({
                   value={signUpPassword}
                   onChange={(e) => setSignUpPassword(e.target.value)}
                   placeholder="Minimum 6 characters"
-                  className="w-full pl-10 pr-10 py-2 bg-[#050508] border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-white/40 transition text-sm"
+                  className="w-full pl-10 pr-10 py-2 bg-[#050505] border border-white/[0.10] rounded-xl text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-200/60 focus:ring-2 focus:ring-emerald-200/[0.08] transition duration-200 text-sm"
                 />
                 <button
                   type="button"
@@ -553,7 +553,7 @@ export function AuthCard({
                   className={`w-full pl-10 pr-10 py-2 bg-[#050508] border rounded-xl text-white placeholder-zinc-500 focus:outline-none transition text-sm ${
                     signUpConfirmPassword && signUpConfirmPassword !== signUpPassword
                       ? 'border-red-500/50 focus:border-red-500'
-                      : 'border-white/10 focus:border-white/40'
+                      : 'border-white/10 focus:border-emerald-200/60'
                   }`}
                 />
                 {signUpConfirmPassword && signUpConfirmPassword === signUpPassword && (
@@ -570,7 +570,7 @@ export function AuthCard({
             <button
               type="submit"
               disabled={signUpLoading}
-              className="w-full mt-3 py-3 px-4 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs uppercase tracking-wider shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="w-full mt-3 py-3 px-4 rounded-full bg-emerald-200 hover:bg-emerald-100 text-[#07120d] font-bold text-xs uppercase tracking-wider shadow-[0_8px_24px_rgba(110,231,183,0.10)] transition duration-200 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               {signUpLoading ? (
                 <>
@@ -588,7 +588,7 @@ export function AuthCard({
         </div>
       )}
 
-      <div className="mt-6 pt-5 border-t border-white/10 text-center">
+      <div className="mt-6 border-t border-white/[0.08] pt-5 text-center">
         <p className="text-[11px] font-mono text-zinc-500">
           Enterprise Security · Local Replay Execution · Zero Extensions
         </p>
@@ -597,7 +597,7 @@ export function AuthCard({
       {/* Forgot Password Modal */}
       {showForgotModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#09090d] border border-white/15 rounded-2xl p-6 max-w-md w-full shadow-2xl relative">
+          <div className="relative w-full max-w-md rounded-2xl border border-white/[0.12] bg-[#090909] p-6 shadow-2xl">
             <button
               type="button"
               onClick={() => {
@@ -610,8 +610,8 @@ export function AuthCard({
               <X className="w-5 h-5" />
             </button>
 
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-white">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="rounded-xl border border-emerald-200/15 bg-emerald-200/[0.06] p-2.5 text-emerald-200">
                 <KeyRound className="w-5 h-5" />
               </div>
               <div>
@@ -650,7 +650,7 @@ export function AuthCard({
                     value={forgotEmail}
                     onChange={(e) => setForgotEmail(e.target.value)}
                     placeholder="name@company.com"
-                    className="w-full pl-9 pr-4 py-2 bg-[#050508] border border-white/10 rounded-lg text-white text-xs placeholder-zinc-500 focus:outline-none focus:border-white/40 transition"
+                    className="w-full pl-9 pr-4 py-2 bg-[#050505] border border-white/[0.10] rounded-lg text-white text-xs placeholder-zinc-600 focus:outline-none focus:border-emerald-200/60 focus:ring-2 focus:ring-emerald-200/[0.08] transition duration-200"
                   />
                 </div>
               </div>
@@ -669,7 +669,7 @@ export function AuthCard({
                 <button
                   type="submit"
                   disabled={forgotLoading}
-                  className="px-4 py-1.5 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 text-xs font-bold transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                  className="flex items-center gap-1.5 rounded-lg border border-emerald-100/20 bg-emerald-200 px-4 py-2 text-xs font-bold text-[#07120d] transition duration-200 hover:bg-emerald-100 disabled:opacity-50 cursor-pointer"
                 >
                   {forgotLoading ? (
                     <>
@@ -685,6 +685,16 @@ export function AuthCard({
           </div>
         </div>
       )}
+      <style jsx>{`
+        @keyframes auth-panel-enter {
+          from { opacity: 0; transform: translate3d(0, 10px, 0); filter: blur(2px); }
+          to { opacity: 1; transform: translate3d(0, 0, 0); filter: blur(0); }
+        }
+        .auth-panel-enter { animation: auth-panel-enter 320ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+        @media (prefers-reduced-motion: reduce) {
+          .auth-panel-enter { animation: none; }
+        }
+      `}</style>
     </div>
   );
 }
