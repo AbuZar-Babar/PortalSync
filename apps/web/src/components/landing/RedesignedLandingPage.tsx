@@ -22,6 +22,7 @@ import {
   X,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import ScrollReveal from '@/components/landing/ScrollReveal';
 import { AuthCard, PlanTier } from '@/components/auth/AuthCard';
 import PricingSection from '@/components/landing/PricingSection';
 
@@ -305,6 +306,7 @@ export default function RedesignedLandingPage() {
         <section className="relative isolate overflow-hidden">
           <div aria-hidden="true" className="pointer-events-none absolute -right-48 -top-48 -z-10 h-[620px] w-[620px] rounded-full bg-emerald-400/[0.07] blur-3xl" />
           <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 py-20 sm:px-8 sm:py-24 lg:grid-cols-[0.94fr_1.06fr] lg:gap-16 lg:px-12 lg:py-28">
+            <ScrollReveal direction="left" className="min-w-0">
             <div>
               <div className="mb-6 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.17em] text-emerald-200">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-200" />
@@ -332,7 +334,9 @@ export default function RedesignedLandingPage() {
               </div>
               <p className="mt-4 text-xs text-zinc-600">Start with one workflow. Refine it as your process evolves.</p>
             </div>
+            </ScrollReveal>
 
+            <ScrollReveal direction="right" className="min-w-0">
             <div>
               <ProductWindow />
               <div className="mt-3 flex items-center justify-between gap-3 text-[10px] text-zinc-600">
@@ -340,16 +344,17 @@ export default function RedesignedLandingPage() {
                 <span className="flex items-center gap-2 text-zinc-500"><span className="h-1.5 w-1.5 rounded-full bg-emerald-200" /> Capture · Configure · Run</span>
               </div>
             </div>
+            </ScrollReveal>
           </div>
         </section>
 
         <section id="how-it-works" className="border-y border-white/[0.06] bg-[#0d100f]">
           <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-24 lg:px-12">
-            <div className="max-w-2xl">
+            <ScrollReveal direction="up" className="max-w-2xl">
               <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.17em] text-emerald-200">A simpler way to automate</p>
               <h2 className="text-3xl font-semibold leading-tight tracking-[-0.045em] text-white sm:text-5xl">From manual steps to a reusable workflow.</h2>
               <p className="mt-5 max-w-xl text-sm leading-7 text-zinc-400 sm:text-base">Build a repeatable process around the work you already do. Start small, then refine the workflow to match your needs.</p>
-            </div>
+            </ScrollReveal>
 
             <div className="mt-12 grid gap-9 md:grid-cols-3 md:gap-10">
               {[
@@ -369,14 +374,14 @@ export default function RedesignedLandingPage() {
 
         <section id="features" className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28 lg:px-12">
           <div className="grid items-start gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:gap-20">
-            <div className="lg:sticky lg:top-28">
+            <ScrollReveal direction="left" className="lg:sticky lg:top-28">
               <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.17em] text-emerald-200">Built around your process</p>
               <h2 className="max-w-md text-3xl font-semibold leading-tight tracking-[-0.045em] text-white sm:text-5xl">Less repetition. More control.</h2>
               <p className="mt-5 max-w-md text-sm leading-7 text-zinc-400 sm:text-base">ReFlow brings the steps of a browser task into one manageable workflow. Explore how each part fits together.</p>
               <a href="#desktop-runner" className="mt-7 inline-flex items-center gap-2 text-sm font-semibold text-emerald-200 transition hover:text-emerald-100">
                 Explore the desktop runner <ArrowRight className="h-4 w-4" />
               </a>
-            </div>
+            </ScrollReveal>
 
             <div className="space-y-3">
               {STORY_ITEMS.map((item, index) => {
