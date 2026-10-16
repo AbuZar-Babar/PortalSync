@@ -45,11 +45,11 @@ export function Sidebar({ isRunnerOnline = false }: SidebarProps) {
   };
 
   const navItems = [
-    { label: 'Overview', href: '/dashboard', icon: LayoutGrid, exact: true },
+    { label: 'Home', href: '/dashboard', icon: LayoutGrid, exact: true },
     { label: 'Workflows', href: '/dashboard/workflows', icon: Workflow, exact: false },
-    { label: 'Executions', href: '/dashboard/runs', icon: Activity, exact: false },
-    { label: 'Outputs', href: '/dashboard/artifacts', icon: FileText, exact: false },
-    { label: 'Workers', href: '/dashboard/runners', icon: Cpu, exact: false },
+    { label: 'Run history', href: '/dashboard/runs', icon: Activity, exact: false },
+    { label: 'Files & results', href: '/dashboard/artifacts', icon: FileText, exact: false },
+    { label: 'Desktop connection', href: '/dashboard/runners', icon: Cpu, exact: false },
     { label: 'Settings', href: '/dashboard/settings', icon: Settings, exact: false }
   ];
 
