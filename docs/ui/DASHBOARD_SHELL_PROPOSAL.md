@@ -1,6 +1,6 @@
 # ReFlow Phase 1 — Dashboard & Shared Navigation Proposal
 
-**Status:** Proposed; awaiting user approval  
+**Status:** Initial implementation committed; runtime validation pending  
 **Branch:** `feat/landing-page-redesign`  
 **Scope:** `/dashboard`, shared dashboard shell, sidebar, header  
 **Source baseline:** `68cc673033ff47ac8743a6d2c350bf286d1c6fa8`  
@@ -242,13 +242,27 @@ Before marking the implementation complete, perform a browser review of the dash
 - A global theme overhaul or removing user theme preferences.
 - Removing existing metrics, actions, destinations, or supported workflow creation methods.
 
-## 11. Decision requested
+## 11. Implementation outcome and verification
 
-Please review and approve or revise:
+The initial approved direction has been implemented on `feat/landing-page-redesign` in three focused commits:
 
-1. The task-first dashboard hierarchy.
-2. The proposed navigation labels, especially “Home,” “Run history,” “Files & results,” and “Desktop connection.”
-3. The connection-status wording after its source semantics are verified.
-4. The decision to keep the workflow-creation modal unchanged in this first scope and treat it as the next separate proposal.
+- `3428398300617fd118ce733750da1c118f27cbd9` — task-first dashboard opening and direct workflow-library shortcut.
+- `2cce2d57ef6e84f1522dcbe5a3ec94d398030a0a` — clearer sidebar labels with all destination paths preserved.
+- `87dc443092e8585bf17ae90f0a5e4706fcdf90c5` — clearer desktop connection wording while preserving the existing status source and route.
 
-**Implementation gate:** No application code changes until this proposal is approved.
+### Static source verification performed
+
+- The primary create action still opens the existing `CreatePortalModal`.
+- The secondary action points to the existing `/dashboard/workflows` route.
+- Existing dashboard data loading, organization scoping, Realtime subscription, active-run polling, stop-run handler, action-required banner, run-details drawer, loading/error/empty states, and metrics were left intact.
+- Sidebar destination paths, nested route matching, collapsed/expanded behavior, and the saved preference key were left intact.
+- Header refresh, account menu, sign-out behavior, and runner destination were left intact.
+- The commit diffs were inspected after writing and the updated source was fetched back from the branch.
+
+### Not yet verified
+
+No build, lint, automated tests, browser interaction checks, or responsive review were run. The connected Desktop Commander device was offline, and no GitHub Actions runs were available for this branch at verification time. Therefore, **functional behavior has been preserved by keeping the changes narrow, but it cannot yet be claimed that the changes passed runtime verification.**
+
+Before considering this work complete, run the web app's available build/type/lint checks and review the dashboard on desktop and a narrow viewport. Exercise workflow creation, workflow-library navigation, refresh, account menu/sign-out, collapsed sidebar navigation, connection status, action-required runs, and run details.
+
+The workflow-creation modal, editor, backend contracts, database queries, execution semantics, theme tokens, and Electron UI remain out of scope.
