@@ -69,7 +69,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         />
 
         {/* Dynamic Route Content */}
-        <main className="flex-1 overflow-y-auto bg-reflow-canvas p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto bg-reflow-canvas p-4 sm:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto">
             {children}
           </div>
