@@ -309,20 +309,39 @@ export default function DashboardOverviewPage() {
         }}
       />
 
-      {/* Compact page heading and primary action */}
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0 space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground,#f8fafc)]">Overview</h1>
-          <p className="text-sm text-slate-400">Monitor your workflows and recent activity.</p>
+      {/* Task-first entry point; existing workflow creation behavior is preserved. */}
+      <section
+        aria-labelledby="dashboard-task-heading"
+        className="rounded-2xl border border-[var(--border-color,rgba(255,255,255,0.08))] bg-[var(--surface-bg,#0c101d)] p-5 sm:p-7"
+      >
+        <div className="max-w-2xl space-y-2">
+          <h1
+            id="dashboard-task-heading"
+            className="text-2xl font-semibold tracking-tight text-[var(--foreground,#f8fafc)] sm:text-3xl"
+          >
+            What do you want to automate?
+          </h1>
+          <p className="text-sm leading-6 text-slate-400 sm:text-base">
+            Create a workflow to repeat browser tasks and collect the files or information you need.
+          </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setIsCreateModalOpen(true)}
-          className="inline-flex min-h-10 items-center justify-center gap-2 self-start rounded-lg bg-[var(--primary-color,#00d9e8)] px-4 py-2 text-sm font-semibold text-slate-950 transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-color,#00f0ff)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--canvas-bg,#060913)] sm:self-auto"
-        >
-          <Plus aria-hidden="true" className="h-4 w-4" />
-          <span>New Workflow</span>
-        </button>
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={() => setIsCreateModalOpen(true)}
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[var(--primary-color,#00d9e8)] px-4 py-2 text-sm font-semibold text-slate-950 transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-color,#00f0ff)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--canvas-bg,#060913)]"
+          >
+            <Plus aria-hidden="true" className="h-4 w-4" />
+            <span>Create a workflow</span>
+          </button>
+          <Link
+            href="/dashboard/workflows"
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[var(--border-color,rgba(255,255,255,0.12))] px-4 py-2 text-sm font-medium text-[var(--foreground,#f8fafc)] transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-color,#00f0ff)]"
+          >
+            View workflows
+            <ArrowRight aria-hidden="true" className="h-4 w-4" />
+          </Link>
+        </div>
       </section>
 
       {/* Four compact workspace metrics */}
