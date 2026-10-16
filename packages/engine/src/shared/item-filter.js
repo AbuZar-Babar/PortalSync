@@ -603,6 +603,45 @@ function validateItemFilter(filterInput) {
   };
 }
 
+const EXTENDED_OPS = new Set([
+  'contains', 'includes', 'equals', 'eq', '==', '===', 'not_equals', 'neq', '!=',
+  'starts_with', 'ends_with', 'in', 'one_of', 'not_in',
+  'greater_than', 'gt', '>', 'after', 'date_after', 'date_gt',
+  'greater_than_or_equal', 'gte', '>=', 'on_or_after', 'date_on_or_after', 'date_gte',
+  'less_than', 'lt', '<', 'before', 'date_before', 'date_lt',
+  'less_than_or_equal', 'lte', '<=', 'on_or_before', 'date_on_or_before', 'date_lte',
+  'date_between', 'between_dates', 'last_n_days'
+]);
+
+/**
+ * Validates a filter object, accepting both core contract operators and extended operators
+ * supported by ConditionEvaluator (relational numbers, comparisons, advanced dates).
+ *
+ * @param {any} rawFilter
+ * @returns {{ valid: boolean, error: string|null, filter: any }}
+ */
+function validateFilterWithExtendedOps(rawFilter) {
+  const filterValidation = validateItemFilter(rawFilter);
+  if (filterValidation.valid) {
+    return filterValidation;
+  }
+
+  const isOperatorError = filterValidation.error && filterValidation.error.includes('Unsupported filter operator');
+  if (isOperatorError && rawFilter) {
+    const { ConditionEvaluator } = require('./condition-evaluator');
+    const normalizedConditions = ConditionEvaluator.normalizeConditions(rawFilter);
+    const isSupported = Boolean(
+      normalizedConditions.rules.length > 0 &&
+      normalizedConditions.rules.every(r => r.field && EXTENDED_OPS.has(String(r.operator || '').toLowerCase().trim()))
+    );
+    if (isSupported) {
+      return { valid: true, error: null, filter: rawFilter };
+    }
+  }
+
+  return filterValidation;
+}
+
 /**
  * Extracts available fields from a map or list of items.
  *
@@ -1115,6 +1154,7 @@ module.exports = {
   normalizeFilter: normalizeItemFilter,
   validateItemFilter,
   validateFilter: validateItemFilter,
+  validateFilterWithExtendedOps,
   evaluateItemFilter,
   evaluateFilter: evaluateItemFilter,
   evaluateFilterPreview,
@@ -1127,6 +1167,7 @@ module.exports = {
     SUPPORTED_MATCH_MODES,
     normalize: normalizeItemFilter,
     validate: validateItemFilter,
+    validateWithExtendedOps: validateFilterWithExtendedOps,
     evaluate: evaluateItemFilter,
     evaluatePreview: evaluateFilterPreview,
     extractFields: extractAvailableFields

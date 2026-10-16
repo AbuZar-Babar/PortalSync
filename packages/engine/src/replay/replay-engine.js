@@ -17,7 +17,6 @@ const {
   AutomationError
 } = require('../utils/errors');
 const { dispatchAction } = require('./action-executors');
-const { calculateDelay } = require('./human-mouse');
 const { getActiveBotConfig } = require('../shared/bot-config');
 const { resolveTargetUrl, extractWorkflowStartUrl, isInternalBrowserUrl } = require('../utils/url-helper');
 const logger = require('../utils/logger');
@@ -660,11 +659,8 @@ class ReplayEngine extends EventEmitter {
       }
 
       // Apply pre-action delay if configured
-      if (this.botConfig?.timing?.preActionDelayMs > 0) {
-        const preDelay = calculateDelay(
-          Math.round(this.botConfig.timing.preActionDelayMs * 0.7),
-          Math.round(this.botConfig.timing.preActionDelayMs * 1.3)
-        );
+      const preDelay = ActionDispatcher.calculatePreActionDelay(this.botConfig);
+      if (preDelay > 0) {
         await new Promise(r => setTimeout(r, preDelay));
       }
 
@@ -728,28 +724,10 @@ class ReplayEngine extends EventEmitter {
       );
 
       // Deep clone the action so we don't mutate the original recording
-      const actionToDispatch = { ...action };
-      if (actionToDispatch.type === 'TYPE' && typeof actionToDispatch.value === 'string') {
-        const match = actionToDispatch.value.match(/^{{secret:([^}]+)}}$/);
-        if (match && this.secretResolver) {
-          logger.info(`Injecting secret [${match[1]}] for action #${index + 1}...`);
-          actionToDispatch.value = await this.secretResolver(match[1]);
-        }
-      }
+      const actionToDispatch = await ActionDispatcher.resolveActionSecrets(action, this.secretResolver, index);
 
       // Look ahead to check if the next action targets an option inside a dropdown
-      const nextAction = (this.recording && this.recording.actions)
-        ? this.recording.actions[index + 1]
-        : null;
-
-      const isNextActionOption = Boolean(
-        nextAction && (
-          nextAction.target?.candidates?.some(c => c.value && (c.value.includes('option') || c.value.includes('pseudo-checkbox'))) ||
-          nextAction.target?.fingerprint?.tagName === 'mat-option' ||
-          nextAction.target?.fingerprint?.tagName === 'mat-pseudo-checkbox' ||
-          nextAction.target?.fingerprint?.role === 'option'
-        )
-      );
+      const isNextActionOption = ActionDispatcher.isNextActionOption(this.recording, index + 1);
 
       await this._waitWhilePaused();
       await this._setAutomatedAction(true, elementHandle);
@@ -784,13 +762,7 @@ class ReplayEngine extends EventEmitter {
       logger.action(index + 1, action.type, candidate.value, `score=${scorePercent}%`);
 
       // Calculate humanized post-action timing delay
-      let postDelay = DEFAULT_TIMEOUTS.POST_ACTION_DELAY_MS;
-      if (this.botConfig?.timing) {
-        const minD = this.botConfig.timing.minActionDelayMs || 200;
-        const maxD = this.botConfig.timing.maxActionDelayMs || 600;
-        postDelay = calculateDelay(minD, maxD, 'gaussian');
-      }
-
+      const postDelay = ActionDispatcher.calculatePostActionDelay(this.botConfig);
       await new Promise(r => setTimeout(r, postDelay));
 
       return { success: true, confidenceScore, candidate };
@@ -1276,10 +1248,7 @@ class ReplayEngine extends EventEmitter {
             await new Promise(r => setTimeout(r, 100));
           }
         } else if (action.timeDeltaMs && this.speed > 0) {
-          const maxPacing = (this.botConfig?.timing?.maxActionDelayMs && this.botConfig.timing.maxActionDelayMs > 1000)
-            ? Math.max(this.botConfig.timing.maxActionDelayMs * 3, 15000)
-            : 15000;
-          const delay = Math.min(Math.round(action.timeDeltaMs / this.speed), maxPacing);
+          const delay = ActionDispatcher.calculatePacingDelay(action, this.speed, this.botConfig);
           if (delay > 0) {
             logger.info(`Pacing step #${action.index + 1}: waiting ${delay}ms for page/data to settle...`);
             const end = Date.now() + delay;
@@ -1319,14 +1288,11 @@ class ReplayEngine extends EventEmitter {
         await this._waitWhilePaused();
 
         // Deep clone the action to safely inject secrets
-        const actionToDispatch = { ...action };
-        if (actionToDispatch.type === 'TYPE' && typeof actionToDispatch.value === 'string') {
-          const match = actionToDispatch.value.match(/^{{secret:([^}]+)}}$/);
-          if (match && this.secretResolver) {
-            logger.info(`Injecting secret [${match[1]}] for action #${actionToDispatch.index + 1}...`);
-            actionToDispatch.value = await this.secretResolver(match[1]);
-          }
-        }
+        const actionToDispatch = await ActionDispatcher.resolveActionSecrets(
+          action,
+          this.secretResolver,
+          action.index !== undefined ? action.index : i
+        );
 
         // 2. Perform action via Puppeteer with humanization config
         await this._setAutomatedAction(true, elementHandle);
@@ -1350,13 +1316,7 @@ class ReplayEngine extends EventEmitter {
         logger.action(action.index + 1, action.type, candidate.value, detail);
 
         // Calculate humanized post-action timing delay
-        let postDelay = DEFAULT_TIMEOUTS.POST_ACTION_DELAY_MS;
-        if (this.botConfig?.timing) {
-          const minD = this.botConfig.timing.minActionDelayMs || 200;
-          const maxD = this.botConfig.timing.maxActionDelayMs || 600;
-          postDelay = calculateDelay(minD, maxD, 'gaussian');
-        }
-
+        const postDelay = ActionDispatcher.calculatePostActionDelay(this.botConfig);
         await new Promise(r => setTimeout(r, postDelay));
       }
 

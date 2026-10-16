@@ -18,6 +18,7 @@ const { resolveTargetUrl, extractWorkflowStartUrl } = require('../utils/url-help
 const {
   normalizeItemFilter,
   validateItemFilter,
+  validateFilterWithExtendedOps,
   evaluateItemFilter: sharedEvaluateItemFilter,
   evaluateFilterPreview,
   extractAvailableFields
@@ -53,36 +54,9 @@ class LoopReplayRunner {
     const rawFilter = options.itemFilter !== undefined
       ? options.itemFilter
       : (options.rowFilter || (options.filterValue ? { column: options.filterColumn || 'Type', value: options.filterValue } : null));
-    const filterValidation = validateItemFilter(rawFilter);
-
-    // Support relational, date, and extended operators via ConditionEvaluator
-    const normalizedConditions = ConditionEvaluator.normalizeConditions(rawFilter);
-    const EXTENDED_OPS = new Set([
-      'contains', 'includes', 'equals', 'eq', '==', '===', 'not_equals', 'neq', '!=',
-      'starts_with', 'ends_with', 'in', 'one_of', 'not_in',
-      'greater_than', 'gt', '>', 'after', 'date_after', 'date_gt',
-      'greater_than_or_equal', 'gte', '>=', 'on_or_after', 'date_on_or_after', 'date_gte',
-      'less_than', 'lt', '<', 'before', 'date_before', 'date_lt',
-      'less_than_or_equal', 'lte', '<=', 'on_or_before', 'date_on_or_before', 'date_lte',
-      'date_between', 'between_dates', 'last_n_days'
-    ]);
-    const isSupportedByConditionEvaluator = Boolean(
-      rawFilter &&
-      normalizedConditions.rules.length > 0 &&
-      normalizedConditions.rules.every(r => r.field && EXTENDED_OPS.has(String(r.operator || '').toLowerCase().trim()))
-    );
-
-    const isOperatorError = filterValidation.error && filterValidation.error.includes('Unsupported filter operator');
-    if (filterValidation.valid) {
-      this.itemFilter = filterValidation.filter;
-      this.filterValidationError = null;
-    } else if (isOperatorError && isSupportedByConditionEvaluator) {
-      this.itemFilter = rawFilter;
-      this.filterValidationError = null;
-    } else {
-      this.itemFilter = options.itemFilter || null;
-      this.filterValidationError = filterValidation.error;
-    }
+    const filterValidation = validateFilterWithExtendedOps(rawFilter);
+    this.itemFilter = filterValidation.valid ? filterValidation.filter : (options.itemFilter || null);
+    this.filterValidationError = filterValidation.valid ? null : filterValidation.error;
 
     let validatedLimit = null;
     let limitError = null;
@@ -113,16 +87,7 @@ class LoopReplayRunner {
 
     // Primary Run/ hierarchy: Run/<YYYY-MM-DD_HH-mm-ss>/<portalDomain>/<Category>/
     const targetUrl = options.targetUrl || options.portalUrl || this.workflow?.targetUrl || this.workflow?.startUrl || '';
-    let extractedDomain = options.portalDomain || '';
-    if (!extractedDomain && targetUrl) {
-      try {
-        const u = new URL(targetUrl.startsWith('http') ? targetUrl : `https://${targetUrl}`);
-        extractedDomain = u.hostname;
-      } catch {
-        extractedDomain = targetUrl.replace(/https?:\/\//, '').split('/')[0];
-      }
-    }
-    this.portalDomain = extractedDomain || 'customerportal.usoil.com';
+    this.portalDomain = options.portalDomain || this._resolvePortalDomain(targetUrl);
 
     // Dedicated per-execution downloads isolation: downloads/<workflow-slug>/<execution-id>/
     // + Structured Run/ hierarchy: Run/<YYYY-MM-DD_HH-mm-ss>/<portalDomain>/<Category>/
@@ -179,6 +144,30 @@ class LoopReplayRunner {
       replayEngine: this.replayEngine,
       getIsAborted: () => this.isAborted
     });
+  }
+
+  _resolvePortalDomain(targetUrl, fallbackDomain = 'customerportal.usoil.com') {
+    if (!targetUrl) return fallbackDomain;
+    try {
+      const u = new URL(targetUrl.startsWith('http') ? targetUrl : `https://${targetUrl}`);
+      return u.hostname || fallbackDomain;
+    } catch {
+      return targetUrl.replace(/https?:\/\//, '').split('/')[0] || fallbackDomain;
+    }
+  }
+
+  _applyTargetUrlDomain(targetUrl) {
+    const extractedDomain = this._resolvePortalDomain(targetUrl, '');
+    if (extractedDomain) {
+      this.portalDomain = extractedDomain;
+      if (this.downloadManager) {
+        this.downloadManager.portalDomain = extractedDomain;
+        this.downloadManager.runDomainDir = path.resolve(this.downloadManager.runTimestampDir, extractedDomain);
+        if (!fs.existsSync(this.downloadManager.runDomainDir)) {
+          try { fs.mkdirSync(this.downloadManager.runDomainDir, { recursive: true }); } catch {}
+        }
+      }
+    }
   }
 
   /**
@@ -542,23 +531,7 @@ class LoopReplayRunner {
     if (workflow) {
       const targetUrl = workflow.targetUrl || workflow.startUrl || (workflow.steps && workflow.steps[0] && workflow.steps[0].url) || '';
       if (targetUrl && (!this.portalDomain || this.portalDomain === 'customerportal.usoil.com')) {
-        let extractedDomain = '';
-        try {
-          const u = new URL(targetUrl.startsWith('http') ? targetUrl : `https://${targetUrl}`);
-          extractedDomain = u.hostname;
-        } catch {
-          extractedDomain = targetUrl.replace(/https?:\/\//, '').split('/')[0];
-        }
-        if (extractedDomain) {
-          this.portalDomain = extractedDomain;
-          if (this.downloadManager) {
-            this.downloadManager.portalDomain = extractedDomain;
-            this.downloadManager.runDomainDir = path.resolve(this.downloadManager.runTimestampDir, extractedDomain);
-            if (!fs.existsSync(this.downloadManager.runDomainDir)) {
-              fs.mkdirSync(this.downloadManager.runDomainDir, { recursive: true });
-            }
-          }
-        }
+        this._applyTargetUrlDomain(targetUrl);
       }
     }
     this.initDirectories();
@@ -725,29 +698,7 @@ class LoopReplayRunner {
       }
 
       // Gather and organize downloaded files into structured folder
-      if (fs.existsSync(this.downloadsDir)) {
-        const files = fs.readdirSync(this.downloadsDir)
-          .filter(file => !file.endsWith('.crdownload') && !file.endsWith('.tmp'));
-        for (const file of files) {
-          const rawPath = path.join(this.downloadsDir, file);
-          const fallbackContext = this._activeItemContext || null;
-          const stored = this.processAndStoreDownload(
-            rawPath,
-            fallbackContext?.itemKey || file,
-            fallbackContext?.itemLabel || file,
-            fallbackContext?.fields || {}
-          );
-          try { fs.unlinkSync(rawPath); } catch {}
-          const itemToAdd = stored || {
-            filename: file,
-            path: rawPath,
-            sizeBytes: fs.existsSync(rawPath) ? fs.statSync(rawPath).size : 0
-          };
-          if (!manifest.downloadedFiles.some(existing => (existing.fileHash && existing.fileHash === itemToAdd.fileHash) || existing.path === itemToAdd.path)) {
-            manifest.downloadedFiles.push(itemToAdd);
-          }
-        }
-      }
+      this.artifactDownloadManager.organizePendingDownloads(manifest, this._activeItemContext);
 
       manifest.status = this.isAborted ? 'STOPPED' : 'COMPLETED';
       manifest.endTime = new Date().toISOString();
@@ -808,48 +759,13 @@ class LoopReplayRunner {
 
       const targetUrl = workflow.targetUrl || workflow.startUrl || (workflow.steps && workflow.steps[0] && workflow.steps[0].url) || '';
       if (targetUrl && (!this.portalDomain || this.portalDomain === 'customerportal.usoil.com')) {
-        let extractedDomain = '';
-        try {
-          const u = new URL(targetUrl.startsWith('http') ? targetUrl : `https://${targetUrl}`);
-          extractedDomain = u.hostname;
-        } catch {
-          extractedDomain = targetUrl.replace(/https?:\/\//, '').split('/')[0];
-        }
-        if (extractedDomain) {
-          this.portalDomain = extractedDomain;
-          if (this.downloadManager) {
-            this.downloadManager.portalDomain = extractedDomain;
-            this.downloadManager.runDomainDir = path.resolve(this.downloadManager.runTimestampDir, extractedDomain);
-            if (!fs.existsSync(this.downloadManager.runDomainDir)) {
-              fs.mkdirSync(this.downloadManager.runDomainDir, { recursive: true });
-            }
-          }
-        }
+        this._applyTargetUrlDomain(targetUrl);
       }
     }
     if (!this.itemFilter && (workflow?.itemFilter || workflow?.filter_rules?.itemFilter || workflow?.workflow_definition?.itemFilter)) {
       const rawFilter = workflow.itemFilter || workflow?.filter_rules?.itemFilter || workflow?.workflow_definition?.itemFilter;
-      const filterValidation = validateItemFilter(rawFilter);
-      if (filterValidation && filterValidation.valid) {
-        this.itemFilter = filterValidation.filter;
-      } else {
-        const normalizedConditions = ConditionEvaluator.normalizeConditions(rawFilter);
-        const EXTENDED_OPS = new Set([
-          'contains', 'includes', 'equals', 'eq', '==', '===', 'not_equals', 'neq', '!=',
-          'starts_with', 'ends_with', 'in', 'one_of', 'not_in',
-          'greater_than', 'gt', '>', 'after', 'date_after', 'date_gt',
-          'greater_than_or_equal', 'gte', '>=', 'on_or_after', 'date_on_or_after', 'date_gte',
-          'less_than', 'lt', '<', 'before', 'date_before', 'date_lt',
-          'less_than_or_equal', 'lte', '<=', 'on_or_before', 'date_on_or_before', 'date_lte',
-          'date_between', 'between_dates', 'last_n_days'
-        ]);
-        const isSupportedByConditionEvaluator = Boolean(
-          rawFilter &&
-          normalizedConditions.rules.length > 0 &&
-          normalizedConditions.rules.every(r => r.field && EXTENDED_OPS.has(String(r.operator || '').toLowerCase().trim()))
-        );
-        this.itemFilter = isSupportedByConditionEvaluator ? rawFilter : null;
-      }
+      const filterValidation = validateFilterWithExtendedOps(rawFilter);
+      this.itemFilter = filterValidation.valid ? filterValidation.filter : null;
       this.rowFilter = this.itemFilter;
     }
     if (!this.loopLimit && (workflow?.loopLimit || workflow?.workflow_definition?.loopLimit)) {
@@ -1224,129 +1140,27 @@ class LoopReplayRunner {
         ? discovery.items
         : [];
 
-      if (this.filterValidationError) {
-        throw new Error(`Filter configuration error: ${this.filterValidationError}`);
-      }
-      if (this.loopLimitError) {
-        throw new Error(`Filter configuration error: ${this.loopLimitError}`);
-      }
-
       const effectiveFilter = this.itemFilter || this.rowFilter || null;
-      const condRules = ConditionEvaluator.normalizeConditions(effectiveFilter).rules;
-      const isRelationalOrExtended = condRules.some(r => {
-        const op = String(r.operator || '').toLowerCase().trim();
-        return ['<=', '>=', '<', '>', 'before', 'after', 'starts_with', 'ends_with', 'in', 'not_in', '!=', 'not_equals', 'date_before', 'date_after', 'date_on_or_after', 'date_on_or_before', 'date_between', 'between_dates', 'last_n_days', 'greater_than', 'less_than', 'greater_than_or_equal', 'less_than_or_equal', 'date_gt', 'date_lt', 'date_gte', 'date_lte', 'on_or_after', 'on_or_before'].includes(op);
+      const preview = this.itemExecutionHandler.evaluateCollectionPreview({
+        items: itemsWithFields,
+        filter: effectiveFilter,
+        limit: this.loopLimit,
+        validationError: this.filterValidationError || this.loopLimitError
       });
 
-      let preview;
-      if (isRelationalOrExtended) {
-        let matchingCount = 0;
-        let selectedCount = 0;
-        let skippedFilterCount = 0;
-        let skippedLimitCount = 0;
-        const selectedPreview = [];
-        const skippedFilterPreview = [];
-        const limit = this.loopLimit;
-        const errors = [];
-
-        // Check if any rule targets a completely non-existent field across all items
-        if (itemsWithFields.length > 0) {
-          for (const rule of condRules) {
-            const field = rule.field;
-            const fieldFound = itemsWithFields.some(item => {
-              const rec = Object.assign({}, item, item?.fields || {});
-              const val = ConditionEvaluator.extractFieldValue(rec, field);
-              return val !== undefined && val !== null;
-            });
-            if (!fieldFound) {
-              errors.push(`Configured field "${field}" is not available on item`);
-            }
-          }
-        }
-
-        for (let i = 0; i < itemsWithFields.length; i++) {
-          const item = itemsWithFields[i];
-          const itemRecord = Object.assign({}, item, item?.fields || {});
-          const evalRes = ConditionEvaluator.evaluate(itemRecord, effectiveFilter);
-          if (evalRes.matches) {
-            matchingCount++;
-            if (limit === null || selectedCount < limit) {
-              selectedCount++;
-              if (selectedPreview.length < 10) selectedPreview.push({ index: i + 1, label: item.label || `Item #${i+1}`, status: 'SELECTED' });
-            } else {
-              skippedLimitCount++;
-            }
-          } else {
-            skippedFilterCount++;
-            if (skippedFilterPreview.length < 10) skippedFilterPreview.push({ index: i + 1, label: item.label || `Item #${i+1}`, status: 'SKIPPED_FILTER', reason: evalRes.reason });
-          }
-        }
-        preview = {
-          totalCount: itemsWithFields.length,
-          matchingCount,
-          selectedCount,
-          skippedFilterCount,
-          skippedLimitCount,
-          selectedPreview,
-          skippedFilterPreview,
-          errors
-        };
-      } else {
-        preview = evaluateFilterPreview(effectiveFilter, itemsWithFields, {
-          loopLimit: this.loopLimit,
-          previewLimit: itemsWithFields.length
-        });
-      }
-
-      if (preview.errors && preview.errors.length > 0) {
-        const errMsg = `Filter configuration error: ${preview.errors.join('; ')}`;
-        logger.error(`[Loop Runner] ${errMsg}`);
-        throw new Error(errMsg);
-      }
-
       if (itemsWithFields.length > 0 && preview.selectedCount === 0) {
-        logger.info(`[Loop Runner] Filter criteria selected 0 of ${discovery.itemCount} item(s). No items to execute.`);
-        manifest.itemsTotal = discovery.itemCount;
-        manifest.matchingCount = preview.matchingCount;
-        manifest.matching = preview.matchingCount;
-        manifest.selectedCount = 0;
-        manifest.selected = 0;
-        manifest.skippedFilterCount = preview.skippedFilterCount;
-        manifest.skippedFilter = preview.skippedFilterCount;
-        manifest.skippedLimitCount = preview.skippedLimitCount;
-        manifest.skippedLimit = preview.skippedLimitCount;
-        manifest.skippedDuplicateCount = 0;
-        manifest.skippedDuplicate = 0;
-        manifest.itemsSkipped = preview.skippedFilterCount + preview.skippedLimitCount;
-
-        for (let i = 0; i < discovery.itemCount; i++) {
-          const itemIdentifier = await this.extractItemIdentifier(page, discovery, i, isDropdown);
-          const itemFields = itemsWithFields[i]?.fields || {};
-          const filterCheck = isRelationalOrExtended
-            ? ConditionEvaluator.evaluate(itemFields, effectiveFilter)
-            : sharedEvaluateItemFilter(effectiveFilter, itemFields);
-          const skippedResult = {
-            index: i + 1,
-            itemIndex: i,
-            page: currentPage,
-            label: itemIdentifier.itemLabel,
-            itemKey: itemIdentifier.itemKey,
-            status: 'SKIPPED_FILTER',
-            skippedReason: filterCheck.reason,
-            timestamp: new Date().toISOString()
-          };
-          manifest.results.push(skippedResult);
-          onProgress({ status: 'ITEM_SKIPPED', itemResult: skippedResult, manifest });
-        }
-
-        manifest.status = 'COMPLETED';
-        manifest.endTime = new Date().toISOString();
-        this.writeLoopCheckpoint(manifest, null, null, currentPage, null, null);
-        try {
-          fs.writeFileSync(path.join(this.runsDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
-        } catch {}
-        onProgress({ status: manifest.status, manifest });
-        return manifest;
+        return await this.itemExecutionHandler.handleZeroMatches({
+          page,
+          discovery,
+          isDropdown,
+          itemsWithFields,
+          preview,
+          manifest,
+          isRelational: preview.isRelational,
+          effectiveFilter,
+          onProgress,
+          runner: this
+        });
       }
 
       // Convert recorded actions: items inside collection become item-relative,
@@ -1642,29 +1456,7 @@ class LoopReplayRunner {
       }
 
       // 5. Gather and organize all downloaded files into structured folder
-      if (fs.existsSync(this.downloadsDir)) {
-        const files = fs.readdirSync(this.downloadsDir)
-          .filter(file => !file.endsWith('.crdownload') && !file.endsWith('.tmp'));
-        for (const file of files) {
-          const rawPath = path.join(this.downloadsDir, file);
-          const fallbackContext = this._activeItemContext || null;
-          const stored = this.processAndStoreDownload(
-            rawPath,
-            fallbackContext?.itemKey || file,
-            fallbackContext?.itemLabel || file,
-            fallbackContext?.fields || {}
-          );
-          try { fs.unlinkSync(rawPath); } catch {}
-          const itemToAdd = stored || {
-            filename: file,
-            path: rawPath,
-            sizeBytes: fs.existsSync(rawPath) ? fs.statSync(rawPath).size : 0
-          };
-          if (!manifest.downloadedFiles.some(existing => (existing.fileHash && existing.fileHash === itemToAdd.fileHash) || existing.path === itemToAdd.path)) {
-            manifest.downloadedFiles.push(itemToAdd);
-          }
-        }
-      }
+      this.artifactDownloadManager.organizePendingDownloads(manifest, this._activeItemContext);
 
       this._syncSubManagers();
       if (this.artifactDownloadManager) {

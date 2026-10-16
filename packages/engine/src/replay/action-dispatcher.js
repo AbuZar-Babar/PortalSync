@@ -6,11 +6,9 @@
 
 const fs = require('fs');
 const path = require('path');
-const { dispatchAction, executeExtractText } = require('./action-executors');
 const { calculateDelay } = require('./human-mouse');
 const { DEFAULT_TIMEOUTS } = require('../shared/constants');
 const { resolveTargetUrl } = require('../utils/url-helper');
-const { ElementResolutionTimeoutError } = require('../utils/errors');
 const logger = require('../utils/logger');
 
 const RESOLVER_PATH = path.resolve(__dirname, '../shared/selector-resolver.js');
@@ -263,57 +261,6 @@ class ActionDispatcher {
   }
 
   /**
-   * Dispatches an action to an element handle, managing automated action guard flags,
-   * secret injection, scrolling, and dropdown animations.
-   * @param {Object} elementHandle
-   * @param {Object} action
-   * @param {Object} options
-   */
-  static async dispatchToElement(elementHandle, action, options = {}) {
-    const {
-      page,
-      botConfig,
-      isNextActionOption = false,
-      setAutomatedAction = null,
-      secretResolver = null,
-      actionIndex = 0,
-      scrollIfNeeded = false,
-      replayEngine = null
-    } = options;
-
-    if (scrollIfNeeded && typeof elementHandle.scrollIntoViewIfNeeded === 'function') {
-      await elementHandle.scrollIntoViewIfNeeded().catch(() => {});
-    }
-
-    const actionToDispatch = await ActionDispatcher.resolveActionSecrets(action, secretResolver, actionIndex);
-
-    if (typeof setAutomatedAction === 'function') {
-      await setAutomatedAction(true, elementHandle);
-    }
-
-    try {
-      await dispatchAction(elementHandle, actionToDispatch, {
-        page,
-        botConfig,
-        isNextActionOption,
-        replayEngine,
-        actionIndex
-      });
-    } finally {
-      if (typeof setAutomatedAction === 'function') {
-        await setAutomatedAction(false, elementHandle);
-      }
-    }
-
-    // If this action opened a combobox/dropdown, allow overlay animation to settle
-    if (action.type === 'CLICK' && isNextActionOption) {
-      await new Promise(r => setTimeout(r, 300));
-    }
-
-    return { success: true, actionDispatched: actionToDispatch };
-  }
-
-  /**
    * Executes a NAVIGATE action to target URL with stealth evasion.
    * @param {Object} page Puppeteer Page
    * @param {Object} action
@@ -327,140 +274,6 @@ class ActionDispatcher {
     }
     await new Promise(r => setTimeout(r, options.delayMs || 500));
     return { success: true, type: 'NAVIGATE', url: navUrl };
-  }
-
-  /**
-   * Condition-based in-page polling resolver loop across main page and all child frames (iframes).
-   * @param {Object} engine ReplayEngine instance or context object
-   * @param {Object} target
-   * @param {number} actionIndex
-   * @param {string} actionType
-   * @returns {Promise<{ elementHandle: Object, frame: Object, candidate: Object, confidenceScore: number }>}
-   */
-  static async waitForTargetElement(engine, target, actionIndex, actionType) {
-    const startTime = Date.now();
-    let lastResolutionResult = null;
-    const timeoutMs = engine.timeoutMs || DEFAULT_TIMEOUTS.RESOLUTION_TIMEOUT_MS;
-    const pollIntervalMs = engine.pollIntervalMs || DEFAULT_TIMEOUTS.POLL_INTERVAL_MS;
-
-    while (Date.now() - startTime < timeoutMs) {
-      if (engine.isAborted) {
-        throw new Error('Execution stopped by user');
-      }
-      if (typeof engine._waitWhilePaused === 'function') {
-        await engine._waitWhilePaused();
-      }
-      try {
-        const pagesToCheck = [engine.page];
-        if (engine.browser) {
-          const allPages = await engine.browser.pages().catch(() => []);
-          for (const p of allPages) {
-            if (p !== engine.page && !p.isClosed()) {
-              pagesToCheck.push(p);
-            }
-          }
-        }
-
-        for (const candidatePage of pagesToCheck) {
-          const frames = [candidatePage.mainFrame(), ...candidatePage.frames().filter(f => f !== candidatePage.mainFrame())];
-
-          for (const frame of frames) {
-            if (!frame || (typeof frame.isDetached === 'function' && frame.isDetached())) continue;
-            try {
-              await ActionDispatcher.ensureSelectorResolverInFrame(frame, engine.page);
-
-              // 1. Resolve and obtain direct JSHandle to the matched DOM element in this frame
-              const handle = await frame.evaluateHandle((targetData) => {
-                if (!window.SelectorResolver) return null;
-                const res = window.SelectorResolver.resolveElement(targetData);
-                window.__lastResolutionReport = res ? {
-                  success: res.success,
-                  confidenceScore: res.confidenceScore,
-                  resolvedCandidate: res.resolvedCandidate || res.candidate || null,
-                  reason: res.reason || null,
-                  attempts: res.attempts || []
-                } : null;
-                return res && res.success && res.element ? res.element : null;
-              }, target).catch(() => null);
-
-              // 2. Fetch resolution report
-              const report = await frame.evaluate(() => window.__lastResolutionReport).catch(() => null);
-
-              if (report) {
-                lastResolutionResult = report;
-              }
-
-              // 3. Validate element and check interactability
-              if (handle) {
-                const element = handle.asElement();
-                if (element) {
-                  const isAttached = await element.evaluate(el => el.isConnected && el.ownerDocument.contains(el)).catch(() => false);
-
-                  if (isAttached) {
-                    const matchedCandidate = (report && (report.resolvedCandidate || report.candidate))
-                      ? (report.resolvedCandidate || report.candidate)
-                      : (target && target.candidates && target.candidates[0]) || { strategy: 'css_id', value: target?.targetId || 'unknown' };
-                    const confidenceScore = (report && report.confidenceScore) || 1.0;
-
-                    if (candidatePage !== engine.page) {
-                      await candidatePage.bringToFront().catch(() => {});
-                      engine.page = candidatePage;
-                      if (engine.enableDisturbanceDetection && typeof engine._initHumanDisturbanceDetection === 'function') {
-                        await engine._initHumanDisturbanceDetection(candidatePage);
-                      } else if (typeof engine._cleanupLingeringReplayGuard === 'function') {
-                        await engine._cleanupLingeringReplayGuard(candidatePage);
-                      }
-                      logger.info(`[ReplayEngine] Switched active tab/window to: ${candidatePage.url()}`);
-                    }
-
-                    return {
-                      elementHandle: element,
-                      frame,
-                      candidate: matchedCandidate,
-                      confidenceScore
-                    };
-                  }
-                  await element.dispose().catch(() => {});
-                } else {
-                  await handle.dispose().catch(() => {});
-                }
-              }
-            } catch {
-              // Continue searching remaining frames
-            }
-          }
-        }
-      } catch {
-        // Retry polling on frame detach
-      }
-
-      await new Promise(r => setTimeout(r, pollIntervalMs));
-    }
-
-    // Timeout exceeded
-    const detailedReason = lastResolutionResult?.reason ||
-      lastResolutionResult?.attempts?.find(a => a.reason)?.reason ||
-      'No candidate matched within timeout';
-
-    const failureReport = lastResolutionResult ? {
-      ...lastResolutionResult,
-      reason: detailedReason
-    } : {
-      bestScore: 0,
-      candidatesTried: (target && target.candidates) ? target.candidates.length : 0,
-      reason: detailedReason
-    };
-
-    throw new ElementResolutionTimeoutError(
-      `Condition-based resolution timed out after ${timeoutMs}ms for Action #${actionIndex + 1} [${actionType}]`,
-      {
-        actionIndex,
-        actionType,
-        target,
-        timeoutMs,
-        resolutionReport: failureReport
-      }
-    );
   }
 }
 
