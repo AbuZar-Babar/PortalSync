@@ -15,9 +15,9 @@ test('Environment Configuration - CloudClient token resolution', () => {
   const origReflowToken = process.env.REFLOW_RUNNER_TOKEN;
 
   try {
-    process.env.REFLOW_RUNNER_TOKEN = 'ps_live_reflow_token';
+    process.env.REFLOW_RUNNER_TOKEN = 'rf_live_reflow_token';
     const client1 = new CloudClient({ fetch: () => {} });
-    assert.strictEqual(client1.token, 'ps_live_reflow_token');
+    assert.strictEqual(client1.token, 'rf_live_reflow_token');
 
     delete process.env.REFLOW_RUNNER_TOKEN;
     const client2 = new CloudClient({ fetch: () => {} });

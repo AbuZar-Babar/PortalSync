@@ -184,12 +184,12 @@ test('DOM Theme Application Logic & LocalStorage Synchronization', async (t) => 
 // 3. Supabase Metadata Merging & Preserving Runner Telemetry
 // ----------------------------------------------------------------------------
 
-test('Supabase stripe_subscription_id Telemetry & Theme Metadata Integrity', async (t) => {
+test('Supabase runner_metadata Telemetry & Theme Metadata Integrity', async (t) => {
   await t.test('Merging theme settings preserves runner token, hostname, and ping', () => {
     const existingRunnerMeta = {
       hostname: 'DESKTOP-RUNNER-91',
       platform: 'Windows 11 x64',
-      token: 'ps_live_81e6cb6e64f5495d',
+      token: 'rf_live_81e6cb6e64f5495d_1234567890abcdef1234567890abcdef',
       last_ping_at: '2026-10-11T14:30:00.000Z',
       cdp_active: true
     };
@@ -214,7 +214,7 @@ test('Supabase stripe_subscription_id Telemetry & Theme Metadata Integrity', asy
     const parsed = JSON.parse(serialized);
 
     assert.equal(parsed.hostname, 'DESKTOP-RUNNER-91');
-    assert.equal(parsed.token, 'ps_live_81e6cb6e64f5495d');
+    assert.equal(parsed.token, 'rf_live_81e6cb6e64f5495d_1234567890abcdef1234567890abcdef');
     assert.equal(parsed.last_ping_at, '2026-10-11T14:30:00.000Z');
     assert.equal(parsed.cdp_active, true);
     assert.equal(parsed.theme_settings.palette, 'forest');

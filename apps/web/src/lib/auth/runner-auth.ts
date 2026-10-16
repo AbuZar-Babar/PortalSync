@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import crypto from 'crypto';
 import { createClient as createSupabaseClient, SupabaseClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 
@@ -16,8 +17,6 @@ export type RunnerAuthResult =
   | { success: false; error: string; status: number };
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-const orgPrefixCache = new Map<string, { orgId: string; expiresAt: number }>();
 const lastHeartbeatWriteCache = new Map<string, number>();
 
 function getServiceClient(): SupabaseClient {
@@ -38,7 +37,7 @@ export function extractRunnerToken(request: NextRequest): string | null {
     if (trimmed.toLowerCase().startsWith('bearer ')) {
       return trimmed.slice(7).trim();
     }
-    if (trimmed.startsWith('ps_live_')) {
+    if (trimmed.startsWith('rf_live_')) {
       return trimmed;
     }
   }
@@ -51,162 +50,102 @@ export function extractRunnerToken(request: NextRequest): string | null {
   return null;
 }
 
-async function resolveOrCreateOrgId(rawOrgId: string, supabase: SupabaseClient): Promise<string | null> {
-  if (!rawOrgId) return null;
-
-  const cached = orgPrefixCache.get(rawOrgId);
-  if (cached && Date.now() < cached.expiresAt) return cached.orgId;
-
-  // Strip any trailing ellipsis or whitespace (e.g. user copying ps_live_12345678...)
-  const sanitized = rawOrgId.replace(/[\.\s]+$/, '').trim();
-  if (!sanitized) return null;
-
-  // 1. Full UUID format
-  if (UUID_REGEX.test(sanitized)) {
-    const { data: existing } = await supabase
-      .from('wf_organizations')
-      .select('id')
-      .eq('id', sanitized)
-      .maybeSingle();
-
-    if (existing) {
-      orgPrefixCache.set(rawOrgId, { orgId: existing.id, expiresAt: Date.now() + 60000 });
-      return existing.id;
-    }
-
-    // Auto-create to satisfy foreign keys
-    const { data: created, error } = await supabase
-      .from('wf_organizations')
-      .insert({
-        id: sanitized,
-        name: `Org ${sanitized.slice(0, 8)}`,
-        slug: `org-${sanitized.slice(0, 8)}-${Date.now()}`,
-        plan_tier: 'starter',
-      })
-      .select('id')
-      .maybeSingle();
-
-    if (!error && created) {
-      orgPrefixCache.set(rawOrgId, { orgId: created.id, expiresAt: Date.now() + 60000 });
-      return created.id;
-    }
-    orgPrefixCache.set(rawOrgId, { orgId: sanitized, expiresAt: Date.now() + 60000 });
-    return sanitized;
-  }
-
-  // 2. Lookup by UUID prefix safely (stripping hyphens to handle both hyphenated UUIDs and prefix tokens)
-  // This MUST run before slug lookup so prefix tokens (e.g. ps_live_71f6abd5a67f4ecd) reliably
-  // match the true parent organization (71f6abd5-a67f-4ecd-...) instead of a rogue slug or collision!
-  const cleanSanitized = sanitized.replace(/-/g, '').toLowerCase();
-  const tokenPrefix = sanitized.split('_')[0].replace(/-/g, '').toLowerCase();
-  const targetPrefix = tokenPrefix.length >= 8 ? tokenPrefix : cleanSanitized;
-
-  const { data: allOrgs } = await supabase
-    .from('wf_organizations')
-    .select('id, name, slug');
-
-  if (allOrgs) {
-    const matched = allOrgs.find((o) => {
-      const cleanId = o.id.replace(/-/g, '').toLowerCase();
-      return (
-        cleanId.startsWith(targetPrefix) ||
-        (targetPrefix.length >= 8 && cleanId === targetPrefix) ||
-        cleanId.startsWith(cleanSanitized)
-      );
-    });
-    if (matched) {
-      orgPrefixCache.set(rawOrgId, { orgId: matched.id, expiresAt: Date.now() + 60000 });
-      return matched.id;
-    }
-  }
-
-  // 3. Lookup by slug
-  const { data: bySlug } = await supabase
-    .from('wf_organizations')
-    .select('id')
-    .eq('slug', sanitized)
-    .maybeSingle();
-
-  if (bySlug) {
-    orgPrefixCache.set(rawOrgId, { orgId: bySlug.id, expiresAt: Date.now() + 60000 });
-    return bySlug.id;
-  }
-
-  // 4. Lookup by name
-  const { data: byName } = await supabase
-    .from('wf_organizations')
-    .select('id')
-    .eq('name', rawOrgId)
-    .maybeSingle();
-
-  if (byName) {
-    orgPrefixCache.set(rawOrgId, { orgId: byName.id, expiresAt: Date.now() + 60000 });
-    return byName.id;
-  }
-
-  // If sanitized looks like a token prefix or UUID (>= 8 hex characters),
-  // NEVER auto-create a rogue duplicate organization!
-  if (/^[a-f0-9]{8,}$/i.test(targetPrefix) || /^[a-f0-9]{8,}$/i.test(cleanSanitized)) {
-    return null;
-  }
-
-  // 5. Create new organization with safe slug (only for custom friendly identifiers in tests/onboarding)
-  const safeSlug =
-    rawOrgId.toLowerCase().replace(/[^a-z0-9_-]/g, '-').slice(0, 40) ||
-    `org-${Date.now()}`;
-
-  const { data: createdOrg } = await supabase
-    .from('wf_organizations')
-    .insert({
-      name: rawOrgId,
-      slug: safeSlug,
-      plan_tier: 'starter',
-    })
-    .select('id')
-    .maybeSingle();
-
-  if (createdOrg) {
-    orgPrefixCache.set(rawOrgId, { orgId: createdOrg.id, expiresAt: Date.now() + 60000 });
-    return createdOrg.id;
-  }
-
-  return null;
-}
-
 export async function authenticateRunnerOrUser(request: NextRequest): Promise<RunnerAuthResult> {
   const runnerToken = extractRunnerToken(request);
   const client = getServiceClient();
 
   // If a bearer or runner token header was provided:
   if (runnerToken !== null) {
-    if (!runnerToken.startsWith('ps_live_')) {
+    if (!runnerToken.startsWith('rf_live_')) {
       return {
         success: false,
-        error: 'Unauthorized: Invalid runner token format. Expected ps_live_<org_id>',
+        error: 'Unauthorized: Invalid runner token format. Expected rf_live_<org_id>_<secret>',
         status: 401,
       };
     }
 
-    const rawOrgId = runnerToken.slice('ps_live_'.length).trim();
-    if (!rawOrgId) {
+    const tokenContent = runnerToken.slice('rf_live_'.length).trim();
+    const parts = tokenContent.split('_');
+    const orgPrefix = parts[0];
+    const secret = parts[1];
+    if (!orgPrefix || !secret || secret.length < 16) {
       return {
         success: false,
-        error: 'Unauthorized: Missing org_id in runner token',
+        error: 'Unauthorized: Missing or malformed secret in runner token. Expected rf_live_<org_id>_<secret>',
         status: 401,
       };
     }
 
-    const orgId = await resolveOrCreateOrgId(rawOrgId, client);
-    if (!orgId) {
+    const tokenHash = crypto.createHash('sha256').update(runnerToken).digest('hex');
+
+    // 1. Direct lookup by runner_token_hash (optimal and safe)
+    let { data: org } = await client
+      .from('wf_organizations')
+      .select('id, name, runner_metadata, runner_token_hash')
+      .eq('runner_token_hash', tokenHash)
+      .maybeSingle();
+
+    // 2. Fallback check: lookup by exact UUID if token hash was stored inside runner_metadata
+    if (!org && UUID_REGEX.test(orgPrefix)) {
+      const { data: byId } = await client
+        .from('wf_organizations')
+        .select('id, name, runner_metadata, runner_token_hash')
+        .eq('id', orgPrefix)
+        .maybeSingle();
+      org = byId;
+    }
+
+    if (!org) {
       return {
         success: false,
-        error: 'Unauthorized: Unable to resolve organization from runner token',
+        error: 'Unauthorized: Unknown or invalid runner token',
         status: 401,
       };
     }
 
-    // Await runner heartbeat & telemetry safely only when request originates from an actual runner
-    // Prevents read-only dashboard GET requests from faking heartbeats or clobbering hostname
+    // Resolve expected hash from column or metadata
+    const rawMeta = org.runner_metadata;
+    const meta: Record<string, unknown> = (typeof rawMeta === 'object' && rawMeta !== null)
+      ? (rawMeta as Record<string, unknown>)
+      : (typeof rawMeta === 'string' ? (() => { try { return JSON.parse(rawMeta); } catch { return {}; } })() : {});
+
+    const expectedHash = org.runner_token_hash || (meta.runner_token_hash as string) || (
+      meta.token && typeof meta.token === 'string'
+        ? crypto.createHash('sha256').update(meta.token).digest('hex')
+        : null
+    );
+
+    if (!expectedHash) {
+      return {
+        success: false,
+        error: 'Unauthorized: Organization has no active runner token configured',
+        status: 401,
+      };
+    }
+
+    // Verify token using constant-time comparison
+    const bufA = Buffer.from(tokenHash, 'hex');
+    const bufB = Buffer.from(expectedHash, 'hex');
+    if (bufA.length !== bufB.length || !crypto.timingSafeEqual(bufA, bufB)) {
+      return {
+        success: false,
+        error: 'Unauthorized: Invalid runner token secret',
+        status: 401,
+      };
+    }
+
+    // Check if token was revoked
+    if (meta.token_revoked === true) {
+      return {
+        success: false,
+        error: 'Forbidden: Runner token has been revoked',
+        status: 403,
+      };
+    }
+
+    const orgId = org.id;
+
+    // Runner heartbeat & telemetry
     const incomingHostname = request.headers.get('x-runner-hostname');
     const incomingPlatform = request.headers.get('x-runner-platform');
     const incomingVersion = request.headers.get('x-runner-version');
@@ -220,34 +159,20 @@ export async function authenticateRunnerOrUser(request: NextRequest): Promise<Ru
 
     if (shouldWriteHeartbeat) {
       try {
-        // Fetch existing metadata to preserve real fields if incoming headers are partial or omitted
-        const { data: existingOrg } = await client
-          .from('wf_organizations')
-          .select('stripe_subscription_id')
-          .eq('id', orgId)
-          .maybeSingle();
-
-        let currentMeta: Record<string, unknown> = {};
-        if (existingOrg?.stripe_subscription_id) {
-          try {
-            currentMeta = JSON.parse(existingOrg.stripe_subscription_id);
-          } catch {}
-        }
-
         const mergedPayload = {
-          ...currentMeta,
+          ...meta,
           last_ping_at: new Date().toISOString(),
-          hostname: incomingHostname || currentMeta.hostname || 'unknown',
-          platform: incomingPlatform || currentMeta.platform || 'unknown',
-          version: incomingVersion || currentMeta.version || 'unknown',
+          hostname: incomingHostname || meta.hostname || 'unknown',
+          platform: incomingPlatform || meta.platform || 'unknown',
+          version: incomingVersion || meta.version || 'unknown',
           token: runnerToken,
-          cdp_active: incomingCdp !== null ? incomingCdp === 'true' : (currentMeta.cdp_active ?? true),
+          cdp_active: incomingCdp !== null ? incomingCdp === 'true' : (meta.cdp_active ?? true),
         };
 
         await client
           .from('wf_organizations')
           .update({
-            stripe_subscription_id: JSON.stringify(mergedPayload),
+            runner_metadata: mergedPayload,
           })
           .eq('id', orgId);
 
@@ -343,7 +268,7 @@ export async function authenticateRunnerOrUser(request: NextRequest): Promise<Ru
         authType: 'session_user',
         orgId,
         userId: user.id,
-        supabase: client,
+        supabase: process.env.SUPABASE_SERVICE_ROLE_KEY ? client : serverSupabase,
       },
     };
   } catch (err: unknown) {

@@ -122,7 +122,7 @@ ${colors.bold}COMMANDS:${colors.reset}
 ${colors.bold}GLOBAL OPTIONS:${colors.reset}
   -p, --port <number>          Chrome remote debugging port (default: 9222)
   -u, --cloud-url <url>        ReFlow Cloud API URL (default: http://localhost:3000)
-  -t, --token <token>          Runner authentication token (ps_live_<org_id>)
+  -t, --token <token>          Runner authentication token (rf_live_<org_id>_<secret>)
   -d, --target-folder <path>   Directory for downloaded artifacts (default: ~/Downloads/ReFlow)
   -h, --help                   Show help information
   -v, --version                Show version information
@@ -130,7 +130,7 @@ ${colors.bold}GLOBAL OPTIONS:${colors.reset}
 ${colors.bold}EXAMPLES:${colors.reset}
   node packages/engine/src/runner/cli.js doctor
   node packages/engine/src/runner/cli.js doctor --port 9222 --cloud-url http://localhost:3000
-  node packages/engine/src/runner/cli.js listen --token ps_live_org123 --poll-interval 10
+  node packages/engine/src/runner/cli.js listen --token rf_live_org123_secret0000000000000000 --poll-interval 10
   node packages/engine/src/runner/cli.js run wf_12345 --port 9222
 `);
 }
@@ -150,13 +150,13 @@ ${colors.bold}DESCRIPTION:${colors.reset}
 ${colors.bold}OPTIONS:${colors.reset}
   -p, --port <number>          Chrome CDP debugging port to probe (default: 9222)
   -u, --cloud-url <url>        ReFlow Cloud API URL (default: http://localhost:3000)
-  -t, --token <token>          Runner token ps_live_<org_id> to validate
+  -t, --token <token>          Runner token rf_live_<org_id>_<secret> to validate
   -d, --target-folder <path>   Directory to test for artifact write permissions
   -h, --help                   Show this help message
 
 ${colors.bold}EXAMPLES:${colors.reset}
   node packages/engine/src/runner/cli.js doctor
-  node packages/engine/src/runner/cli.js doctor --port 9222 --token ps_live_123
+  node packages/engine/src/runner/cli.js doctor --port 9222 --token rf_live_123_secret0000000000000000
 `);
 }
 
@@ -176,13 +176,13 @@ ${colors.bold}DESCRIPTION:${colors.reset}
 ${colors.bold}OPTIONS:${colors.reset}
   -p, --port <number>          Chrome CDP debugging port (default: 9222)
   -u, --cloud-url <url>        ReFlow Cloud API URL (default: http://localhost:3000)
-  -t, --token <token>          Runner token ps_live_<org_id> (required for cloud polling)
+  -t, --token <token>          Runner token rf_live_<org_id>_<secret> (required for cloud polling)
   -i, --poll-interval <s>      Polling interval in seconds (default: 10, range: 10-15)
   -d, --target-folder <path>   Destination directory for invoice artifacts (default: ~/Downloads/ReFlow)
   -h, --help                   Show this help message
 
 ${colors.bold}EXAMPLES:${colors.reset}
-  node packages/engine/src/runner/cli.js listen --token ps_live_acme_corp
+  node packages/engine/src/runner/cli.js listen --token rf_live_acme_corp_secret0000000000000000
   node packages/engine/src/runner/cli.js listen --port 9222 --poll-interval 15
 `);
 }
@@ -205,13 +205,13 @@ ${colors.bold}ARGUMENTS:${colors.reset}
 ${colors.bold}OPTIONS:${colors.reset}
   -p, --port <number>          Chrome CDP debugging port (default: 9222)
   -u, --cloud-url <url>        ReFlow Cloud API URL (default: http://localhost:3000)
-  -t, --token <token>          Runner token ps_live_<org_id>
+  -t, --token <token>          Runner token rf_live_<org_id>_<secret>
   -d, --target-folder <path>   Destination directory for invoice artifacts (default: ~/Downloads/ReFlow)
   -h, --help                   Show this help message
 
 ${colors.bold}EXAMPLES:${colors.reset}
   node packages/engine/src/runner/cli.js run wf_invoices_01
-  node packages/engine/src/runner/cli.js run wf_invoices_01 --port 9222 --token ps_live_acme
+  node packages/engine/src/runner/cli.js run wf_invoices_01 --port 9222 --token rf_live_acme_secret0000000000000000
 `);
 }
 
@@ -290,7 +290,7 @@ async function runDoctor(options) {
       log.ok(`Runner token validated; pending runs queue accessible`);
     } else if (health.status === 401 || health.status === 403) {
       log.fail(`Cloud API responded with ${health.status} Unauthorized.`);
-      log.warn(`Runner token was rejected. Ensure token format is ps_live_<org_id>.`);
+      log.warn(`Runner token was rejected. Ensure token format is rf_live_<org_id>_<secret>.`);
       allChecksPassed = false;
     } else {
       log.warn(`Cloud API reachable but returned status ${health.status}: ${health.error || 'Unknown'}`);

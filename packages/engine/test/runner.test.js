@@ -27,16 +27,16 @@ const { parseCliArgs } = require('../src/runner/cli');
 test('CloudClient - configuration and header generation', () => {
   const client = new CloudClient({
     baseUrl: 'http://example.com/api///',
-    token: 'ps_live_test_org_123',
+    token: 'rf_live_test_org_123_secret0000000000000000',
     timeoutMs: 5000,
   });
 
   assert.strictEqual(client.baseUrl, 'http://example.com/api');
-  assert.strictEqual(client.token, 'ps_live_test_org_123');
+  assert.strictEqual(client.token, 'rf_live_test_org_123_secret0000000000000000');
 
   const headers = client._getHeaders();
-  assert.strictEqual(headers['Authorization'], 'Bearer ps_live_test_org_123');
-  assert.strictEqual(headers['x-runner-token'], 'ps_live_test_org_123');
+  assert.strictEqual(headers['Authorization'], 'Bearer rf_live_test_org_123_secret0000000000000000');
+  assert.strictEqual(headers['x-runner-token'], 'rf_live_test_org_123_secret0000000000000000');
   assert.strictEqual(headers['Content-Type'], 'application/json');
 });
 
@@ -61,13 +61,13 @@ test('CloudClient - getPendingRuns', async () => {
 
   const client = new CloudClient({
     baseUrl: 'http://localhost:3000',
-    token: 'ps_live_org_abc',
+    token: 'rf_live_org_abc_secret0000000000000000',
     fetch: mockFetch
   });
 
   const runs = await client.getPendingRuns();
   assert.match(calledUrl, /^http:\/\/localhost:3000\/api\/v1\/runs\?status=pending(&_t=\d+)?$/);
-  assert.strictEqual(calledHeaders['Authorization'], 'Bearer ps_live_org_abc');
+  assert.strictEqual(calledHeaders['Authorization'], 'Bearer rf_live_org_abc_secret0000000000000000');
   assert.strictEqual(runs.length, 2);
   assert.strictEqual(runs[0].id, 'run_1');
 });
@@ -88,7 +88,7 @@ test('CloudClient - claimRun (pending -> running)', async () => {
 
   const client = new CloudClient({
     baseUrl: 'http://localhost:3000',
-    token: 'ps_live_org_abc',
+    token: 'rf_live_org_abc_secret0000000000000000',
     fetch: mockFetch
   });
 
@@ -113,7 +113,7 @@ test('CloudClient - updateRunProgress and updateRunStatus', async () => {
 
   const client = new CloudClient({
     baseUrl: 'http://localhost:3000',
-    token: 'ps_live_org_abc',
+    token: 'rf_live_org_abc_secret0000000000000000',
     fetch: mockFetch
   });
 
@@ -144,7 +144,7 @@ test('CloudClient - registerArtifact', async () => {
 
   const client = new CloudClient({
     baseUrl: 'http://localhost:3000',
-    token: 'ps_live_org_abc',
+    token: 'rf_live_org_abc_secret0000000000000000',
     fetch: mockFetch
   });
 
@@ -188,7 +188,7 @@ test('CloudClient - uploadArtifact uploads base64 file and returns cloud_storage
 
   const client = new CloudClient({
     baseUrl: 'http://localhost:3000',
-    token: 'ps_live_org_abc',
+    token: 'rf_live_org_abc_secret0000000000000000',
     fetch: mockFetch,
   });
 
@@ -221,7 +221,7 @@ test('CloudClient - registerArtifact preserves null cloud_storage_path when loca
 
   const client = new CloudClient({
     baseUrl: 'http://localhost:3000',
-    token: 'ps_live_org_abc',
+    token: 'rf_live_org_abc_secret0000000000000000',
     fetch: mockFetch,
   });
 
@@ -254,7 +254,7 @@ test('CloudClient - getWorkflow', async () => {
 
   const client = new CloudClient({
     baseUrl: 'http://localhost:3000',
-    token: 'ps_live_org_abc',
+    token: 'rf_live_org_abc_secret0000000000000000',
     fetch: mockFetch
   });
 
@@ -276,7 +276,7 @@ test('CloudClient - handles 401 Unauthorized cleanly', async () => {
 
   const client = new CloudClient({
     baseUrl: 'http://localhost:3000',
-    token: 'ps_live_invalid',
+    token: 'rf_live_invalid_secret0000000000000000',
     fetch: mockFetch
   });
 
@@ -625,11 +625,11 @@ test('RunnerDaemon - pollOnce claims run and executes', async () => {
 // 5. CLI Argument Parsing Tests
 // ==========================================
 test('CLI - parseCliArgs extracts commands and flags correctly', () => {
-  const parsed1 = parseCliArgs(['doctor', '--port', '9333', '--cloud-url', 'http://cloud.test', '--token', 'ps_live_abc']);
+  const parsed1 = parseCliArgs(['doctor', '--port', '9333', '--cloud-url', 'http://cloud.test', '--token', 'rf_live_abc']);
   assert.strictEqual(parsed1.command, 'doctor');
   assert.strictEqual(parsed1.options.port, 9333);
   assert.strictEqual(parsed1.options.cloudUrl, 'http://cloud.test');
-  assert.strictEqual(parsed1.options.token, 'ps_live_abc');
+  assert.strictEqual(parsed1.options.token, 'rf_live_abc');
 
   const parsed2 = parseCliArgs(['doctor', '--help']);
   assert.strictEqual(parsed2.command, 'doctor');
@@ -659,7 +659,7 @@ test('Adversarial - claimRun handles 409 Conflict race condition gracefully', as
 
   const client = new CloudClient({
     baseUrl: 'http://localhost:3000',
-    token: 'ps_live_runner_2',
+    token: 'rf_live_runner_2_secret0000000000000000',
     fetch: mockFetch
   });
 

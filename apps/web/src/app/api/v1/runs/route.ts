@@ -77,7 +77,6 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const effectiveOrgId = body.org_id || body.orgId || orgId;
     const workflow_id = body.workflow_id || body.workflowId;
     let status = body.status;
     if (status === 'STOPPED') {
@@ -100,17 +99,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Ensure workflow exists to satisfy foreign key
+    // Ensure workflow exists in authenticated caller's organization
     const { data: existingWorkflow } = await supabase
       .from('wf_workflows')
       .select('id, workflow_definition, filter_rules')
       .eq('id', workflow_id)
+      .eq('org_id', orgId)
       .maybeSingle();
 
-    const currentDef = (existingWorkflow?.workflow_definition && typeof existingWorkflow.workflow_definition === 'object')
+    if (!existingWorkflow) {
+      return NextResponse.json(
+        { error: 'Workflow not found in organization' },
+        { status: 404 }
+      );
+    }
+
+    const currentDef = (existingWorkflow.workflow_definition && typeof existingWorkflow.workflow_definition === 'object')
       ? existingWorkflow.workflow_definition as Record<string, unknown>
       : {};
-    const currentFilterRules = (existingWorkflow?.filter_rules && typeof existingWorkflow.filter_rules === 'object')
+    const currentFilterRules = (existingWorkflow.filter_rules && typeof existingWorkflow.filter_rules === 'object')
       ? existingWorkflow.filter_rules as Record<string, unknown>
       : {};
 
@@ -155,52 +162,35 @@ export async function POST(request: NextRequest) {
       ? explicitItemFilter
       : (currentDef.itemFilter !== undefined ? currentDef.itemFilter : null);
 
-    if (!existingWorkflow) {
-      // Auto-create stub workflow if not found to satisfy FK constraints in testing environments
-      await supabase.from('wf_workflows').insert({
-        id: workflow_id,
-        org_id: effectiveOrgId,
-        name: `Workflow ${workflow_id.slice(0, 8)}`,
-        portal_url: 'https://example.com',
-        workflow_definition: {
-          mode,
-          isLoop,
-          loopStepIndex: (loopStepIndex !== null && loopStepIndex !== undefined) ? loopStepIndex : null,
-          loopLimit: (loopLimit !== null && loopLimit !== undefined) ? loopLimit : null,
-          itemFilter: itemFilter || null,
-        },
-        filter_rules: itemFilter ? (typeof itemFilter === 'object' ? itemFilter : { itemFilter }) : { itemFilter: null },
-      });
-    } else {
-      // Update workflow definition and filter rules with current execution configuration
-      const updatedDef: Record<string, unknown> = {
-        ...currentDef,
-        mode,
-        isLoop,
-        loopStepIndex: (loopStepIndex !== null && loopStepIndex !== undefined) ? loopStepIndex : null,
-        loopLimit: (loopLimit !== null && loopLimit !== undefined) ? loopLimit : null,
-        itemFilter: itemFilter || null,
-      };
+    // Update workflow definition and filter rules with current execution configuration
+    const updatedDef: Record<string, unknown> = {
+      ...currentDef,
+      mode,
+      isLoop,
+      loopStepIndex: (loopStepIndex !== null && loopStepIndex !== undefined) ? loopStepIndex : null,
+      loopLimit: (loopLimit !== null && loopLimit !== undefined) ? loopLimit : null,
+      itemFilter: itemFilter || null,
+    };
 
-      const updatedFilterRules: Record<string, unknown> = {
-        ...currentFilterRules,
-        itemFilter: itemFilter || null,
-      };
+    const updatedFilterRules: Record<string, unknown> = {
+      ...currentFilterRules,
+      itemFilter: itemFilter || null,
+    };
 
-      await supabase
-        .from('wf_workflows')
-        .update({
-          workflow_definition: updatedDef,
-          filter_rules: updatedFilterRules,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', workflow_id);
-    }
+    await supabase
+      .from('wf_workflows')
+      .update({
+        workflow_definition: updatedDef,
+        filter_rules: updatedFilterRules,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', workflow_id)
+      .eq('org_id', orgId);
 
     const { data: newRun, error } = await supabase
       .from('wf_execution_runs')
       .insert({
-        org_id: effectiveOrgId,
+        org_id: orgId,
         workflow_id,
         status: runStatus,
         total_items_discovered: Number(total_items_discovered) || 0,

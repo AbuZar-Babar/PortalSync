@@ -691,7 +691,7 @@ export default function SettingsPage() {
         const supabase = createClient();
         void supabase
           .from('wf_organizations')
-          .select('name, slug, stripe_subscription_id')
+          .select('*')
           .eq('id', orgId)
           .limit(1)
           .then(({ data, error }) => {
@@ -701,11 +701,13 @@ export default function SettingsPage() {
                 let syncedPalette = prev.themes.palette;
                 let syncedMode = prev.themes.mode;
 
-                if (row.stripe_subscription_id) {
+                if (row.runner_metadata) {
                   try {
-                    const parsedMeta = JSON.parse(row.stripe_subscription_id);
-                    const orgPal = parsedMeta.theme_settings?.palette || parsedMeta.theme;
-                    const orgMod = parsedMeta.theme_settings?.mode || parsedMeta.mode;
+                    const parsedMeta = typeof row.runner_metadata === 'object' && row.runner_metadata !== null
+                      ? row.runner_metadata as Record<string, unknown>
+                      : JSON.parse(row.runner_metadata as string);
+                    const orgPal = (parsedMeta.theme_settings as Record<string, unknown> | undefined)?.palette as string || parsedMeta.theme as string;
+                    const orgMod = (parsedMeta.theme_settings as Record<string, unknown> | undefined)?.mode as string || parsedMeta.mode as string;
                     if (orgPal) syncedPalette = orgPal;
                     if (orgMod) syncedMode = orgMod;
                   } catch {}
@@ -907,17 +909,19 @@ export default function SettingsPage() {
       if (orgId) {
         const supabase = createClient();
 
-        // Fetch current stripe_subscription_id to preserve heartbeat and runner telemetry
+        // Fetch current runner_metadata to preserve heartbeat and runner telemetry
         let existingMeta: Record<string, unknown> = {};
         const { data: currentOrg } = await supabase
           .from('wf_organizations')
-          .select('stripe_subscription_id')
+          .select('*')
           .eq('id', orgId)
           .maybeSingle();
 
-        if (currentOrg?.stripe_subscription_id) {
+        if (currentOrg?.runner_metadata) {
           try {
-            existingMeta = JSON.parse(currentOrg.stripe_subscription_id);
+            existingMeta = typeof currentOrg.runner_metadata === 'object' && currentOrg.runner_metadata !== null
+              ? currentOrg.runner_metadata as Record<string, unknown>
+              : JSON.parse(currentOrg.runner_metadata as string);
           } catch {}
         }
 
@@ -937,13 +941,13 @@ export default function SettingsPage() {
           }
         };
 
-        // Update supported columns: name, slug, and stripe_subscription_id metadata
+        // Update supported columns: name, slug, and runner_metadata
         const { error: orgErr } = await supabase
           .from('wf_organizations')
           .update({
             name: settings.general.orgName,
             slug: settings.general.orgSlug,
-            stripe_subscription_id: JSON.stringify(updatedMeta)
+            runner_metadata: updatedMeta
           })
           .eq('id', orgId);
 

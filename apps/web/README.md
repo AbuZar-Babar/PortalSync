@@ -8,7 +8,7 @@ The Next.js 16 web application and cloud control plane for **ReFlow**. Provides 
 
 - **Next.js 16 App Router**: React 19, Turbopack, Tailwind CSS v4, and Lucide icons.
 - **Visual Workflow Editor**: Interactive full-page workflow canvas (`/dashboard/workflows/[id]/edit`) built on Drawflow for building, connecting, and editing automation nodes.
-- **Dual Authentication**: Session-based auth for interactive users; bearer token auth (`ps_live_<org_id>`) for headless desktop automation runners.
+- **Dual Authentication**: Session-based auth for interactive users; bearer token auth (`rf_live_<org_id>_<secret>`) for headless desktop automation runners.
 - **Cloud Run Queue**: REST endpoints managing pending execution queues, atomic status transitions, and artifact catalogs.
 - **Human-in-the-Loop (HITL) Alerting**: Real-time 90-second 2FA intervention banner and status badges.
 

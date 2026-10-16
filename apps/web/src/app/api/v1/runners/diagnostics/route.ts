@@ -18,7 +18,7 @@ interface CdpCheckResult {
 
 /**
  * Checks whether the Chrome DevTools Protocol (CDP) HTTP endpoint is reachable
- * on 127.0.0.1 at the specified port with a strict 1500ms timeout.
+ * on 127.0.0.1 at the hardcoded port 9222 with a strict 1500ms timeout.
  */
 function checkCdp(port = 9222, timeoutMs = 1500): Promise<CdpCheckResult> {
   const startTime = Date.now();
@@ -113,37 +113,26 @@ function checkCdp(port = 9222, timeoutMs = 1500): Promise<CdpCheckResult> {
 
 /**
  * Handle diagnostics request logic for both GET and POST.
+ * Strictly enforces authentication and locks CDP check to port 9222 to prevent SSRF port scanning.
  */
 async function handleDiagnostics(
   request: NextRequest,
-  targetPort?: number,
   providedToken?: string
 ) {
-  // 1. Determine Port (default 9222)
-  const port = targetPort && !isNaN(targetPort) && targetPort > 0 ? targetPort : 9222;
-
-  // 2. Validate Authentication / Token
+  // 1. Validate Authentication (F-02: Require auth; reject unauthenticated calls)
   const auth = await authenticateRunnerOrUser(request);
-  const tokenCandidate = providedToken || extractRunnerToken(request);
-
-  let tokenValid = false;
-  let tokenStatus = 'unauthenticated';
-  let orgId = 'unknown';
-
-  if (auth.success) {
-    tokenValid = true;
-    tokenStatus = 'active';
-    orgId = auth.context.orgId;
-  } else if (tokenCandidate && tokenCandidate.startsWith('ps_live_')) {
-    // If a valid formatted pairing token was submitted directly in payload or query
-    tokenValid = true;
-    tokenStatus = 'valid_format';
-    orgId = tokenCandidate.replace('ps_live_', '').split('_')[0] || 'org_active';
-  } else {
-    // Allow diagnostic evaluation even if unauthenticated, reporting token as invalid
-    tokenValid = false;
-    tokenStatus = 'missing_or_invalid';
+  if (!auth.success) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
+
+  const { orgId } = auth.context;
+
+  // 2. Lock CDP Port to 9222 (F-02: Prevent SSRF localhost port scanning)
+  const port = 9222;
+
+  const tokenCandidate = providedToken || extractRunnerToken(request);
+  const tokenValid = true;
+  const tokenStatus = 'active';
 
   // 3. Perform Chrome CDP Check
   const cdpResult = await checkCdp(port, 1500);
@@ -160,7 +149,7 @@ async function handleDiagnostics(
     token: {
       valid: tokenValid,
       status: tokenStatus,
-      format: tokenCandidate ? 'ps_live' : null,
+      format: tokenCandidate?.startsWith('rf_live_') ? 'rf_live' : (auth.context.authType === 'runner_token' ? 'rf_live' : 'session'),
       org_id: orgId,
     },
     system: {
@@ -173,33 +162,21 @@ async function handleDiagnostics(
 }
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const rawPort = searchParams.get('port') || searchParams.get('target_port');
-  const port = rawPort ? parseInt(rawPort, 10) : 9222;
-  const token = searchParams.get('token') || undefined;
-
-  return handleDiagnostics(request, port, token);
+  const token = request.nextUrl.searchParams.get('token') || undefined;
+  return handleDiagnostics(request, token);
 }
 
 export async function POST(request: NextRequest) {
-  let targetPort: number | undefined;
   let token: string | undefined;
 
   try {
     const body = await request.json();
-    if (body) {
-      if (typeof body.target_port === 'number') {
-        targetPort = body.target_port;
-      } else if (typeof body.port === 'number') {
-        targetPort = body.port;
-      }
-      if (typeof body.token === 'string') {
-        token = body.token;
-      }
+    if (body && typeof body.token === 'string') {
+      token = body.token;
     }
   } catch {
     // Empty body is acceptable; defaults will be used
   }
 
-  return handleDiagnostics(request, targetPort, token);
+  return handleDiagnostics(request, token);
 }

@@ -35,7 +35,7 @@ class CloudClient {
   /**
    * @param {Object} options
    * @param {string} [options.baseUrl] - Base URL of ReFlow Cloud API (default: REFLOW_CLOUD_URL or http://localhost:3000)
-   * @param {string} [options.token] - Runner Token ps_live_<org_id> (default: REFLOW_RUNNER_TOKEN)
+   * @param {string} [options.token] - Runner Token rf_live_<org_id>_<secret> (default: REFLOW_RUNNER_TOKEN)
    * @param {number} [options.timeoutMs] - Request timeout in ms (default: 15000)
    * @param {Function} [options.fetch] - Custom fetch implementation (default: globalThis.fetch)
    */

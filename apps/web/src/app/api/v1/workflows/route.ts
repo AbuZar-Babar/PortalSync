@@ -56,7 +56,6 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const effectiveOrgId = body.org_id || orgId;
     const {
       name,
       portal_url,
@@ -94,7 +93,7 @@ export async function POST(request: NextRequest) {
     const { data: newWorkflow, error } = await supabase
       .from('wf_workflows')
       .insert({
-        org_id: effectiveOrgId,
+        org_id: orgId,
         name,
         portal_url,
         workflow_definition: finalDefinition,
