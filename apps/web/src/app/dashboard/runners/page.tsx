@@ -76,6 +76,7 @@ export default function RunnersPage() {
   const [isRegenerating, setIsRegenerating] = useState<boolean>(false);
   const [isRevoking, setIsRevoking] = useState<boolean>(false);
   const [actionSuccessNotice, setActionSuccessNotice] = useState<string | null>(null);
+  const [actionErrorNotice, setActionErrorNotice] = useState<string | null>(null);
 
   // Workers & Telemetry state
   const [workers, setWorkers] = useState<ConnectedWorker[]>([]);
@@ -449,6 +450,8 @@ export default function RunnersPage() {
       await fetchWorkersAndRuns();
     } catch (err) {
       console.error('Failed to regenerate token:', err);
+      setActionErrorNotice(err instanceof Error ? err.message : 'Could not regenerate the token. Please try again.');
+      setTimeout(() => setActionErrorNotice(null), 6000);
     } finally {
       setIsRegenerating(false);
     }
@@ -475,6 +478,8 @@ export default function RunnersPage() {
       setWorkers((prev) => prev.map((worker) => ({ ...worker, status: 'REVOKED', activeRun: null })));
     } catch (err) {
       console.error('Failed to revoke token:', err);
+      setActionErrorNotice(err instanceof Error ? err.message : 'Could not revoke the token. Please try again.');
+      setTimeout(() => setActionErrorNotice(null), 6000);
     } finally {
       setIsRevoking(false);
     }
@@ -684,6 +689,13 @@ export default function RunnersPage() {
           >
             <X className="w-4 h-4" />
           </button>
+        </div>
+      )}
+
+      {actionErrorNotice && (
+        <div role="alert" className="bg-rose-500/10 border border-rose-500/30 text-rose-300 px-4 py-3 rounded-xl flex items-center justify-between text-xs font-semibold">
+          <span>{actionErrorNotice}</span>
+          <button type="button" onClick={() => setActionErrorNotice(null)} className="text-rose-300 hover:text-white p-1" aria-label="Dismiss error"><X className="w-4 h-4" /></button>
         </div>
       )}
 
