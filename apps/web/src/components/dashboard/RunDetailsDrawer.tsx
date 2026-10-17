@@ -77,6 +77,7 @@ export function RunDetailsDrawer({ isOpen, onClose, run, onStopRun }: RunDetails
   const [copiedId, setCopiedId] = useState(false);
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
   const [twoFactorCountdown, setTwoFactorCountdown] = useState(90);
+  const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'files' | 'audit'>('overview');
 
   const handleClose = useCallback(() => {
     setArtifacts([]);
@@ -211,8 +212,6 @@ export function RunDetailsDrawer({ isOpen, onClose, run, onStopRun }: RunDetails
 
   const isActive = run.status === 'pending' || run.status === 'running' || run.status === 'requires_action';
   const isFailed = run.status === 'failed';
-  const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'files' | 'audit'>('overview');
-
   return (
     <div
       role="dialog"
