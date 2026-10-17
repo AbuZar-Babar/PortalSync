@@ -255,6 +255,47 @@ export default function DashboardOverviewPage() {
     return () => clearInterval(interval);
   }, [hasActiveRuns, orgId, loadOverviewData]);
 
+
+  // Aggregate the loaded execution history into daily counts for the activity chart.
+  const chartData = useMemo(() => {
+    const dayCount = chartRange === '7d' ? 7 : 30;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const days = Array.from({ length: dayCount }, (_, index) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() - (dayCount - index - 1));
+      return {
+        date,
+        label: chartRange === '7d'
+          ? date.toLocaleDateString(undefined, { weekday: 'short' })
+          : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        successful: 0,
+        failed: 0
+      };
+    });
+    const dayIndexes = new Map(days.map((day, index) => [
+      [day.date.getFullYear(), day.date.getMonth(), day.date.getDate()].join('-'),
+      index
+    ]));
+    allRuns.forEach((run) => {
+      if (!run.started_at) return;
+      const startedAt = new Date(run.started_at);
+      if (Number.isNaN(startedAt.getTime())) return;
+      const index = dayIndexes.get([startedAt.getFullYear(), startedAt.getMonth(), startedAt.getDate()].join('-'));
+      if (index === undefined) return;
+      const status = String(run.status).toLowerCase();
+      if (status === 'completed' || status === 'success') days[index].successful += 1;
+      if (status === 'failed') days[index].failed += 1;
+    });
+    return days;
+  }, [allRuns, chartRange]);
+
+  const chartMax = Math.max(1, ...chartData.map((day) => Math.max(day.successful, day.failed)));
+  const chartX = (index: number) => 30 + index * (540 / Math.max(1, chartData.length - 1));
+  const chartY = (value: number) => 112 - (value / chartMax) * 88;
+  const successfulPath = chartData.map((day, index) => chartX(index) + ',' + chartY(day.successful)).join(' ');
+  const failedPath = chartData.map((day, index) => chartX(index) + ',' + chartY(day.failed)).join(' ');
+
   // Identify runs requiring 2FA intervention
   const activeActionRuns: ActionRequiredRunInfo[] = useMemo(() => {
     return allRuns
@@ -344,63 +385,71 @@ export default function DashboardOverviewPage() {
         </div>
       </section>
 
-      {/* Four compact workspace metrics */}
-      <section aria-label="Workspace metrics" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Link
-          href="/dashboard/workflows"
-          className="group rounded-xl border border-[var(--border-color,rgba(255,255,255,0.08))] bg-[var(--surface-bg,#0c101d)] p-4 transition-colors hover:border-[var(--primary-color,#00f0ff)] sm:p-5"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-medium text-slate-400 sm:text-sm">Workflows</span>
-            <WorkflowIcon aria-hidden="true" className="h-4 w-4 flex-shrink-0 text-[var(--primary-color,#00f0ff)]" />
-          </div>
-          <p className="mt-3 text-2xl font-semibold tracking-tight text-[var(--foreground,#f8fafc)]">
-            {loadError || loading ? '—' : stats.totalWorkflows}
-          </p>
-        </Link>
 
-        <Link
-          href="/dashboard/runs"
-          className="group rounded-xl border border-[var(--border-color,rgba(255,255,255,0.08))] bg-[var(--surface-bg,#0c101d)] p-4 transition-colors hover:border-[var(--primary-color,#00f0ff)] sm:p-5"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-medium text-slate-400 sm:text-sm">Executions</span>
-            <Activity aria-hidden="true" className="h-4 w-4 flex-shrink-0 text-[var(--primary-color,#00f0ff)]" />
-          </div>
-          <p className="mt-3 text-2xl font-semibold tracking-tight text-[var(--foreground,#f8fafc)]">
-            {loadError || loading ? '—' : stats.totalRuns}
-          </p>
+      {/* Compact metrics retain the existing live values and navigation. */}
+      <section aria-label="Workspace metrics" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <Link href="/dashboard/workflows" className="group rounded-xl border border-[var(--border-color,rgba(255,255,255,0.08))] bg-[var(--surface-bg,#0c101d)] p-4 transition-colors hover:border-[var(--primary-color,#00f0ff)] sm:p-5">
+          <div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-slate-400 sm:text-sm">Workflows</span><WorkflowIcon aria-hidden="true" className="h-4 w-4 flex-shrink-0 text-[var(--primary-color,#00f0ff)]" /></div>
+          <p className="mt-2 text-2xl font-semibold tracking-tight text-[var(--foreground,#f8fafc)]">{loadError || loading ? '—' : stats.totalWorkflows}</p>
+          <p className="mt-1 text-xs text-slate-500">Ready to run</p>
         </Link>
-
+        <Link href="/dashboard/runs" className="group rounded-xl border border-[var(--border-color,rgba(255,255,255,0.08))] bg-[var(--surface-bg,#0c101d)] p-4 transition-colors hover:border-[var(--primary-color,#00f0ff)] sm:p-5">
+          <div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-slate-400 sm:text-sm">Total runs</span><Activity aria-hidden="true" className="h-4 w-4 flex-shrink-0 text-[var(--primary-color,#00f0ff)]" /></div>
+          <p className="mt-2 text-2xl font-semibold tracking-tight text-[var(--foreground,#f8fafc)]">{loadError || loading ? '—' : stats.totalRuns}</p>
+          <div className="mt-2 flex h-5 items-end gap-1" aria-hidden="true">
+            {chartData.map((day) => {
+              const count = day.successful + day.failed;
+              const maxCount = Math.max(1, ...chartData.map((item) => item.successful + item.failed));
+              return <span key={day.date.toISOString()} className="min-w-0 flex-1 rounded-t-sm bg-[var(--primary-color,#00d9e8)] transition-all" style={{ height: Math.max(3, (count / maxCount) * 20) + 'px', opacity: count ? 0.8 : 0.2 }} title={day.label + ': ' + count + ' completed or failed runs'} />;
+            })}
+          </div>
+        </Link>
         <div className="rounded-xl border border-[var(--border-color,rgba(255,255,255,0.08))] bg-[var(--surface-bg,#0c101d)] p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-medium text-slate-400 sm:text-sm">Success rate</span>
-            <span aria-hidden="true" className="text-sm text-[var(--primary-color,#00f0ff)]">%</span>
+          <div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-slate-400 sm:text-sm">Success rate</span><span aria-hidden="true" className="text-sm text-emerald-400">%</span></div>
+          <p className="mt-2 text-2xl font-semibold tracking-tight text-[var(--foreground,#f8fafc)]">{loadError || loading || stats.successRate === null ? '—' : stats.successRate + '%'}</p>
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800" aria-label={stats.successRate === null ? 'No completed runs yet' : stats.successRate + '% success rate'}>
+            <div className="h-full rounded-full bg-emerald-400 transition-all" style={{ width: (loadError || loading || stats.successRate === null ? 0 : stats.successRate) + '%' }} />
           </div>
-          <p className="mt-3 text-2xl font-semibold tracking-tight text-[var(--foreground,#f8fafc)]">
-            {loadError || loading || stats.successRate === null ? '—' : `${stats.successRate}%`}
-          </p>
         </div>
-
-        <Link
-          href="/dashboard/artifacts"
-          className="group rounded-xl border border-[var(--border-color,rgba(255,255,255,0.08))] bg-[var(--surface-bg,#0c101d)] p-4 transition-colors hover:border-[var(--primary-color,#00f0ff)] sm:p-5"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-medium text-slate-400 sm:text-sm">Invoices downloaded</span>
-            <FileText aria-hidden="true" className="h-4 w-4 flex-shrink-0 text-[var(--primary-color,#00f0ff)]" />
-          </div>
-          <p className="mt-3 text-2xl font-semibold tracking-tight text-[var(--foreground,#f8fafc)]">
-            {loadError || loading ? '—' : stats.totalInvoices}
-          </p>
+        <Link href="/dashboard/artifacts" className="group rounded-xl border border-[var(--border-color,rgba(255,255,255,0.08))] bg-[var(--surface-bg,#0c101d)] p-4 transition-colors hover:border-[var(--primary-color,#00f0ff)] sm:p-5">
+          <div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-slate-400 sm:text-sm">Files collected</span><FileText aria-hidden="true" className="h-4 w-4 flex-shrink-0 text-[var(--primary-color,#00f0ff)]" /></div>
+          <p className="mt-2 text-2xl font-semibold tracking-tight text-[var(--foreground,#f8fafc)]">{loadError || loading ? '—' : stats.totalInvoices}</p>
+          <p className="mt-1 text-xs text-slate-500">Across your runs</p>
         </Link>
+      </section>
+
+      {/* A single focused chart adds context without crowding the overview. */}
+      <section className="rounded-xl border border-[var(--border-color,rgba(255,255,255,0.08))] bg-[var(--surface-bg,#0c101d)] p-4 sm:p-5" aria-labelledby="run-activity-heading">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1"><h2 id="run-activity-heading" className="text-base font-semibold tracking-tight text-[var(--foreground,#f8fafc)]">Run activity</h2><p className="text-xs text-slate-400">Successful and failed runs over time.</p></div>
+          <div className="inline-flex self-start rounded-lg border border-[var(--border-color,rgba(255,255,255,0.08))] bg-black/10 p-1" role="group" aria-label="Chart time range">
+            <button type="button" onClick={() => setChartRange('7d')} aria-pressed={chartRange === '7d'} className={'rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-color,#00f0ff)] ' + (chartRange === '7d' ? 'bg-[var(--surface-hover,#172033)] text-[var(--foreground,#f8fafc)]' : 'text-slate-400 hover:text-slate-200')}>7 days</button>
+            <button type="button" onClick={() => setChartRange('30d')} aria-pressed={chartRange === '30d'} className={'rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-color,#00f0ff)] ' + (chartRange === '30d' ? 'bg-[var(--surface-hover,#172033)] text-[var(--foreground,#f8fafc)]' : 'text-slate-400 hover:text-slate-200')}>30 days</button>
+          </div>
+        </div>
+        <div className="mt-4">
+          <svg viewBox="0 0 600 145" role="img" aria-label={'Daily successful and failed run counts for the last ' + (chartRange === '7d' ? '7' : '30') + ' days'} className="h-44 w-full overflow-visible sm:h-52" preserveAspectRatio="none">
+            {[24, 52, 80, 108].map((y) => <line key={y} x1="30" y1={y} x2="570" y2={y} stroke="currentColor" strokeOpacity="0.1" strokeDasharray="3 5" />)}
+            {chartData.some((day) => day.successful > 0) && <polygon points={'30,112 ' + successfulPath + ' 570,112'} fill="#82abff" fillOpacity="0.10" />}
+            <polyline points={successfulPath} fill="none" stroke="#82abff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+            <polyline points={failedPath} fill="none" stroke="#e6a16f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+            {chartData.map((day, index) => <g key={day.date.toISOString()}>
+              {chartRange === '7d' && day.successful > 0 && <circle cx={chartX(index)} cy={chartY(day.successful)} r="3" fill="#82abff" />}
+              {chartRange === '7d' && day.failed > 0 && <circle cx={chartX(index)} cy={chartY(day.failed)} r="3" fill="#e6a16f" />}
+              {(chartRange === '7d' || index % 5 === 0 || index === chartData.length - 1) && <text x={chartX(index)} y="137" fill="currentColor" fillOpacity="0.6" fontSize="10" textAnchor="middle">{day.label}</text>}
+            </g>)}
+          </svg>
+          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-400"><span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-[#82abff]" />Successful</span><span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-[#e6a16f]" />Failed</span></div>
+          {!loading && !loadError && allRuns.length === 0 && <p className="mt-4 text-center text-xs text-slate-500">Run a workflow to start building your activity history.</p>}
+          {loadError && <p className="mt-4 text-xs text-slate-500">Activity data will appear when your dashboard data is available.</p>}
+        </div>
       </section>
 
       {/* Recent executions remain the primary operational content */}
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
-            <h2 className="text-base font-semibold tracking-tight text-[var(--foreground,#f8fafc)]">Recent executions</h2>
+            <h2 className="text-base font-semibold tracking-tight text-[var(--foreground,#f8fafc)]">Recent runs</h2>
             <p className="text-xs text-slate-400">The latest activity across your workflows.</p>
           </div>
           <Link
