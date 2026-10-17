@@ -307,6 +307,29 @@ export default function PropertyDrawer({
           </summary>
           <p className="mt-2 text-[11px] leading-5 text-slate-500">Selectors, timeouts, and action-specific options.</p>
           <div className="mt-4 space-y-5">
+        {/* Action Value */}
+        {actionDef.hasValue && (
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+              {draft.action === 'WAIT'
+                ? 'Wait Time (Milliseconds)'
+                : draft.action === 'NAVIGATE'
+                ? 'Target URL'
+                : draft.action === 'SELECT'
+                ? 'Select Option Value'
+                : 'Action Value / Input'}
+            </label>
+            <input
+              type="text"
+              value={draft.value || ''}
+              onChange={(e) => setDraft({ ...draft, value: e.target.value })}
+              placeholder={actionDef.valuePlaceholder || 'Value...'}
+              className="w-full rounded-lg border border-slate-800 bg-slate-900/90 px-3 py-2 text-xs font-mono text-emerald-300 placeholder-slate-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition"
+            />
+          </div>
+        )}
+
+
         {/* Candidate Selectors List */}
         {actionDef.hasTarget && (
           <div>
@@ -327,28 +350,6 @@ export default function PropertyDrawer({
             <p className="mt-1 text-[11px] text-slate-500">
               Fallback selectors used if the primary target cannot be located.
             </p>
-          </div>
-        )}
-
-        {/* Action Value */}
-        {actionDef.hasValue && (
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-              {draft.action === 'WAIT'
-                ? 'Wait Time (Milliseconds)'
-                : draft.action === 'NAVIGATE'
-                ? 'Target URL'
-                : draft.action === 'SELECT'
-                ? 'Select Option Value'
-                : 'Action Value / Input'}
-            </label>
-            <input
-              type="text"
-              value={draft.value || ''}
-              onChange={(e) => setDraft({ ...draft, value: e.target.value })}
-              placeholder={actionDef.valuePlaceholder || 'Value...'}
-              className="w-full rounded-lg border border-slate-800 bg-slate-900/90 px-3 py-2 text-xs font-mono text-emerald-300 placeholder-slate-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition"
-            />
           </div>
         )}
 
