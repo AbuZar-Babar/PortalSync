@@ -17,7 +17,6 @@ import {
   FolderTree,
   Table as TableIcon,
   RotateCw,
-  Sparkles,
   ExternalLink,
   Eye,
   X,
@@ -1028,18 +1027,14 @@ export default function ArtifactsVaultPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-6">
         <div className="flex items-center gap-4">
-          <div className="p-1 rounded-2xl bg-gradient-to-br from-cyan-500/20 via-indigo-500/10 to-transparent border border-cyan-500/30 shadow-[0_0_20px_rgba(0,240,255,0.15)]">
+          <div className="p-1 rounded-xl bg-slate-900 border border-white/10">
             <RobotAvatar size="badge" state={isLoading ? 'analyzing' : 'idle'} />
           </div>
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+              <h1 className="text-2xl font-semibold tracking-tight text-white">
                 Files &amp; Results
               </h1>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
-                <Sparkles className="h-2.5 w-2.5" />
-                OUTPUT CENTER
-              </span>
             </div>
             <p className="text-xs text-slate-400 mt-1 max-w-2xl">
               Browse collected files, verify their integrity, and review processing outcomes.
