@@ -96,7 +96,6 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
   const [portalUrl, setPortalUrl] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [isRunning, setIsRunning] = useState<boolean>(false);
   const [isDirty, setIsDirty] = useState<boolean>(false);
   const [isPreflightOpen, setIsPreflightOpen] = useState<boolean>(false);
   const [saveMessage, setSaveMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -819,9 +818,111 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2.5">
-          {/* Desktop Worker Daemon Connection Status Indicator */}
+          {/* Save to Cloud Button */}
+          <button
+            onClick={handleSaveToCloud}
+            disabled={isSaving}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
+              isDirty
+                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40 hover:bg-emerald-500'
+                : 'border border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            {isSaving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
+            {isSaving ? 'Saving…' : 'Save'}
+          </button>
+
+          {/* Run Now Button */}
+          <button
+            onClick={handleRunNow}
+            disabled={isSaving}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-4 py-2 text-xs font-semibold text-white hover:bg-cyan-500 transition cursor-pointer"
+          >
+            {isRunning ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Play className="h-3.5 w-3.5 fill-current" />
+            )}
+            Run workflow
+          </button>
+        </div>
+      </header>
+
+      {/* Floating Status Notification Banners */}
+      {saveMessage && (
+        <div
+          className={`absolute top-20 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold shadow-xl backdrop-blur-md transition ${
+            saveMessage.type === 'success'
+              ? 'border border-emerald-500/30 bg-emerald-950/80 text-emerald-300'
+              : 'border border-red-500/30 bg-red-950/80 text-red-300'
+          }`}
+        >
+          {saveMessage.type === 'success' ? (
+            <CheckCircle2 className="h-4 w-4" />
+          ) : (
+            <AlertCircle className="h-4 w-4" />
+          )}
+          <span>{saveMessage.text}</span>
+        </div>
+      )}
+
+      {runMessage && (
+        <div
+          className={`absolute top-20 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold shadow-xl backdrop-blur-md transition ${
+            runMessage.type === 'success'
+              ? 'border border-emerald-500/30 bg-emerald-950/80 text-emerald-300'
+              : 'border border-red-500/30 bg-red-950/80 text-red-300'
+          }`}
+        >
+          <Play className="h-4 w-4 fill-current" />
+          <span>{runMessage.text}</span>
+        </div>
+      )}
+
+      {/* ===================================================================
+          Main Editor Canvas Area
+          =================================================================== */}
+      <main className="relative flex min-h-0 flex-1 w-full overflow-hidden bg-[#0B1220]">
+        {/* Workflow step navigator */}
+        <aside className="hidden md:flex w-[208px] shrink-0 flex-col border-r border-slate-800 bg-[#0F172A] px-3 py-5">
+          <div className="mb-4 px-2">
+            <h2 className="text-xs font-semibold tracking-wide text-slate-200">Workflow steps</h2>
+            <p className="mt-1 text-xs text-slate-500">Select a step to edit it.</p>
+          </div>
+          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+            {orderedCanvasNodes.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-700 px-3 py-5 text-center">
+                <Plus className="mx-auto h-5 w-5 text-slate-500" />
+                <p className="mt-2 text-xs font-medium text-slate-300">Start with a step</p>
+                <p className="mt-1 text-[11px] leading-5 text-slate-500">Add an action to begin building your workflow.</p>
+              </div>
+            ) : orderedCanvasNodes.map(([nodeKey, node], index) => {
+              const step = node.data as StepNodeData;
+              const selected = String(selectedNodeId) === nodeKey;
+              return (
+                <button key={nodeKey} type="button" onClick={() => {
+                  setSelectedNodeId(nodeKey);
+                  setSelectedNodeData(step);
+                  setIsDrawerOpen(true);
+                  const element = document.getElementById(`node-${nodeKey}`);
+                  element?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                }} className={`group flex w-full items-start gap-2.5 rounded-xl border px-3 py-3 text-left transition ${selected ? 'border-blue-500/70 bg-blue-500/10' : 'border-transparent hover:border-slate-700 hover:bg-slate-800/70'}`}>
+                  <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold ${selected ? 'bg-blue-500/20 text-blue-300' : 'bg-slate-800 text-slate-400'}`}>{index + 1}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className={`block truncate text-xs font-medium ${selected ? 'text-white' : 'text-slate-200'}`}>{step.name || step.action || 'Workflow step'}</span>
+                    <span className="mt-1 block truncate text-[11px] text-slate-500">{String(step.action || 'Action').replaceAll('_', ' ').toLowerCase()}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {/* Desktop worker connection status */}
           <div
-            className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border ${
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border ${
               isRunnerOnline
                 ? 'border-emerald-500/30 bg-emerald-950/40 text-emerald-400'
                 : 'border-slate-800 bg-slate-900/60 text-slate-400'
@@ -832,14 +933,14 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
             <span>{isRunnerOnline ? 'Worker Online' : 'Worker Offline'}</span>
           </div>
 
-          {/* Add Step Dropdown Button */}
+
           <div className="relative">
             <button
               onClick={() => setIsPaletteOpen(!isPaletteOpen)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 transition cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
-              Add Step
+              Add a step
             </button>
 
             {/* Dropdown Menu */}
@@ -930,118 +1031,7 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
             )}
           </div>
 
-          {/* Save to Cloud Button */}
-          <button
-            onClick={handleSaveToCloud}
-            disabled={isSaving}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
-              isDirty
-                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40 hover:bg-emerald-500'
-                : 'border border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white'
-            }`}
-          >
-            {isSaving ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Save className="h-3.5 w-3.5" />
-            )}
-            {isSaving ? 'Saving…' : 'Save'}
-          </button>
 
-          {/* Configure Batch & Filter Button */}
-          <button
-            onClick={() => setIsPreflightOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 transition cursor-pointer"
-            title="Configure batch loop and filter parameters before running"
-          >
-            <ListFilter className="h-3.5 w-3.5 text-cyan-400" />
-            <span className="hidden sm:inline">Batch & Filter</span>
-          </button>
-
-          {/* Run Now Button */}
-          <button
-            onClick={handleRunNow}
-            disabled={isRunning}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-4 py-2 text-xs font-semibold text-white hover:bg-cyan-500 transition cursor-pointer"
-          >
-            {isRunning ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Play className="h-3.5 w-3.5 fill-current" />
-            )}
-            Run workflow
-          </button>
-        </div>
-      </header>
-
-      {/* Floating Status Notification Banners */}
-      {saveMessage && (
-        <div
-          className={`absolute top-20 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold shadow-xl backdrop-blur-md transition ${
-            saveMessage.type === 'success'
-              ? 'border border-emerald-500/30 bg-emerald-950/80 text-emerald-300'
-              : 'border border-red-500/30 bg-red-950/80 text-red-300'
-          }`}
-        >
-          {saveMessage.type === 'success' ? (
-            <CheckCircle2 className="h-4 w-4" />
-          ) : (
-            <AlertCircle className="h-4 w-4" />
-          )}
-          <span>{saveMessage.text}</span>
-        </div>
-      )}
-
-      {runMessage && (
-        <div
-          className={`absolute top-20 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold shadow-xl backdrop-blur-md transition ${
-            runMessage.type === 'success'
-              ? 'border border-emerald-500/30 bg-emerald-950/80 text-emerald-300'
-              : 'border border-red-500/30 bg-red-950/80 text-red-300'
-          }`}
-        >
-          <Play className="h-4 w-4 fill-current" />
-          <span>{runMessage.text}</span>
-        </div>
-      )}
-
-      {/* ===================================================================
-          Main Editor Canvas Area
-          =================================================================== */}
-      <main className="relative flex min-h-0 flex-1 w-full overflow-hidden bg-[#0B1220]">
-        {/* Workflow step navigator */}
-        <aside className="hidden md:flex w-[208px] shrink-0 flex-col border-r border-slate-800 bg-[#0F172A] px-3 py-5">
-          <div className="mb-4 px-2">
-            <h2 className="text-xs font-semibold tracking-wide text-slate-200">Workflow steps</h2>
-            <p className="mt-1 text-xs text-slate-500">Select a step to edit it.</p>
-          </div>
-          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
-            {orderedCanvasNodes.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-700 px-3 py-5 text-center">
-                <Plus className="mx-auto h-5 w-5 text-slate-500" />
-                <p className="mt-2 text-xs font-medium text-slate-300">Start with a step</p>
-                <p className="mt-1 text-[11px] leading-5 text-slate-500">Add an action to begin building your workflow.</p>
-              </div>
-            ) : orderedCanvasNodes.map(([nodeKey, node], index) => {
-              const step = node.data as StepNodeData;
-              const selected = String(selectedNodeId) === nodeKey;
-              return (
-                <button key={nodeKey} type="button" onClick={() => {
-                  setSelectedNodeId(nodeKey);
-                  setSelectedNodeData(step);
-                  setIsDrawerOpen(true);
-                  const element = document.getElementById(`node-${nodeKey}`);
-                  element?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
-                }} className={`group flex w-full items-start gap-2.5 rounded-xl border px-3 py-3 text-left transition ${selected ? 'border-blue-500/70 bg-blue-500/10' : 'border-transparent hover:border-slate-700 hover:bg-slate-800/70'}`}>
-                  <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold ${selected ? 'bg-blue-500/20 text-blue-300' : 'bg-slate-800 text-slate-400'}`}>{index + 1}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className={`block truncate text-xs font-medium ${selected ? 'text-white' : 'text-slate-200'}`}>{step.name || step.action || 'Workflow step'}</span>
-                    <span className="mt-1 block truncate text-[11px] text-slate-500">{String(step.action || 'Action').replaceAll('_', ' ').toLowerCase()}</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
           <div className="mt-4 rounded-xl border border-slate-800 bg-slate-900/60 p-3">
             <div className="flex items-center gap-2 text-slate-300"><WorkflowIcon className="h-4 w-4 text-cyan-400" /><span className="text-xs font-medium">{orderedCanvasNodes.length} steps</span></div>
             <p className="mt-1.5 text-[11px] leading-5 text-slate-500">Connect steps on the canvas to define the order.</p>
