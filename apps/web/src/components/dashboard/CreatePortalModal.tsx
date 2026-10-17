@@ -1044,7 +1044,7 @@ export function CreatePortalModal({
             </div>
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {([
-                { id: 'record', title: 'Record a browser task', description: 'Show ReFlow what to do in your browser.', icon: Video, recommended: true },
+                { id: 'record', title: 'Record a browser task', description: 'Show ReFlow what to do in your browser.', icon: Video },
                 { id: 'canvas', title: 'Build visually', description: 'Add steps one at a time in the visual editor.', icon: WorkflowIcon },
                 { id: 'quick', title: 'Quick setup', description: 'Start with a few simple details.', icon: Layers },
                 { id: 'import', title: 'Import a workflow', description: 'Bring in a workflow file you already have.', icon: FileCode },
@@ -1055,7 +1055,7 @@ export function CreatePortalModal({
                   <button key={method.id} type="button" onClick={() => setActiveTab(method.id)} className={`relative flex min-h-[132px] w-full items-start gap-3 rounded-xl border p-3.5 text-left transition sm:min-h-[154px] sm:flex-col sm:p-4 ${selected ? 'border-blue-500/80 bg-blue-500/[0.07]' : 'border-slate-800 bg-slate-950/30 hover:border-slate-700 hover:bg-slate-800/50'}`}>
                     <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${selected ? 'bg-blue-500/10 text-blue-300' : 'bg-slate-800 text-slate-300'}`}><MethodIcon className="h-5 w-5" /></span>
                     <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center gap-2 pr-5 text-sm font-semibold text-slate-100">{method.title}{'recommended' in method && method.recommended && <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-medium text-cyan-300">Recommended</span>}</span>
+                      <span className="flex flex-wrap items-center gap-2 pr-5 text-sm font-semibold text-slate-100">{method.title}</span>
                       <span className="mt-1 block text-xs leading-5 text-slate-400">{method.description}</span>
                     </span>
                     <span className={`absolute right-3 top-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${selected ? 'border-blue-400 bg-blue-400 text-slate-950' : 'border-slate-600 text-transparent'}`}><Check className="h-3 w-3" /></span>
