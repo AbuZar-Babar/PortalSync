@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Clock,
   Code,
+  Info,
   Sliders,
   Layers,
   Database,
@@ -64,6 +65,17 @@ export function extractAvailableOptions(nodeData: StepNodeData): Array<{ value: 
   return options;
 }
 
+function FieldHelp({ text }: { text: string }) {
+  return (
+    <span className="group relative inline-flex align-middle">
+      <button type="button" aria-label={text} title={text} className="inline-flex h-4 w-4 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-800 hover:text-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-400">
+        <Info className="h-3.5 w-3.5" />
+      </button>
+      <span role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-[80] mt-2 hidden w-56 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-[11px] font-normal normal-case leading-5 tracking-normal text-slate-200 shadow-xl group-hover:block group-focus-within:block">{text}</span>
+    </span>
+  );
+}
+
 export default function PropertyDrawer({
   nodeId,
   nodeData,
@@ -90,8 +102,22 @@ export default function PropertyDrawer({
     return extractAvailableOptions(draft);
   }, [draft]);
 
-  if (!isOpen || !draft || nodeId === null) {
-    return null;
+  if (!isOpen) return null;
+  if (!draft || nodeId === null) {
+    return (
+      <aside className="flex h-full w-full flex-col bg-[#0F172A] text-slate-200" aria-label="Step settings">
+        <div className="border-b border-slate-800 px-4 py-5">
+          <h3 className="text-sm font-semibold text-slate-100">Step settings</h3>
+          <p className="mt-1 text-xs text-slate-500">Choose a step to configure it.</p>
+        </div>
+        <div className="flex flex-1 flex-col items-center justify-center px-5 text-center">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-700 bg-slate-800/70 text-slate-400"><Sliders className="h-5 w-5" /></div>
+          <p className="mt-3 text-sm font-medium text-slate-200">Nothing selected</p>
+          <p className="mt-1.5 text-xs leading-5 text-slate-500">Select a node on the canvas or a step in the sidebar to edit its settings.</p>
+        </div>
+        <div className="border-t border-slate-800 px-4 py-3 text-[11px] leading-5 text-slate-500"><span className="text-cyan-400">Tip:</span> Keep each step focused on one action.</div>
+      </aside>
+    );
   }
 
   const handleActionChange = (newAction: StepActionType) => {
@@ -166,20 +192,18 @@ export default function PropertyDrawer({
 
   return (
     <aside
-      className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-slate-800 bg-slate-950/95 backdrop-blur-xl shadow-2xl transition-transform duration-300 ease-in-out text-slate-200"
-      aria-label="Step Property Drawer"
+      className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#0F172A] text-slate-200"
+      aria-label="Step settings"
     >
       {/* Drawer Header */}
-      <div className="flex items-center justify-between border-b border-slate-800/80 px-5 py-4 bg-slate-900/60">
+      <div className="flex items-center justify-between border-b border-slate-800/80 px-4 py-4 bg-[#0F172A]">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-800/70 text-blue-300">
             <Sliders className="h-4 w-4" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-white tracking-wide">Step Inspector</h3>
-            <p className="text-xs text-slate-400">
-              Step #{draft.stepIndex !== undefined ? draft.stepIndex + 1 : 1} &middot; Node {nodeId}
-            </p>
+            <h3 className="text-sm font-semibold text-white">Step settings</h3>
+            <p className="text-xs text-slate-500">Step {draft.stepIndex !== undefined ? draft.stepIndex + 1 : 1}</p>
           </div>
         </div>
 
@@ -204,31 +228,31 @@ export default function PropertyDrawer({
       </div>
 
       {/* Drawer Body Form */}
-      <form onSubmit={handleSave} className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+      <form onSubmit={handleSave} className="reflow-hide-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-5 space-y-6">
         {/* Step Name */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-            Step Name / Description
+            Step name <FieldHelp text="A short name so you can recognize this step in the workflow." />
           </label>
           <input
             type="text"
             value={draft.name || ''}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
             placeholder="e.g. Click Submit Button"
-            className="w-full rounded-lg border border-slate-800 bg-slate-900/90 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition"
+            className="w-full rounded-xl border border-slate-700/80 bg-slate-950/50 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition"
           />
         </div>
 
-        {/* Action Type & Execution Role */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* Action & Execution Role */}
+        <div>
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-              Action Type
+              Action <FieldHelp text="Choose what ReFlow should do here, such as clicking, typing, navigating, or extracting data." />
             </label>
             <select
               value={draft.action}
               onChange={(e) => handleActionChange(e.target.value as StepActionType)}
-              className="w-full rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 py-2 text-xs font-semibold text-emerald-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition"
+              className="w-full rounded-xl border border-slate-700/80 bg-slate-950/50 px-3 py-2.5 text-sm text-slate-200 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition"
             >
               {Object.keys(ACTION_DEFINITIONS).map((actKey) => {
                 const act = ACTION_DEFINITIONS[actKey as StepActionType];
@@ -241,60 +265,95 @@ export default function PropertyDrawer({
             </select>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-              Execution Role
-            </label>
-            <select
-              value={draft.role || 'SETUP'}
-              onChange={(e) => {
-                const newRole = e.target.value as 'SETUP' | 'LOOP';
-                const nextDraft: StepNodeData = {
-                  ...draft,
-                  role: newRole,
-                  isLoop: newRole === 'LOOP',
-                  loopMode: newRole === 'LOOP' ? 'sequential_iteration' : undefined,
-                };
-                setDraft(nextDraft);
-                if (nodeId !== null) {
-                  onUpdate(nodeId, nextDraft);
-                }
-              }}
-              className="w-full rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 py-2 text-xs text-slate-300 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition"
-            >
-              <option value="SETUP">Run Once (Setup)</option>
-              <option value="LOOP">Repeats in Loop</option>
-            </select>
-          </div>
         </div>
 
-        {/* Primary Target Selector */}
+        {/* Primary Page element */}
         {actionDef.hasTarget && (
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Code className="h-3.5 w-3.5 text-sky-400" />
-                Target Selector
+                Page element <FieldHelp text="The button, input, dropdown, or other page element this action should interact with. CSS or XPath selectors are supported." />
               </label>
-              <span className="text-[10px] text-slate-500 font-mono">CSS / XPath</span>
+              <span className="text-[10px] text-slate-500">What should ReFlow interact with?</span>
             </div>
             <input
               type="text"
               value={draft.target || ''}
               onChange={(e) => setDraft({ ...draft, target: e.target.value })}
-              placeholder="#main-btn, button.submit, or //button"
-              className="w-full rounded-lg border border-slate-800 bg-slate-900/90 px-3 py-2 text-xs font-mono text-sky-300 placeholder-slate-600 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 transition"
+              placeholder="e.g. Submit button or CSS selector"
+              className="w-full rounded-xl border border-slate-700/80 bg-slate-950/50 px-3 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition"
+            />
+            <p className="mt-1.5 text-[11px] leading-5 text-slate-500">Choose the page element ReFlow should interact with. Advanced selector options are available below.</p>
+          </div>
+        )}
+
+        {/* Action Value */}
+        {actionDef.hasValue && (
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+              {draft.action === 'WAIT'
+                ? 'Wait Time (Milliseconds)'
+                : draft.action === 'NAVIGATE'
+                ? 'Target URL'
+                : draft.action === 'SELECT'
+                ? 'Select Option Value'
+                : 'Action Value / Input'} <FieldHelp text={draft.action === 'WAIT' ? 'How long to pause before continuing, in milliseconds.' : draft.action === 'NAVIGATE' ? 'The full web address ReFlow should open.' : draft.action === 'SELECT' ? 'The option value to choose from the dropdown.' : 'The text, URL, or value this action should use.'} />
+            </label>
+            <input
+              type="text"
+              value={draft.value || ''}
+              onChange={(e) => setDraft({ ...draft, value: e.target.value })}
+              placeholder={actionDef.valuePlaceholder || 'Value...'}
+              className="w-full rounded-xl border border-slate-700/80 bg-slate-950/50 px-3 py-2.5 text-sm text-slate-200 placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition"
             />
           </div>
         )}
 
+
+
+        <details className="group rounded-xl border border-slate-800/90 bg-slate-950/20 p-3.5">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs font-medium text-slate-200 marker:hidden">
+            <span className="flex items-center gap-2"><Sliders className="h-4 w-4 text-slate-400" />Advanced settings <FieldHelp text="Optional technical controls. Most steps can use the default settings." /></span>
+            <span className="text-slate-500 transition group-open:rotate-90">›</span>
+          </summary>
+          <p className="mt-2 text-[11px] leading-5 text-slate-500">Optional behavior and technical settings. Most workflows can leave these at their defaults.</p>
+          <div className="mt-4 space-y-5">
+            <div className="rounded-lg border border-slate-800 bg-slate-950/30 p-3">
+              <div>
+                          <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                            Execution behavior
+                          </label>
+                          <select
+                            value={draft.role || 'SETUP'}
+                            onChange={(e) => {
+                              const newRole = e.target.value as 'SETUP' | 'LOOP';
+                              const nextDraft: StepNodeData = {
+                                ...draft,
+                                role: newRole,
+                                isLoop: newRole === 'LOOP',
+                                loopMode: newRole === 'LOOP' ? 'sequential_iteration' : undefined,
+                              };
+                              setDraft(nextDraft);
+                              if (nodeId !== null) {
+                                onUpdate(nodeId, nextDraft);
+                              }
+                            }}
+                            className="w-full rounded-xl border border-slate-700/80 bg-slate-950/50 px-3 py-2.5 text-sm text-slate-200 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition"
+                          >
+                            <option value="SETUP">Run Once (Setup)</option>
+                            <option value="LOOP">Repeats in Loop</option>
+                          </select>
+                        </div>
+              <p className="mt-2 text-[11px] leading-5 text-slate-500">Choose whether this step runs once or repeats for each record.</p>
+            </div>
         {/* Candidate Selectors List */}
         {actionDef.hasTarget && (
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Layers className="h-3.5 w-3.5 text-slate-400" />
-                Candidate Selectors
+                Candidate Selectors <FieldHelp text="Alternative selectors ReFlow tries if the main page element cannot be found. Add one selector per line." />
               </label>
               <span className="text-[10px] text-slate-500">One per line</span>
             </div>
@@ -311,34 +370,12 @@ export default function PropertyDrawer({
           </div>
         )}
 
-        {/* Action Value */}
-        {actionDef.hasValue && (
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-              {draft.action === 'WAIT'
-                ? 'Wait Time (Milliseconds)'
-                : draft.action === 'NAVIGATE'
-                ? 'Target URL'
-                : draft.action === 'SELECT'
-                ? 'Select Option Value'
-                : 'Action Value / Input'}
-            </label>
-            <input
-              type="text"
-              value={draft.value || ''}
-              onChange={(e) => setDraft({ ...draft, value: e.target.value })}
-              placeholder={actionDef.valuePlaceholder || 'Value...'}
-              className="w-full rounded-lg border border-slate-800 bg-slate-900/90 px-3 py-2 text-xs font-mono text-emerald-300 placeholder-slate-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition"
-            />
-          </div>
-        )}
-
         {/* Timeout ms */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5 text-amber-400" />
-              Timeout (Milliseconds)
+              Timeout (Milliseconds) <FieldHelp text="Maximum time ReFlow waits for this action or page element before reporting a timeout." />
             </label>
             <span className="text-[10px] text-slate-500">Default: {actionDef.defaultTimeout}ms</span>
           </div>
@@ -359,7 +396,7 @@ export default function PropertyDrawer({
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-indigo-300 flex items-center gap-1.5">
                 <ListFilter className="h-3.5 w-3.5" />
-                Available Options
+                Available Options <FieldHelp text="Options discovered from the selected dropdown. Choose a fixed option or repeat over records when appropriate." />
               </span>
               <span className="text-[10px] text-slate-400 font-mono">
                 {availableOptions.length} Discovered
@@ -410,7 +447,7 @@ export default function PropertyDrawer({
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-sky-400 flex items-center gap-1.5">
                 <CheckSquare className="h-3.5 w-3.5" />
-                Checkbox Target State
+                Checkbox Target State <FieldHelp text="Set the checkbox to a specific state instead of blindly toggling it, making retries safer." />
               </span>
               <span className="inline-flex items-center rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-300 border border-sky-500/20">
                 Safe to retry
@@ -452,7 +489,7 @@ export default function PropertyDrawer({
             <div className="flex-1">
               <span className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                State-Aware Checkbox Idempotency
+                State-Aware Checkbox Idempotency <FieldHelp text="When enabled, ReFlow skips the click if the checkbox is already in the desired state." />
               </span>
               <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
                 Skip clicking if element is already in the target state.
@@ -468,7 +505,7 @@ export default function PropertyDrawer({
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
                 <Database className="h-3.5 w-3.5" />
-                Excel Column Header (fieldName)
+                Excel Column Header (fieldName) <FieldHelp text="The column name used for this captured value in the exported spreadsheet." />
               </span>
               <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/20">
                 CSV Export
@@ -554,7 +591,7 @@ export default function PropertyDrawer({
               </div>
             </div>
             <div>
-              <label className="block text-[11px] text-slate-400 mb-1">Target Property</label>
+              <label className="block text-[11px] text-slate-400 mb-1">Target Property <FieldHelp text="Which value to read from the element: usually visible text, an input value, or a link URL." /></label>
               <input
                 type="text"
                 value={draft.extract_attribute || 'textContent'}
@@ -594,10 +631,12 @@ export default function PropertyDrawer({
             </label>
           </div>
         )}
+          </div>
+        </details>
       </form>
 
       {/* Drawer Footer Actions */}
-      <div className="border-t border-slate-800 bg-slate-900/80 px-5 py-3 flex items-center justify-end gap-3">
+      <div className="border-t border-slate-800 bg-[#0F172A] px-4 py-3.5 flex items-center justify-end gap-2">
         <button
           type="button"
           onClick={onClose}
@@ -608,10 +647,10 @@ export default function PropertyDrawer({
         <button
           type="button"
           onClick={handleSave}
-          className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-emerald-900/40 hover:bg-emerald-500 transition cursor-pointer"
+          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-500 transition cursor-pointer"
         >
           <Save className="h-3.5 w-3.5" />
-          Update Step
+          Save changes
         </button>
       </div>
     </aside>

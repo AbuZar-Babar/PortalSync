@@ -33,6 +33,7 @@ import {
   Database,
   Download,
   Loader2,
+  Workflow as WorkflowIcon,
 } from 'lucide-react';
 
 interface VisualWorkflowEditorProps {
@@ -95,12 +96,12 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
   const [portalUrl, setPortalUrl] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [isRunning, setIsRunning] = useState<boolean>(false);
   const [isDirty, setIsDirty] = useState<boolean>(false);
   const [isPreflightOpen, setIsPreflightOpen] = useState<boolean>(false);
   const [saveMessage, setSaveMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [runMessage, setRunMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
+  const [stepListVersion, setStepListVersion] = useState<number>(0);
   const [filterRules, setFilterRules] = useState<Record<string, unknown>>({});
 
   // Property Drawer State
@@ -170,6 +171,7 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
           }
         }
       });
+      setStepListVersion((version) => version + 1);
     } catch (err) {
       console.warn('refreshStepVisuals error:', err);
     }
@@ -380,48 +382,9 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
     }
   };
 
-  // Run Now dispatcher
-  const handleRunNow = async () => {
-    if (isRunning) return;
-    setIsRunning(true);
-    setRunMessage(null);
-
-    try {
-      // Auto-save before running if dirty
-      if (isDirty) {
-        await handleSaveToCloud();
-      }
-
-      const { steps, hasLoop, loopStepIndex } = compileTopologicalSteps();
-
-      const res = await fetch('/api/v1/runs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          workflow_id: workflowId,
-          status: 'pending',
-          mode: hasLoop ? 'loop' : 'single',
-          isLoop: hasLoop,
-          loopStepIndex: hasLoop && loopStepIndex >= 0 ? loopStepIndex : null,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to trigger run');
-      }
-
-      setRunMessage({
-        text: `Run dispatched! Status: pending (Run ID: ${data.run?.id?.slice(0, 8) || 'active'})`,
-        type: 'success',
-      });
-      setTimeout(() => setRunMessage(null), 5000);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error dispatching execution';
-      setRunMessage({ text: msg, type: 'error' });
-    } finally {
-      setIsRunning(false);
-    }
+  // Run workflow opens preflight so users can choose single or batch/filter execution.
+  const handleRunNow = () => {
+    setIsPreflightOpen(true);
   };
 
   // Add a new step node from palette
@@ -773,6 +736,10 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
   }, [isDirty]);
 
   const preflightCompiled = isPreflightOpen ? compileTopologicalSteps() : null;
+  const exportedCanvasNodes = editorRef.current?.export().drawflow.Home?.data as Record<string, DrawflowNode> | undefined;
+  const orderedCanvasNodes = Object.entries(exportedCanvasNodes || {}).sort(([, a], [, b]) => (a.pos_x || 0) - (b.pos_x || 0));
+  // stepListVersion intentionally triggers a render after graph mutations.
+  void stepListVersion;
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-[#060913] text-slate-100 antialiased select-none">
@@ -820,64 +787,123 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
           </div>
         </div>
 
-        {/* Center: Canvas Zoom Controls */}
-        <div className="hidden lg:flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900/80 px-1 py-1 text-slate-400">
-          <button
-            onClick={handleZoomOut}
-            className="flex h-7 w-7 items-center justify-center rounded hover:bg-slate-800 hover:text-white transition"
-            title="Zoom Out"
-          >
-            <ZoomOut className="h-3.5 w-3.5" />
-          </button>
-          <span className="px-2 text-xs font-mono font-medium text-slate-300 min-w-[48px] text-center">
-            {zoomLevel}%
-          </span>
-          <button
-            onClick={handleZoomIn}
-            className="flex h-7 w-7 items-center justify-center rounded hover:bg-slate-800 hover:text-white transition"
-            title="Zoom In"
-          >
-            <ZoomIn className="h-3.5 w-3.5" />
-          </button>
-          <div className="h-4 w-px bg-slate-800 mx-0.5" />
-          <button
-            onClick={handleZoomReset}
-            className="flex h-7 w-7 items-center justify-center rounded hover:bg-slate-800 hover:text-white transition"
-            title="Reset Zoom"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
         {/* Right: Actions */}
         <div className="flex items-center gap-2.5">
-          {/* Desktop Worker Daemon Connection Status Indicator */}
-          <div
-            className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border ${
-              isRunnerOnline
-                ? 'border-emerald-500/30 bg-emerald-950/40 text-emerald-400'
-                : 'border-slate-800 bg-slate-900/60 text-slate-400'
+          {/* Save to Cloud Button */}
+          <button
+            onClick={handleSaveToCloud}
+            disabled={isSaving}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
+              isDirty
+                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40 hover:bg-emerald-500'
+                : 'border border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white'
             }`}
-            title={isRunnerOnline ? 'Desktop Worker daemon online' : 'Desktop Worker daemon offline'}
           >
-            <span className={`w-1.5 h-1.5 rounded-full ${isRunnerOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
-            <span>{isRunnerOnline ? 'Worker Online' : 'Worker Offline'}</span>
-          </div>
+            {isSaving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
+            {isSaving ? 'Saving…' : 'Save'}
+          </button>
 
-          {/* Add Step Dropdown Button */}
+          {/* Run Now Button */}
+          <button
+            onClick={handleRunNow}
+            disabled={isSaving}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-4 py-2 text-xs font-semibold text-white hover:bg-cyan-500 transition cursor-pointer"
+          >
+            {isSaving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Play className="h-3.5 w-3.5 fill-current" />
+            )}
+            Run workflow
+          </button>
+        </div>
+      </header>
+
+      {/* Floating Status Notification Banners */}
+      {saveMessage && (
+        <div
+          className={`absolute top-20 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold shadow-xl backdrop-blur-md transition ${
+            saveMessage.type === 'success'
+              ? 'border border-emerald-500/30 bg-emerald-950/80 text-emerald-300'
+              : 'border border-red-500/30 bg-red-950/80 text-red-300'
+          }`}
+        >
+          {saveMessage.type === 'success' ? (
+            <CheckCircle2 className="h-4 w-4" />
+          ) : (
+            <AlertCircle className="h-4 w-4" />
+          )}
+          <span>{saveMessage.text}</span>
+        </div>
+      )}
+
+      {runMessage && (
+        <div
+          className={`absolute top-20 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold shadow-xl backdrop-blur-md transition ${
+            runMessage.type === 'success'
+              ? 'border border-emerald-500/30 bg-emerald-950/80 text-emerald-300'
+              : 'border border-red-500/30 bg-red-950/80 text-red-300'
+          }`}
+        >
+          <Play className="h-4 w-4 fill-current" />
+          <span>{runMessage.text}</span>
+        </div>
+      )}
+
+      {/* ===================================================================
+          Main Editor Canvas Area
+          =================================================================== */}
+      <main className="relative flex min-h-0 flex-1 w-full overflow-hidden bg-[#0B1220]">
+        {/* Workflow step navigator */}
+        <aside className="hidden md:flex w-[220px] shrink-0 flex-col border-r border-slate-800 bg-[#0F172A] px-3 py-5">
+          <div className="mb-4 px-2">
+            <h2 className="text-xs font-semibold tracking-wide text-slate-200">Workflow steps</h2>
+            <p className="mt-1 text-xs text-slate-500">Select a step to edit it.</p>
+          </div>
+          <div className="reflow-hide-scrollbar min-h-0 flex-1 space-y-1 overflow-y-auto">
+            {orderedCanvasNodes.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-700 px-3 py-5 text-center">
+                <Plus className="mx-auto h-5 w-5 text-slate-500" />
+                <p className="mt-2 text-xs font-medium text-slate-300">Start with a step</p>
+                <p className="mt-1 text-[11px] leading-5 text-slate-500">Add an action to begin building your workflow.</p>
+              </div>
+            ) : orderedCanvasNodes.map(([nodeKey, node], index) => {
+              const step = node.data as StepNodeData;
+              const selected = String(selectedNodeId) === nodeKey;
+              return (
+                <button key={nodeKey} type="button" onClick={() => {
+                  setSelectedNodeId(nodeKey);
+                  setSelectedNodeData(step);
+                  setIsDrawerOpen(true);
+                  const element = document.getElementById(`node-${nodeKey}`);
+                  element?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                }} className={`group flex w-full items-start gap-2.5 rounded-xl border px-3 py-3 text-left transition ${selected ? 'border-blue-500/70 bg-blue-500/10' : 'border-transparent hover:border-slate-700 hover:bg-slate-800/70'}`}>
+                  <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold ${selected ? 'bg-blue-500/20 text-blue-300' : 'bg-slate-800 text-slate-400'}`}>{index + 1}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className={`block truncate text-xs font-medium ${selected ? 'text-white' : 'text-slate-200'}`}>{step.name || step.action || 'Workflow step'}</span>
+                    <span className="mt-1 block truncate text-[11px] text-slate-500">{String(step.action || 'Action').replaceAll('_', ' ').toLowerCase()}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
           <div className="relative">
             <button
               onClick={() => setIsPaletteOpen(!isPaletteOpen)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 transition cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
-              Add Step
+              Add a step
             </button>
 
             {/* Dropdown Menu */}
             {isPaletteOpen && (
               <div
-                className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-800 bg-slate-900/95 p-1.5 shadow-2xl backdrop-blur-xl z-50 text-xs"
+                className="reflow-hide-scrollbar absolute bottom-full right-0 mb-2 max-h-[min(68vh,520px)] w-56 overflow-y-auto overscroll-contain rounded-xl border border-slate-800 bg-slate-900/95 p-1.5 shadow-2xl backdrop-blur-xl z-50 text-xs"
                 onClick={() => setIsPaletteOpen(false)}
               >
                 <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
@@ -962,86 +988,55 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
             )}
           </div>
 
-          {/* Save to Cloud Button */}
-          <button
-            onClick={handleSaveToCloud}
-            disabled={isSaving}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
-              isDirty
-                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40 hover:bg-emerald-500'
-                : 'border border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white'
-            }`}
-          >
-            {isSaving ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Save className="h-3.5 w-3.5" />
-            )}
-            {isSaving ? 'Saving…' : isDirty ? 'Save to Cloud *' : 'Saved'}
-          </button>
 
-          {/* Configure Batch & Filter Button */}
+          <p className="mt-3 px-2 text-[11px] text-slate-500">{orderedCanvasNodes.length} {orderedCanvasNodes.length === 1 ? 'step' : 'steps'}</p>
+        </aside>
+        <section className="relative min-w-0 flex-1 overflow-hidden bg-[#0B1220]">
+          <div className="absolute left-4 top-4 z-10 hidden sm:block pointer-events-none">
+            <h2 className="text-sm font-semibold text-slate-200">Workflow canvas</h2>
+            <p className="mt-1 text-xs text-slate-500">Select a step to configure it.</p>
+          </div>
+        {/* Canvas zoom controls */}
+        <div className="absolute right-4 top-4 z-10 flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900/90 px-1 py-1 text-slate-400 shadow-sm">
           <button
-            onClick={() => setIsPreflightOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-950/40 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 transition cursor-pointer"
-            title="Configure batch loop and filter parameters before running"
+            onClick={handleZoomOut}
+            className="flex h-7 w-7 items-center justify-center rounded hover:bg-slate-800 hover:text-white transition"
+            title="Zoom Out"
           >
-            <ListFilter className="h-3.5 w-3.5 text-cyan-400" />
-            <span className="hidden sm:inline">Batch & Filter</span>
+            <ZoomOut className="h-3.5 w-3.5" />
           </button>
-
-          {/* Run Now Button */}
+          <span className="px-2 text-xs font-mono font-medium text-slate-300 min-w-[48px] text-center">
+            {zoomLevel}%
+          </span>
           <button
-            onClick={handleRunNow}
-            disabled={isRunning}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-lg shadow-emerald-900/50 hover:brightness-110 transition cursor-pointer"
+            onClick={handleZoomIn}
+            className="flex h-7 w-7 items-center justify-center rounded hover:bg-slate-800 hover:text-white transition"
+            title="Zoom In"
           >
-            {isRunning ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Play className="h-3.5 w-3.5 fill-current" />
-            )}
-            Run Now
+            <ZoomIn className="h-3.5 w-3.5" />
+          </button>
+          <div className="h-4 w-px bg-slate-800 mx-0.5" />
+          <button
+            onClick={handleZoomReset}
+            className="flex h-7 w-7 items-center justify-center rounded hover:bg-slate-800 hover:text-white transition"
+            title="Reset Zoom"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
           </button>
         </div>
-      </header>
 
-      {/* Floating Status Notification Banners */}
-      {saveMessage && (
-        <div
-          className={`absolute top-20 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold shadow-xl backdrop-blur-md transition ${
-            saveMessage.type === 'success'
-              ? 'border border-emerald-500/30 bg-emerald-950/80 text-emerald-300'
-              : 'border border-red-500/30 bg-red-950/80 text-red-300'
-          }`}
-        >
-          {saveMessage.type === 'success' ? (
-            <CheckCircle2 className="h-4 w-4" />
-          ) : (
-            <AlertCircle className="h-4 w-4" />
+
+          {orderedCanvasNodes.length === 0 && !isLoading && (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center px-6">
+              <div className="max-w-sm rounded-2xl border border-slate-800 bg-[#111C2D]/95 p-6 text-center shadow-xl">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-slate-700 bg-slate-800 text-cyan-300"><WorkflowIcon className="h-6 w-6" /></div>
+                <h3 className="mt-4 text-sm font-semibold text-slate-100">Build your first workflow</h3>
+                <p className="mt-2 text-xs leading-5 text-slate-400">Add a step from the left panel, then connect steps on the canvas to define what ReFlow should do.</p>
+                <p className="mt-3 text-[11px] text-slate-500"><span className="text-cyan-300">Tip:</span> Start with a navigation step, then add the actions you perform in the browser.</p>
+              </div>
+            </div>
           )}
-          <span>{saveMessage.text}</span>
-        </div>
-      )}
-
-      {runMessage && (
-        <div
-          className={`absolute top-20 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold shadow-xl backdrop-blur-md transition ${
-            runMessage.type === 'success'
-              ? 'border border-emerald-500/30 bg-emerald-950/80 text-emerald-300'
-              : 'border border-red-500/30 bg-red-950/80 text-red-300'
-          }`}
-        >
-          <Play className="h-4 w-4 fill-current" />
-          <span>{runMessage.text}</span>
-        </div>
-      )}
-
-      {/* ===================================================================
-          Main Editor Canvas Area
-          =================================================================== */}
-      <main className="relative flex-1 w-full h-full overflow-hidden bg-[#060913]">
-        {isLoading && (
+          {isLoading && (
           <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-[#060913]/90 backdrop-blur-sm">
             <Loader2 className="h-8 w-8 text-emerald-400 animate-spin" />
             <p className="mt-3 text-xs font-semibold tracking-wider text-slate-400 uppercase">
@@ -1056,17 +1051,23 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
           id="drawflow"
           className="parent-drawflow workflow-editor-canvas"
         />
+        </section>
 
-        {/* Property Slide-Over Drawer */}
-        <PropertyDrawer
-          key={selectedNodeId !== null ? String(selectedNodeId) : 'none'}
-          nodeId={selectedNodeId}
-          nodeData={selectedNodeData}
-          isOpen={isDrawerOpen}
-          onClose={() => setIsDrawerOpen(false)}
-          onUpdate={handleUpdateStep}
-          onDelete={handleDeleteNode}
-        />
+        {/* Step settings slide out only when a workflow step is selected. */}
+        <div
+          className={`absolute inset-y-0 right-0 z-30 w-[320px] max-w-[92vw] border-l border-slate-800 bg-[#0F172A] shadow-2xl transition-transform duration-200 ease-out ${isDrawerOpen && selectedNodeId !== null ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`}
+          aria-hidden={!(isDrawerOpen && selectedNodeId !== null)}
+        >
+          <PropertyDrawer
+            key={selectedNodeId !== null ? String(selectedNodeId) : 'none'}
+            nodeId={selectedNodeId}
+            nodeData={selectedNodeData}
+            isOpen={isDrawerOpen && selectedNodeId !== null}
+            onClose={() => { setIsDrawerOpen(false); setSelectedNodeId(null); setSelectedNodeData(null); }}
+            onUpdate={handleUpdateStep}
+            onDelete={handleDeleteNode}
+          />
+        </div>
 
         {/* Execution Preflight Modal */}
         {isPreflightOpen && (

@@ -17,7 +17,6 @@ import {
   FolderTree,
   Table as TableIcon,
   RotateCw,
-  Sparkles,
   ExternalLink,
   Eye,
   X,
@@ -25,7 +24,6 @@ import {
   ChevronRight,
   Loader2,
   Cloud,
-  Layers,
   Globe,
   SlidersHorizontal,
   Archive,
@@ -74,6 +72,7 @@ export type ArtifactCategory = 'invoices' | 'datasets' | 'json' | 'media' | 'oth
 export type ViewMode = 'table' | 'tree';
 export type CategoryFilter = 'all' | 'master_sheet' | 'invoices' | 'datasets' | 'json';
 export type SortOption = 'newest' | 'oldest' | 'size_desc' | 'size_asc' | 'name_asc';
+
 
 const VIEW_MODE_STORAGE_KEY = 'wf_saas_artifacts_view_mode';
 
@@ -932,6 +931,10 @@ export default function ArtifactsVaultPage() {
   }, [filteredArtifacts, isExportingZip, orgId, categoryFilter, searchQuery]);
 
   // Table pagination slice
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, categoryFilter, sortBy]);
+
   const totalPages = Math.max(1, Math.ceil(filteredArtifacts.length / pageSize));
   const paginatedArtifacts = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -986,26 +989,21 @@ export default function ArtifactsVaultPage() {
   // ==========================================
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] p-6 lg:p-8 space-y-6 text-slate-100 max-w-[1560px] mx-auto">
+    <div className="min-h-full space-y-7 pb-12 text-slate-100">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-6">
         <div className="flex items-center gap-4">
-          <div className="p-1 rounded-2xl bg-gradient-to-br from-cyan-500/20 via-indigo-500/10 to-transparent border border-cyan-500/30 shadow-[0_0_20px_rgba(0,240,255,0.15)]">
+          <div className="p-1 rounded-xl bg-slate-900 border border-white/10">
             <RobotAvatar size="badge" state={isLoading ? 'analyzing' : 'idle'} />
           </div>
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                Outputs &amp; Invoices Vault
+              <h1 className="text-2xl font-semibold tracking-tight text-white">
+                Files
               </h1>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
-                <Sparkles className="h-2.5 w-2.5" />
-                OUTPUT CENTER
-              </span>
             </div>
             <p className="text-xs text-slate-400 mt-1 max-w-2xl">
-              Cryptographically verified automation artifacts, captured invoices, generated
-              spreadsheets, and execution data payloads with SHA-256 integrity attestations.
+              Browse, search, preview, and download files collected by your workflows.
             </p>
           </div>
         </div>
@@ -1065,180 +1063,43 @@ export default function ArtifactsVaultPage() {
         </div>
       )}
 
-      {/* Toolbar: Category Filter Pills, Search, View Toggle & Sort */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#0c101d]/60 backdrop-blur-xl p-3.5 rounded-2xl border border-white/5">
-        {/* Category Filter Pills */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => setCategoryFilter('all')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
-              categoryFilter === 'all'
-                ? 'bg-cyan-500/15 border border-cyan-500/40 text-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.15)] font-semibold'
-                : 'bg-slate-900/40 border border-white/5 text-slate-400 hover:text-slate-200 hover:border-white/10'
-            }`}
-          >
-            <Layers className="h-3 w-3" />
-            <span>All Files</span>
-            <span
-              className={`ml-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-mono ${
-                categoryFilter === 'all' ? 'bg-cyan-500/25 text-cyan-200' : 'bg-slate-800 text-slate-400'
-              }`}
-            >
-              {counts.all}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setCategoryFilter('master_sheet')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
-              categoryFilter === 'master_sheet'
-                ? 'bg-emerald-500/20 border border-emerald-500 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.25)] font-semibold'
-                : 'bg-slate-900/40 border border-white/5 text-slate-400 hover:text-slate-200 hover:border-white/10'
-            }`}
-          >
-            <span className="text-emerald-400 font-bold">📊</span>
-            <span>Master Data Sheets</span>
-            <span
-              className={`ml-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-mono ${
-                categoryFilter === 'master_sheet' ? 'bg-emerald-500/30 text-emerald-200' : 'bg-slate-800 text-slate-400'
-              }`}
-            >
-              {counts.master_sheet}
-            </span>
-          </button>
-          <button
-            onClick={() => setCategoryFilter('invoices')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
-              categoryFilter === 'invoices'
-                ? 'bg-rose-500/15 border border-rose-500/40 text-rose-300 shadow-[0_0_12px_rgba(244,63,94,0.15)] font-semibold'
-                : 'bg-slate-900/40 border border-white/5 text-slate-400 hover:text-slate-200 hover:border-white/10'
-            }`}
-          >
-            <FileText className="h-3 w-3 text-rose-400" />
-            <span>Invoices &amp; PDFs</span>
-            <span
-              className={`ml-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-mono ${
-                categoryFilter === 'invoices' ? 'bg-rose-500/25 text-rose-200' : 'bg-slate-800 text-slate-400'
-              }`}
-            >
-              {counts.invoices}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setCategoryFilter('datasets')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
-              categoryFilter === 'datasets'
-                ? 'bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.15)] font-semibold'
-                : 'bg-slate-900/40 border border-white/5 text-slate-400 hover:text-slate-200 hover:border-white/10'
-            }`}
-          >
-            <FileSpreadsheet className="h-3 w-3 text-emerald-400" />
-            <span>Datasets (.csv, .xlsx)</span>
-            <span
-              className={`ml-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-mono ${
-                categoryFilter === 'datasets'
-                  ? 'bg-emerald-500/25 text-emerald-200'
-                  : 'bg-slate-800 text-slate-400'
-              }`}
-            >
-              {counts.datasets}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setCategoryFilter('json')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
-              categoryFilter === 'json'
-                ? 'bg-amber-500/15 border border-amber-500/40 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.15)] font-semibold'
-                : 'bg-slate-900/40 border border-white/5 text-slate-400 hover:text-slate-200 hover:border-white/10'
-            }`}
-          >
-            <FileCode className="h-3 w-3 text-amber-400" />
-            <span>JSON Data (.json)</span>
-            <span
-              className={`ml-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-mono ${
-                categoryFilter === 'json' ? 'bg-amber-500/25 text-amber-200' : 'bg-slate-800 text-slate-400'
-              }`}
-            >
-              {counts.json}
-            </span>
-          </button>
-        </div>
-
-        {/* Right Controls: View Switcher, Search Input, Sort */}
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* Dual View Toggle (Persisted in localStorage) */}
-          <div className="inline-flex p-1 rounded-xl bg-slate-950/80 border border-white/10 shadow-inner">
-            <button
-              onClick={() => handleSetViewMode('table')}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                viewMode === 'table'
-                  ? 'bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 text-cyan-300 border border-cyan-500/30 shadow-[0_0_10px_rgba(0,240,255,0.1)]'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Flat Table View"
-            >
-              <TableIcon className="h-3.5 w-3.5" />
-              <span>Table</span>
-            </button>
-            <button
-              onClick={() => handleSetViewMode('tree')}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                viewMode === 'tree'
-                  ? 'bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 text-cyan-300 border border-cyan-500/30 shadow-[0_0_10px_rgba(0,240,255,0.1)]'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Run-grouped Folder Tree View"
-            >
-              <FolderTree className="h-3.5 w-3.5" />
-              <span>Folder Tree</span>
-            </button>
+      <section aria-label="File search and filters" className="rounded-2xl border border-white/[0.08] bg-[#0c101d]/75 p-3.5 sm:p-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+          <div className="relative min-w-0 flex-1">
+            <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <input ref={searchInputRef} type="search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search files, workflow, domain, or checksum" aria-label="Search files" className="h-10 w-full rounded-xl border border-white/10 bg-slate-950/70 pl-10 pr-10 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none focus:ring-2 focus:ring-cyan-400/10" />
+            {searchQuery ? <button type="button" onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-lg text-slate-400 hover:bg-white/5 hover:text-white" title="Clear search" aria-label="Clear file search"><X className="h-4 w-4" /></button> : <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-md border border-white/10 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-500 sm:inline-flex">Ctrl K</kbd>}
           </div>
-
-          {/* Instant Search Input */}
-          <div className="relative min-w-[220px] max-w-[320px] flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search file, hash, workflow... (Ctrl+K)"
-              className="w-full pl-9 pr-8 py-1.5 rounded-xl bg-slate-950/80 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all font-mono"
-            />
-            {searchQuery ? (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
-                title="Clear search"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            ) : (
-              <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono px-1 rounded bg-slate-800 text-slate-400 border border-slate-700 pointer-events-none">
-                ⌘K
-              </kbd>
-            )}
-          </div>
-
-          {/* Sort Dropdown */}
-          <div className="relative">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="appearance-none pl-3 pr-8 py-1.5 rounded-xl bg-slate-950/80 border border-white/10 text-xs text-slate-300 focus:outline-none focus:border-cyan-500/50 cursor-pointer font-sans"
-            >
-              <option value="newest">Newest Captured</option>
-              <option value="oldest">Oldest First</option>
-              <option value="size_desc">Largest Size</option>
-              <option value="size_asc">Smallest Size</option>
-              <option value="name_asc">Name (A-Z)</option>
-            </select>
-            <ArrowUpDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none" />
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex h-10 items-center rounded-xl border border-white/10 bg-slate-950/70 p-1" aria-label="File view mode">
+              <button type="button" onClick={() => handleSetViewMode('table')} aria-pressed={viewMode === 'table'} className={"inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-medium " + (viewMode === 'table' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200')} title="Table view"><TableIcon className="h-3.5 w-3.5" /><span>Table</span></button>
+              <button type="button" onClick={() => handleSetViewMode('tree')} aria-pressed={viewMode === 'tree'} className={"inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-medium " + (viewMode === 'tree' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200')} title="Folder tree view"><FolderTree className="h-3.5 w-3.5" /><span>Folders</span></button>
+            </div>
+            <label className="flex h-10 min-w-[150px] flex-1 items-center gap-2 rounded-xl border border-white/10 bg-slate-950/70 px-3 text-xs text-slate-400 sm:flex-none"><span>Sort by</span>
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortOption)} aria-label="Sort files" className="min-w-0 flex-1 appearance-none bg-transparent text-xs text-slate-200 focus:outline-none">
+                <option value="newest">Newest</option><option value="oldest">Oldest</option><option value="size_desc">Largest</option><option value="size_asc">Smallest</option><option value="name_asc">Name A–Z</option>
+              </select><ArrowUpDown className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+            </label>
           </div>
         </div>
-      </div>
+        <div className="mt-3 flex flex-col gap-2 border-t border-white/[0.06] pt-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0"><p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">File type</p>
+            <div className="flex max-w-full items-center gap-1.5 overflow-x-auto pb-1">
+              {([
+                { value: 'all', label: 'All files', count: counts.all, icon: Folder },
+                { value: 'master_sheet', label: 'Master sheets', count: counts.master_sheet, icon: FileSpreadsheet },
+                { value: 'invoices', label: 'Documents', count: counts.invoices, icon: FileText },
+                { value: 'datasets', label: 'Datasets', count: counts.datasets, icon: FileSpreadsheet },
+                { value: 'json', label: 'JSON', count: counts.json, icon: FileCode },
+              ] as const).map((filter) => {
+                const Icon = filter.icon, selected = categoryFilter === filter.value;
+                return <button key={filter.value} type="button" onClick={() => setCategoryFilter(filter.value)} aria-pressed={selected} className={"inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-medium " + (selected ? 'border-cyan-400/35 bg-cyan-400/10 text-cyan-200' : 'border-white/[0.07] bg-slate-950/35 text-slate-400 hover:border-white/15 hover:text-slate-200')}><Icon className="h-3.5 w-3.5" /><span>{filter.label}</span><span className={"rounded-md px-1.5 py-0.5 text-[10px] " + (selected ? 'bg-cyan-400/10 text-cyan-100' : 'bg-white/[0.04] text-slate-500')}>{filter.count}</span></button>;
+              })}
+            </div>
+          </div>
+          <p className="shrink-0 text-xs text-slate-500" aria-live="polite"><span className="font-medium text-slate-200">{filteredArtifacts.length}</span> {filteredArtifacts.length === 1 ? 'file' : 'files'}{searchQuery || categoryFilter !== 'all' ? ' found' : ' total'}</p>
+        </div>
+      </section>
 
       {/* Main Content Area */}
       <div className="bg-[#0c101d]/90 rounded-2xl border border-white/5 backdrop-blur-xl overflow-hidden shadow-2xl">
@@ -1270,13 +1131,6 @@ export default function ArtifactsVaultPage() {
                 <span>Browse Workflows</span>
                 <ChevronRight className="h-3.5 w-3.5" />
               </Link>
-              <button
-                onClick={handleManualRefresh}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium bg-slate-900 text-slate-300 hover:text-white border border-white/10"
-              >
-                <RotateCw className="h-3.5 w-3.5" />
-                <span>Check for New Runs</span>
-              </button>
             </div>
           </div>
         ) : filteredArtifacts.length === 0 ? (
@@ -1306,24 +1160,20 @@ export default function ArtifactsVaultPage() {
              ========================================== */
           <div>
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+              <table className="w-full min-w-[850px] border-collapse text-left text-xs">
                 <thead>
                   <tr className="border-b border-white/5 bg-slate-950/60 text-slate-400 uppercase font-mono text-[10px] tracking-wider">
-                    <th className="py-3 px-4 font-semibold">File &amp; Name</th>
-                    <th className="py-3 px-4 font-semibold">Workflow &amp; Run</th>
-                    <th className="py-3 px-4 font-semibold">Category</th>
+                    <th className="px-3 py-3 font-semibold">File</th>
+                    <th className="px-3 py-3 font-semibold">Workflow</th>
+                    <th className="px-3 py-3 font-semibold">Type</th>
                     <th className="py-3 px-4 font-semibold">Size</th>
-                    <th className="py-3 px-4 font-semibold">SHA-256 Checksum</th>
                     <th className="py-3 px-4 font-semibold">Captured</th>
-                    <th className="py-3 px-4 font-semibold text-right">Actions</th>
+                    <th className="px-3 py-3 text-right font-semibold">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
                   {paginatedArtifacts.map((art) => {
                     const isCopied = copiedHashId === art.id;
-                    const truncatedHash = art.sha256_hash
-                      ? `${art.sha256_hash.slice(0, 8)}...${art.sha256_hash.slice(-4)}`
-                      : '—';
 
                     return (
                       <tr
@@ -1339,12 +1189,12 @@ export default function ArtifactsVaultPage() {
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="font-semibold text-white group-hover:text-cyan-300 transition-colors truncate max-w-[280px]">
+                                <span title={art.file_name} className="max-w-[230px] truncate text-xs font-semibold text-white transition-colors group-hover:text-cyan-300">
                                   {art.file_name}
                                 </span>
                                 {(art.file_name.includes('_extracted_data_') || (art.file_name.endsWith('.csv') && !art.file_name.includes('part'))) && (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-sm shadow-emerald-950/50">
-                                    📊 Master Data Sheet (Excel/CSV)
+                                    Master sheet
                                   </span>
                                 )}
                                 {(art.cloud_storage_path || art.synced_to_drive) && (
@@ -1353,10 +1203,10 @@ export default function ArtifactsVaultPage() {
                                   </span>
                                 )}
                               </div>
-                              <span className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                                <Globe className="h-2.5 w-2.5" />
-                                <span className="truncate max-w-[220px]">{art.portalDomain}</span>
-                              </span>
+                              <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                                <span className="flex min-w-0 items-center gap-1 text-[11px] text-slate-500" title={art.portalDomain}><Globe className="h-2.5 w-2.5 shrink-0" /><span className="max-w-[190px] truncate">{art.portalDomain}</span></span>
+                                {art.sha256_hash && <button type="button" onClick={(e) => handleCopyHash(art, e)} className={"inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[10px] " + (isCopied ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-white/[0.07] text-slate-500 hover:border-cyan-500/30 hover:text-cyan-200')} title={"Copy full SHA-256 checksum: " + art.sha256_hash} aria-label={"Copy SHA-256 checksum for " + art.file_name}>{isCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}<span>Checksum</span></button>}
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -1380,79 +1230,29 @@ export default function ArtifactsVaultPage() {
                         </td>
 
                         {/* Category */}
-                        <td className="py-3.5 px-4">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-900 border border-white/5 text-slate-300">
-                            {getCategoryDisplay(art.file_name, art.item_metadata)}
+                        <td className="px-3 py-3">
+                          <span className="inline-flex max-w-[120px] items-center truncate rounded-md border border-white/[0.07] bg-slate-900/80 px-2 py-1 text-[11px] font-medium text-slate-300" title={getCategoryDisplay(art.file_name, art.item_metadata)}>
+                            {art.file_name.includes("_extracted_data_") || (art.file_name.endsWith(".csv") && !art.file_name.includes("part")) ? "Master sheet" : ({ invoices: "Documents", datasets: "Dataset", json: "JSON", media: "Media", other: "Other" } as Record<ArtifactCategory, string>)[getArtifactCategory(art.file_name)]}
                           </span>
                         </td>
 
                         {/* Formatted File Size */}
-                        <td className="py-3.5 px-4 font-mono text-slate-300">
+                        <td className="whitespace-nowrap px-3 py-3 font-mono text-slate-300">
                           {formatBytes(art.file_size_bytes)}
                         </td>
 
-                        {/* SHA-256 Badge with 1-click Copy */}
-                        <td className="py-3.5 px-4">
-                          <button
-                            type="button"
-                            onClick={(e) => handleCopyHash(art, e)}
-                            className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg font-mono text-[11px] transition-all border ${
-                              isCopied
-                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
-                                : 'bg-slate-950/80 text-slate-400 border-white/10 hover:text-cyan-300 hover:border-cyan-500/30'
-                            }`}
-                            title={`Click to copy full SHA-256:\n${art.sha256_hash}`}
-                          >
-                            <span>sha256:{truncatedHash}</span>
-                            {isCopied ? (
-                              <Check className="h-3 w-3 text-emerald-400 shrink-0" />
-                            ) : (
-                              <Copy className="h-3 w-3 text-slate-500 group-hover:text-slate-300 shrink-0" />
-                            )}
-                          </button>
-                        </td>
-
                         {/* Captured Timestamp */}
-                        <td className="py-3.5 px-4 text-slate-400 whitespace-nowrap">
+                        <td className="whitespace-nowrap px-3 py-3 text-slate-400">
                           <span title={formatDate(art.created_at)}>
                             {formatRelativeTime(art.created_at)}
                           </span>
                         </td>
 
-                        {/* Direct Download & Preview Actions */}
-                        <td className="py-3.5 px-4 text-right">
-                          <div
-                            className="inline-flex items-center gap-1.5 justify-end"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {/* Preview Trigger */}
-                            <button
-                              onClick={(e) => handleOpenPreview(art, e)}
-                              className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-cyan-300 border border-white/5 transition-all"
-                              title="Preview Artifact"
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                            </button>
-
-                            {/* Direct Download Button */}
-                            <a
-                              href={`/api/v1/artifacts/download?id=${art.id}`}
-                              download={art.file_name}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 hover:border-cyan-500/50 transition-all font-semibold"
-                              title={`Download ${art.file_name}`}
-                            >
-                              <Download className="h-3.5 w-3.5" />
-                              <span>Download</span>
-                            </a>
-
-                            {/* Inspect Associated Run in Drawer */}
-                            <button
-                              onClick={(e) => handleOpenRun(art, e)}
-                              className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-white/5 transition-all"
-                              title="Inspect Run Telemetry"
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </button>
+                        {/* Preview and download actions */}
+                        <td className="px-3 py-3 text-right">
+                          <div className="inline-flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            <button type="button" onClick={(e) => handleOpenPreview(art, e)} className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-slate-900 text-slate-400 hover:border-cyan-400/30 hover:bg-slate-800 hover:text-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400" title={"Preview " + art.file_name} aria-label={"Preview " + art.file_name}><Eye className="h-4 w-4" /></button>
+                            <a href={"/api/v1/artifacts/download?id=" + art.id} download={art.file_name} className="grid h-8 w-8 place-items-center rounded-lg border border-cyan-400/20 bg-cyan-400/[0.08] text-cyan-200 hover:border-cyan-400/40 hover:bg-cyan-400/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400" title={"Download " + art.file_name} aria-label={"Download " + art.file_name}><Download className="h-4 w-4" /></a>
                           </div>
                         </td>
                       </tr>
@@ -1721,7 +1521,6 @@ export default function ArtifactsVaultPage() {
           </div>
         )}
       </div>
-
       {/* ==========================================
           FILE PREVIEW MODAL
           ========================================== */}
@@ -1853,7 +1652,7 @@ export default function ArtifactsVaultPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-white/5 bg-slate-950/60 flex items-center justify-between">
+            <div className="p-4 border-t border-white/5 bg-slate-950/60 flex items-center">
               <button
                 onClick={() => {
                   if (previewArtifact) handleOpenRun(previewArtifact);
@@ -1862,12 +1661,6 @@ export default function ArtifactsVaultPage() {
               >
                 <span>Inspect Associated Execution Run</span>
                 <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={() => setPreviewArtifact(null)}
-                className="px-4 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-medium text-slate-300 border border-white/10"
-              >
-                Close
               </button>
             </div>
           </div>
