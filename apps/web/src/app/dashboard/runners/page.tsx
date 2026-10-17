@@ -783,19 +783,12 @@ export default function RunnersPage() {
           />
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold tracking-tight text-white">
-                WORKERS &amp; RUNNERS HUB
+              <h1 className="text-xl font-semibold tracking-tight text-white">
+                Desktop Connection
               </h1>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 uppercase tracking-wider">
-                HYBRID CONTROL PLANE
-              </span>
-              <span className="hidden md:inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-white/10">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Realtime Stream Active
-              </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Manage connected desktop automation daemons, pair organization keys, and monitor hybrid Chrome execution.
+              Connect your computer to ReFlow, manage its access token, and check connection status.
             </p>
           </div>
         </div>
@@ -823,9 +816,9 @@ export default function RunnersPage() {
       </div>
 
       {/* Top Grid: Token Management & 3-Step Setup Guide */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Organization Runner Pairing Token Card */}
-        <div className="lg:col-span-7 bg-[#0c101d] border border-white/10 rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
+        <div className="lg:col-span-1 bg-[#0c101d] border border-white/10 rounded-2xl p-5 sm:p-6 flex flex-col justify-between">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -833,9 +826,9 @@ export default function RunnersPage() {
                   <ShieldCheck className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-white tracking-tight">Organization Pairing Token</h2>
-                  <p className="text-[11px] text-slate-400">
-                    Cryptographic key required to pair local Desktop Runners to {organizationName}
+                  <h2 className="text-base font-semibold text-white tracking-tight">Workspace pairing token</h2>
+                  <p className="text-sm text-slate-400 mt-1">
+                    Use this token to connect ReFlow Desktop to {organizationName}.
                   </p>
                 </div>
               </div>
@@ -847,7 +840,7 @@ export default function RunnersPage() {
                     : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                 }`}
               >
-                {isTokenRevoked ? 'REVOKED' : 'ACTIVE'}
+                {isTokenRevoked ? 'Revoked' : 'Ready'}
               </span>
             </div>
 
@@ -926,7 +919,7 @@ export default function RunnersPage() {
             </div>
 
             <p className="text-[11px] text-slate-400 leading-relaxed border-t border-white/5 pt-3">
-              <strong className="text-slate-300">Security Invariant:</strong> Any worker paired with this key can claim execution runs and upload artifacts. Store safely and rotate if compromised.
+              <strong className="text-slate-300">Keep this token private.</strong> Anyone who has access to it may be able to connect a desktop runner to this workspace.
             </p>
           </div>
 
@@ -951,7 +944,7 @@ export default function RunnersPage() {
         </div>
 
         {/* 3-Step Setup Guide & Desktop Binary Downloads */}
-        <div className="lg:col-span-5 bg-gradient-to-br from-[#0c101d] to-[#12172b] border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+        <div className="lg:col-span-1 bg-[#0c101d] border border-white/10 rounded-2xl p-5 sm:p-6 flex flex-col justify-between">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -959,8 +952,8 @@ export default function RunnersPage() {
                   <Download className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-white tracking-tight">Setup &amp; Downloads</h2>
-                  <p className="text-[11px] text-slate-400">Zero cloud-cost local automation engine</p>
+                  <h2 className="text-base font-semibold text-white tracking-tight">Connect your computer</h2>
+                  <p className="text-sm text-slate-400 mt-1">Follow the steps below to get your desktop ready.</p>
                 </div>
               </div>
 
@@ -1333,7 +1326,7 @@ export default function RunnersPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
           <div className="flex items-center gap-2.5">
             <Server className="w-4 h-4 text-cyan-400" />
-            <h2 className="text-sm font-bold text-white tracking-tight">Active Connected Workers</h2>
+            <h2 className="text-base font-semibold text-white tracking-tight">Connected computers</h2>
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-white/5">
               {workers.length} Registered
             </span>
@@ -1362,7 +1355,7 @@ export default function RunnersPage() {
         {loadingWorkers ? (
           <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-400">
             <RefreshCw className="w-5 h-5 animate-spin text-cyan-400" />
-            <span className="text-xs">Detecting active workers &amp; runner telemetry...</span>
+            <span className="text-xs">Checking whether your desktop is connected...</span>
           </div>
         ) : workers.length === 0 ? (
           <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
@@ -1370,9 +1363,9 @@ export default function RunnersPage() {
               <Cpu className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">No Desktop Runners Connected Yet</h3>
+              <h3 className="text-base font-semibold text-white">No computers connected yet</h3>
               <p className="text-xs text-slate-400 max-w-sm mt-1">
-                Launch the Desktop Runner or run <code className="text-cyan-300">npm run runner:listen</code> with your organization pairing token to begin automating workflows.
+                Open ReFlow Desktop on the computer you want to use, then enter the workspace pairing token above.
               </p>
             </div>
           </div>
