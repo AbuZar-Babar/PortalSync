@@ -2137,6 +2137,8 @@ export default function SettingsPage() {
                   </label>
                 </div>
               </div>
+                </div>
+              </details>
             </div>
           )}
 
