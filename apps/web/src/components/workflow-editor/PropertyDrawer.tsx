@@ -184,9 +184,9 @@ export default function PropertyDrawer({
       aria-label="Step settings"
     >
       {/* Drawer Header */}
-      <div className="flex items-center justify-between border-b border-slate-800/80 px-5 py-4 bg-slate-900/60">
+      <div className="flex items-center justify-between border-b border-slate-800/80 px-4 py-4 bg-[#0F172A]">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-800/70 text-blue-300">
             <Sliders className="h-4 w-4" />
           </div>
           <div>
@@ -216,23 +216,23 @@ export default function PropertyDrawer({
       </div>
 
       {/* Drawer Body Form */}
-      <form onSubmit={handleSave} className="min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-5">
+      <form onSubmit={handleSave} className="min-h-0 flex-1 overflow-y-auto px-4 py-5 space-y-6">
         {/* Step Name */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-            Step Name / Description
+            Step name
           </label>
           <input
             type="text"
             value={draft.name || ''}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
             placeholder="e.g. Click Submit Button"
-            className="w-full rounded-lg border border-slate-800 bg-slate-900/90 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition"
+            className="w-full rounded-xl border border-slate-700/80 bg-slate-950/50 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition"
           />
         </div>
 
-        {/* Action Type & Execution Role */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* Action & Execution Role */}
+        <div>
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
               Action Type
@@ -240,7 +240,7 @@ export default function PropertyDrawer({
             <select
               value={draft.action}
               onChange={(e) => handleActionChange(e.target.value as StepActionType)}
-              className="w-full rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 py-2 text-xs font-semibold text-emerald-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition"
+              className="w-full rounded-xl border border-slate-700/80 bg-slate-950/50 px-3 py-2.5 text-sm text-slate-200 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition"
             >
               {Object.keys(ACTION_DEFINITIONS).map((actKey) => {
                 const act = ACTION_DEFINITIONS[actKey as StepActionType];
@@ -253,34 +253,9 @@ export default function PropertyDrawer({
             </select>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-              Execution Role
-            </label>
-            <select
-              value={draft.role || 'SETUP'}
-              onChange={(e) => {
-                const newRole = e.target.value as 'SETUP' | 'LOOP';
-                const nextDraft: StepNodeData = {
-                  ...draft,
-                  role: newRole,
-                  isLoop: newRole === 'LOOP',
-                  loopMode: newRole === 'LOOP' ? 'sequential_iteration' : undefined,
-                };
-                setDraft(nextDraft);
-                if (nodeId !== null) {
-                  onUpdate(nodeId, nextDraft);
-                }
-              }}
-              className="w-full rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 py-2 text-xs text-slate-300 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition"
-            >
-              <option value="SETUP">Run Once (Setup)</option>
-              <option value="LOOP">Repeats in Loop</option>
-            </select>
-          </div>
         </div>
 
-        {/* Primary Target Selector */}
+        {/* Primary Page element */}
         {actionDef.hasTarget && (
           <div>
             <div className="flex items-center justify-between mb-1.5">
@@ -288,14 +263,14 @@ export default function PropertyDrawer({
                 <Code className="h-3.5 w-3.5 text-sky-400" />
                 Target Selector
               </label>
-              <span className="text-[10px] text-slate-500 font-mono">CSS / XPath</span>
+              <span className="text-[10px] text-slate-500">Optional technical selector</span>
             </div>
             <input
               type="text"
               value={draft.target || ''}
               onChange={(e) => setDraft({ ...draft, target: e.target.value })}
-              placeholder="#main-btn, button.submit, or //button"
-              className="w-full rounded-lg border border-slate-800 bg-slate-900/90 px-3 py-2 text-xs font-mono text-sky-300 placeholder-slate-600 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 transition"
+              placeholder="Choose an element or enter a selector"
+              className="w-full rounded-xl border border-slate-700/80 bg-slate-950/50 px-3 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition"
             />
           </div>
         )}
@@ -317,20 +292,48 @@ export default function PropertyDrawer({
               value={draft.value || ''}
               onChange={(e) => setDraft({ ...draft, value: e.target.value })}
               placeholder={actionDef.valuePlaceholder || 'Value...'}
-              className="w-full rounded-lg border border-slate-800 bg-slate-900/90 px-3 py-2 text-xs font-mono text-emerald-300 placeholder-slate-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition"
+              className="w-full rounded-xl border border-slate-700/80 bg-slate-950/50 px-3 py-2.5 text-sm text-slate-200 placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition"
             />
           </div>
         )}
 
 
 
-        <details className="group rounded-xl border border-slate-800 bg-slate-900/40 p-3.5">
+        <details className="group rounded-xl border border-slate-800/90 bg-slate-950/20 p-3.5">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs font-medium text-slate-200 marker:hidden">
             <span className="flex items-center gap-2"><Sliders className="h-4 w-4 text-slate-400" />Advanced settings</span>
             <span className="text-slate-500 transition group-open:rotate-90">›</span>
           </summary>
-          <p className="mt-2 text-[11px] leading-5 text-slate-500">Selectors, timeouts, and action-specific options.</p>
+          <p className="mt-2 text-[11px] leading-5 text-slate-500">Optional behavior and technical settings. Most workflows can leave these at their defaults.</p>
           <div className="mt-4 space-y-5">
+            <div className="rounded-lg border border-slate-800 bg-slate-950/30 p-3">
+              <div>
+                          <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                            Execution behavior
+                          </label>
+                          <select
+                            value={draft.role || 'SETUP'}
+                            onChange={(e) => {
+                              const newRole = e.target.value as 'SETUP' | 'LOOP';
+                              const nextDraft: StepNodeData = {
+                                ...draft,
+                                role: newRole,
+                                isLoop: newRole === 'LOOP',
+                                loopMode: newRole === 'LOOP' ? 'sequential_iteration' : undefined,
+                              };
+                              setDraft(nextDraft);
+                              if (nodeId !== null) {
+                                onUpdate(nodeId, nextDraft);
+                              }
+                            }}
+                            className="w-full rounded-xl border border-slate-700/80 bg-slate-950/50 px-3 py-2.5 text-sm text-slate-200 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition"
+                          >
+                            <option value="SETUP">Run Once (Setup)</option>
+                            <option value="LOOP">Repeats in Loop</option>
+                          </select>
+                        </div>
+              <p className="mt-2 text-[11px] leading-5 text-slate-500">Choose whether this step runs once or repeats for each record.</p>
+            </div>
         {/* Candidate Selectors List */}
         {actionDef.hasTarget && (
           <div>
@@ -620,7 +623,7 @@ export default function PropertyDrawer({
       </form>
 
       {/* Drawer Footer Actions */}
-      <div className="border-t border-slate-800 bg-[#0F172A] px-4 py-3 flex items-center justify-end gap-2">
+      <div className="border-t border-slate-800 bg-[#0F172A] px-4 py-3.5 flex items-center justify-end gap-2">
         <button
           type="button"
           onClick={onClose}
@@ -631,7 +634,7 @@ export default function PropertyDrawer({
         <button
           type="button"
           onClick={handleSave}
-          className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-emerald-900/40 hover:bg-emerald-500 transition cursor-pointer"
+          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-500 transition cursor-pointer"
         >
           <Save className="h-3.5 w-3.5" />
           Save changes
