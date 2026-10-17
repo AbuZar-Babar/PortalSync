@@ -1010,7 +1010,7 @@ export function CreatePortalModal({
       {/* Modal Dialog Card */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative flex max-h-[calc(100dvh-1rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl transition-all sm:max-h-[calc(100dvh-2rem)]"
+        className="relative flex max-h-[calc(100dvh-1rem)] w-full max-w-[690px] flex-col overflow-hidden rounded-2xl border border-slate-800 bg-[#0e1625] shadow-2xl transition-all sm:max-h-[calc(100dvh-2rem)]"
       >
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-800 px-4 py-3 sm:px-6 sm:py-4">
@@ -1020,10 +1020,10 @@ export function CreatePortalModal({
             </div>
             <div>
               <h2 id="modal-title" className="text-base font-semibold text-white">
-                Create workflow
+                Create a workflow
               </h2>
               <p className="text-xs text-slate-400">
-                {showMethodPicker ? 'Pick the easiest way to get started.' : 'A couple of details, then you’re ready to go.'}
+                {showMethodPicker ? 'Choose how you want to build your automation.' : 'Configure the essentials. You can change optional settings anytime.'}
               </p>
             </div>
           </div>
@@ -1057,10 +1057,10 @@ export function CreatePortalModal({
             </div>
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {([
-                { id: 'record', title: 'Record a browser task', description: 'Show ReFlow what to do in your browser.', icon: Video },
-                { id: 'canvas', title: 'Build visually', description: 'Add steps one at a time in the visual editor.', icon: WorkflowIcon },
-                { id: 'quick', title: 'Quick setup', description: 'Start with a few simple details.', icon: Layers },
-                { id: 'import', title: 'Import a workflow', description: 'Bring in a workflow file you already have.', icon: FileCode },
+                { id: 'record', title: 'Record a browser task', description: 'Perform the task in your browser while ReFlow records your actions.', icon: Video },
+                { id: 'canvas', title: 'Build visually', description: 'Create a workflow step by step using the visual editor.', icon: WorkflowIcon },
+                { id: 'quick', title: 'Quick setup', description: 'Set up a workflow using a few basic details and preferences.', icon: Layers },
+                { id: 'import', title: 'Import workflow', description: 'Bring an existing ReFlow workflow JSON file into your workspace.', icon: FileCode },
               ] as const).map((method) => {
                 const MethodIcon = method.icon;
                 const selected = activeTab === method.id;
@@ -1077,7 +1077,7 @@ export function CreatePortalModal({
               })}
             </div>
             <div className="sticky bottom-0 mt-5 flex flex-col gap-3 border-t border-slate-800 bg-slate-900/95 pt-4 sm:flex-row sm:items-center sm:gap-2 sm:pt-5">
-              <div className="flex items-start gap-2"><Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" /><p className="flex-1 text-xs leading-5 text-slate-400">Not sure? Start with <span className="font-medium text-slate-200">Record a browser task</span>.</p></div>
+              <div className="flex items-start gap-2"><Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" /><p className="flex-1 text-xs leading-5 text-slate-400">You can adjust advanced settings later. Start with the option that best matches how you want to build.</p></div>
               <button type="button" onClick={() => { setFormError(null); setShowMethodPicker(false); }} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 sm:ml-auto sm:w-auto sm:shrink-0">Continue <span aria-hidden="true">→</span></button>
             </div>
           </div>
