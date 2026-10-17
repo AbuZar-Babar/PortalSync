@@ -161,6 +161,7 @@ export function CreatePortalModal({
 }: CreatePortalModalProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+  const [showMethodPicker, setShowMethodPicker] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -201,6 +202,7 @@ export function CreatePortalModal({
     if (isOpen && initialTab) {
       const timer = setTimeout(() => {
         setActiveTab(initialTab);
+        setShowMethodPicker(initialTab === 'record');
       }, 0);
       return () => clearTimeout(timer);
     }
@@ -1034,8 +1036,49 @@ export function CreatePortalModal({
           </button>
         </div>
 
+        {showMethodPicker && (
+          <div className="px-6 py-6 sm:px-7 sm:py-7">
+            <div className="mb-5">
+              <h3 className="text-sm font-semibold text-slate-100">Choose how you’d like to get started</h3>
+              <p className="mt-1.5 text-xs leading-5 text-slate-400">You can change workflow settings later.</p>
+            </div>
+            <div className="space-y-3">
+              {([
+                { id: 'record', title: 'Record a browser task', description: 'Show ReFlow what to do in Chrome. Your actions are captured automatically.', icon: Video, recommended: true },
+                { id: 'canvas', title: 'Build visually', description: 'Add and connect steps on a visual workflow canvas.', icon: WorkflowIcon },
+                { id: 'quick', title: 'Quick setup', description: 'Start with a basic workflow and sensible defaults.', icon: Layers },
+                { id: 'import', title: 'Import a workflow', description: 'Bring in an existing compatible JSON workflow.', icon: FileCode },
+              ] as const).map((method) => {
+                const MethodIcon = method.icon;
+                const selected = activeTab === method.id;
+                return (
+                  <button key={method.id} type="button" onClick={() => setActiveTab(method.id)} className={`flex w-full items-center gap-3 rounded-xl border p-4 text-left transition ${selected ? 'border-cyan-500/80 bg-cyan-500/[0.07]' : 'border-slate-800 bg-slate-950/30 hover:border-slate-700 hover:bg-slate-800/50'}`}>
+                    <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${selected ? 'bg-cyan-500/10 text-cyan-300' : 'bg-slate-800 text-slate-300'}`}><MethodIcon className="h-5 w-5" /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-100">{method.title}{'recommended' in method && method.recommended && <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-medium text-cyan-300">Recommended</span>}</span>
+                      <span className="mt-1 block text-xs leading-5 text-slate-400">{method.description}</span>
+                    </span>
+                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${selected ? 'border-cyan-400 bg-cyan-400 text-slate-950' : 'border-slate-600 text-transparent'}`}><Check className="h-3 w-3" /></span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-6 flex items-center gap-2 border-t border-slate-800 pt-5">
+              <Info className="h-4 w-4 shrink-0 text-slate-500" />
+              <p className="flex-1 text-[11px] leading-5 text-slate-500">Schedules, download folders, and cloud storage can be configured when relevant.</p>
+              <button type="button" onClick={() => setShowMethodPicker(false)} className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-cyan-500">Continue <span aria-hidden="true">→</span></button>
+            </div>
+          </div>
+        )}
+
+        {!showMethodPicker && <>
+        {/* Back to method picker */}
+        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/30 px-6 py-3">
+          <button type="button" onClick={() => setShowMethodPicker(true)} className="inline-flex items-center gap-2 text-xs font-medium text-slate-400 transition hover:text-white"><span aria-hidden="true">←</span> All creation methods</button>
+          <span className="text-xs text-slate-500">{({ record: 'Record a browser task', canvas: 'Build visually', quick: 'Quick setup', import: 'Import a workflow' } as Record<TabType, string>)[activeTab]}</span>
+        </div>
         {/* Tab switcher */}
-        <div className="flex border-b border-slate-800 px-6 pt-3 bg-slate-950/40 overflow-x-auto">
+        <div className="hidden flex border-b border-slate-800 px-6 pt-3 bg-slate-950/40 overflow-x-auto">
           <button
             type="button"
             onClick={() => {
@@ -1788,6 +1831,7 @@ export function CreatePortalModal({
             </div>
           )}
         </div>
+        </>}
       </div>
     </div>
   );
