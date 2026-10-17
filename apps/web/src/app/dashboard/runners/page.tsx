@@ -77,7 +77,7 @@ export default function RunnersPage() {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [, setActiveRunsMap] = useState<Record<string, DrawerRunItem>>({});
   const [, setTotalClaimsCount] = useState<number>(0);
-  const [realtimeConnected, setRealtimeConnected] = useState<boolean>(false);
+  const [, setRealtimeConnected] = useState<boolean>(false);
 
   // Live seconds ticker
   const [now, setNow] = useState<number>(() => Date.now());
