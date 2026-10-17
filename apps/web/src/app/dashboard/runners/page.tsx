@@ -923,8 +923,10 @@ No desktop has checked in recently. Open ReFlow Desktop, paste the workspace tok
 
       {/* Pairing help dialog */}
       {showPairingHelp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowPairingHelp(false); }}>
-          <section role="dialog" aria-modal="true" aria-labelledby="pairing-help-title" className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0c101d] p-5 sm:p-6 shadow-2xl space-y-5">
+        <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/75 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowPairingHelp(false); }}>
+          <div className="flex min-h-full items-start sm:items-center justify-center p-3 sm:p-4">
+            <section role="dialog" aria-modal="true" aria-labelledby="pairing-help-title" className="my-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0c101d] shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
+              <div className="shrink-0 border-b border-white/5 px-4 py-4 sm:px-6 sm:py-5">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2 text-cyan-300 mb-2"><Monitor className="w-5 h-5" /><span className="text-xs font-semibold uppercase tracking-wide">Desktop pairing</span></div>
@@ -933,6 +935,8 @@ No desktop has checked in recently. Open ReFlow Desktop, paste the workspace tok
               </div>
               <button type="button" onClick={() => setShowPairingHelp(false)} aria-label="Close pairing help" className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-white"><X className="w-4 h-4" /></button>
             </div>
+              </div>
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5 [scrollbar-color:rgb(71_85_105)_rgb(12_16_29)] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-slate-950 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-600 hover:[&::-webkit-scrollbar-thumb]:bg-slate-500">
             <ol className="space-y-4">
               <li className="flex items-start gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-cyan-500/20 bg-cyan-500/10 text-xs font-bold text-cyan-300">1</span><div><p className="text-sm font-semibold text-white">Open ReFlow Desktop</p><p className="text-sm text-slate-400 mt-1">On the computer you want to connect, open the desktop app and go to its workspace pairing settings.</p></div></li>
               <li className="flex items-start gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-cyan-500/20 bg-cyan-500/10 text-xs font-bold text-cyan-300">2</span><div><p className="text-sm font-semibold text-white">Copy your workspace token</p><p className="text-sm text-slate-400 mt-1">Copy the token from this page, then paste it into ReFlow Desktop. Keep the token private.</p><button type="button" onClick={() => { setShowPairingHelp(false); document.getElementById('pairing-token')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }} className="mt-2 text-sm font-semibold text-cyan-300 hover:text-cyan-200">Go to pairing token <span aria-hidden="true">→</span></button></div></li>
@@ -953,8 +957,12 @@ No desktop has checked in recently. Open ReFlow Desktop, paste the workspace tok
             <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
               <p className="text-xs text-slate-400"><strong className="text-slate-200">Connecting another computer?</strong> Use the same workspace token on another authorized computer. Each computer should be registered as its own worker.</p>
             </div>
-            <div className="flex justify-end border-t border-white/5 pt-3"><button type="button" onClick={() => setShowPairingHelp(false)} className="rounded-lg border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/5">Done</button></div>
-          </section>
+              </div>
+              <div className="shrink-0 border-t border-white/10 bg-[#0c101d] px-4 py-3 sm:px-6">
+                <div className="flex justify-end"><button type="button" onClick={() => setShowPairingHelp(false)} className="rounded-lg border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/5">Done</button></div>
+              </div>
+            </section>
+          </div>
         </div>
       )}
 
