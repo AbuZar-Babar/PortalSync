@@ -57,8 +57,6 @@ export default function RunnersPage() {
   const {
     orgId,
     organizationName,
-    isRunnerOnline,
-    runnerToken,
     refreshDashboard,
     openRunDetails,
     stopActiveRun,
@@ -126,35 +124,7 @@ export default function RunnersPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Initialize or restore active token for current organization
-  useEffect(() => {
-    if (!orgId) return;
-
-    let isMounted = true;
-    const timer = setTimeout(() => {
-      if (!isMounted) return;
-
-      const storageKey = `wf_runner_token_override_${orgId}`;
-      const revokedKey = `wf_runner_token_revoked_${orgId}`;
-      const savedToken = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
-      const isRevoked = typeof window !== 'undefined' ? localStorage.getItem(revokedKey) === 'true' : false;
-
-      setIsTokenRevoked(isRevoked);
-
-      if (savedToken && !isRevoked) {
-        setCurrentToken(savedToken);
-      } else if (runnerToken && !isRevoked) {
-        setCurrentToken(runnerToken);
-      } else if (!isRevoked) {
-        setCurrentToken('');
-      }
-    }, 0);
-
-    return () => {
-      isMounted = false;
-      clearTimeout(timer);
-    };
-  }, [orgId, runnerToken]);
+  // The API returns the server-issued token and the authoritative runner heartbeat.
 
   // Fetch connected workers and active execution runs
   const fetchWorkersAndRuns = useCallback(async () => {
@@ -214,14 +184,10 @@ export default function RunnersPage() {
 
       // 2. Fetch registered runners and live heartbeat from /api/v1/runners
       let apiRunners: ConnectedWorker[] = [];
-      const resolvedToken = currentToken || runnerToken || '';
+
 
       try {
-        const res = await fetch('/api/v1/runners', {
-          cache: 'no-store',
-          credentials: 'same-origin',
-          ...(resolvedToken ? { headers: { 'x-runner-token': resolvedToken, Authorization: `Bearer ${resolvedToken}` } } : {}),
-        });
+        const res = await fetch('/api/v1/runners', { cache: 'no-store', credentials: 'same-origin' });
         if (res.ok) {
           const json = await res.json();
           if (json.runners && Array.isArray(json.runners) && json.runners.length > 0) {
@@ -243,7 +209,7 @@ export default function RunnersPage() {
                 id: r.id || `runner-${idx}`,
                 hostname: r.hostname || 'unknown',
                 label: r.label || 'Primary Desktop Runner',
-                token: r.token || resolvedToken,
+                token: r.token || '',
                 platform: r.platform || 'unknown',
                 engineVersion: r.engineVersion || 'unknown',
                 claimsCount: Math.max(0, claimsCount),
@@ -291,7 +257,7 @@ export default function RunnersPage() {
                   id: 'runner_primary',
                   hostname: meta.hostname || 'unknown',
                   label: 'Primary Desktop Runner',
-                  token: meta.token || resolvedToken,
+                  token: typeof meta.token === 'string' ? meta.token : '',
                   platform: meta.platform || 'unknown',
                   engineVersion: meta.version || 'unknown',
                   claimsCount: Math.max(0, claimsCount),
@@ -319,9 +285,9 @@ export default function RunnersPage() {
 
         if (isTokenRevoked) {
           workerStatus = 'REVOKED';
-        } else if (runningRun && isRunnerOnline && lastPing) {
+        } else if (runningRun && hasRecentRunnerHeartbeat && lastPing) {
           workerStatus = 'EXECUTING';
-        } else if (isRunnerOnline && lastPing) {
+        } else if (hasRecentRunnerHeartbeat && lastPing) {
           workerStatus = 'ONLINE';
         }
 
@@ -330,7 +296,7 @@ export default function RunnersPage() {
             id: `runner-primary-${orgId.slice(0, 8)}`,
             hostname: 'Desktop Runner',
             label: 'Local Desktop Runner',
-            token: resolvedToken,
+            token: '',
             platform: 'unknown',
             engineVersion: 'unknown',
             claimsCount: Math.max(0, claimsCount),
@@ -346,7 +312,7 @@ export default function RunnersPage() {
       setLoadingWorkers(false);
       setIsRefreshing(false);
     }
-  }, [orgId, currentToken, runnerToken, isRunnerOnline, isTokenRevoked]);
+  }, [orgId, currentToken, runnerToken, hasRecentRunnerHeartbeat, isTokenRevoked]);
 
   // Initial load and periodic refresh ticker (every 5 seconds)
   useEffect(() => {
@@ -620,7 +586,7 @@ export default function RunnersPage() {
           latencyMs: data.latency_ms || 12,
           details: `Version: ${data.version || '1.3'} | Port: 9222 reachable`,
         };
-      } else if (isRunnerOnline) {
+      } else if (hasRecentRunnerHeartbeat) {
         cdpResult = {
           step: 'cdp',
           name: 'Chrome DevTools Protocol (CDP Port 9222)',
@@ -730,6 +696,9 @@ export default function RunnersPage() {
   const chromeMacCmd = `/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --remote-debugging-port=9222 --user-data-dir=/tmp/ChromeDebug`;
 
   // Calculated overall diagnostic health
+  const hasRecentRunnerHeartbeat = workers.some((worker) => worker.status === 'ONLINE' || worker.status === 'EXECUTING');
+  const primaryConnectionState = loadingWorkers ? 'loading' : runnerStatusUnavailable ? 'unavailable' : isTokenRevoked || workers.some((worker) => worker.status === 'REVOKED') ? 'revoked' : hasRecentRunnerHeartbeat ? 'connected' : workers.some((worker) => worker.lastPingAt) ? 'stale' : 'setup';
+
   const healthScore = useMemo(() => {
     const list = Object.values(diagnosticsResults);
     const passed = list.filter((r) => r.status === 'success').length;
@@ -754,62 +723,32 @@ export default function RunnersPage() {
         </div>
       )}
 
-      {/* Top Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/5">
-        <div className="flex items-center gap-3">
-          <RobotAvatar
-            size="badge"
-            state={
-              workers.some((w) => w.status === 'EXECUTING')
-                ? 'running'
-                : isRunnerOnline
-                ? 'idle'
-                : 'idle'
-            }
-          />
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold tracking-tight text-white">
-                WORKERS &amp; RUNNERS HUB
-              </h1>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 uppercase tracking-wider">
-                HYBRID CONTROL PLANE
-              </span>
-              <span className="hidden md:inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-white/10">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Realtime Stream Active
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Manage connected desktop automation daemons, pair organization keys, and monitor hybrid Chrome execution.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={runDiagnosticsSuite}
-            disabled={isRunningDiagnostics}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-xs font-semibold text-cyan-300 transition-all shadow-sm shadow-cyan-500/10"
-          >
-            <Activity className={`w-3.5 h-3.5 ${isRunningDiagnostics ? 'animate-spin' : ''}`} />
-            <span>{isRunningDiagnostics ? 'Running...' : 'Run Diagnostics'}</span>
-          </button>
-
-          <button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20 bg-slate-900/60 hover:bg-slate-800 text-xs font-semibold text-slate-200 transition-all"
-            title="Refresh connected worker status"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-cyan-400' : ''}`} />
-            <span>Refresh</span>
-          </button>
-        </div>
+      {/* Page heading */}
+      <div className="flex items-center gap-3 pb-4 border-b border-white/5">
+        <RobotAvatar size="badge" state={workers.some((worker) => worker.status === 'EXECUTING') ? 'running' : 'idle'} />
+        <div><h1 className="text-xl font-bold tracking-tight text-white">Desktop connection</h1><p className="text-sm text-slate-400 mt-1">Connect this computer to {organizationName} so ReFlow can run your workflows.</p></div>
       </div>
-
-      {/* Top Grid: Token Management & 3-Step Setup Guide */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <section className="bg-[#0c101d] border border-white/10 rounded-2xl p-5 sm:p-6 shadow-xl space-y-5" aria-labelledby="desktop-connection-title">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-11 h-11 rounded-xl border border-white/10 bg-slate-800 flex items-center justify-center shrink-0 text-cyan-300">{primaryConnectionState === 'loading' ? <RefreshCw className="w-5 h-5 animate-spin" /> : primaryConnectionState === 'unavailable' ? <AlertTriangle className="w-5 h-5" /> : primaryConnectionState === 'connected' ? <CheckCircle2 className="w-5 h-5" /> : primaryConnectionState === 'revoked' ? <XCircle className="w-5 h-5" /> : <Cpu className="w-5 h-5" />}</div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2"><h2 id="desktop-connection-title" className="text-base font-bold text-white">{primaryConnectionState === 'loading' ? 'Checking your connection…' : primaryConnectionState === 'unavailable' ? 'Connection status unavailable' : primaryConnectionState === 'connected' ? (workers.some((worker) => worker.status === 'EXECUTING') ? 'Desktop is running a workflow' : 'Desktop is connected') : primaryConnectionState === 'revoked' ? 'Reconnect your desktop' : primaryConnectionState === 'stale' ? 'Desktop is not responding' : 'Connect your desktop'}</h2>
+                {primaryConnectionState !== 'loading' && primaryConnectionState !== 'unavailable' && <span className={'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold border ' + (primaryConnectionState === 'connected' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300' : primaryConnectionState === 'revoked' ? 'bg-rose-500/10 border-rose-500/20 text-rose-300' : 'bg-slate-800 border-white/10 text-slate-300')}><span className="w-1.5 h-1.5 rounded-full bg-current" />{primaryConnectionState === 'connected' ? 'Connected' : primaryConnectionState === 'revoked' ? 'Token revoked' : 'Not connected'}</span>}</div>
+              <p className="text-sm text-slate-400 mt-1.5 max-w-2xl">{primaryConnectionState === 'loading' ? 'We’re checking whether this workspace can reach your desktop runner.' : primaryConnectionState === 'unavailable' ? 'We could not verify the runner right now. Your workflows and saved settings have not been changed.' : primaryConnectionState === 'connected' ? 'This computer has checked in recently and is ready to receive workflow runs.' : primaryConnectionState === 'revoked' ? 'The current pairing token was revoked. Generate a new token and reconnect the desktop app.' : primaryConnectionState === 'stale' ? 'The last check-in is no longer recent. Make sure ReFlow Desktop is open and the runner is started.' : 'Install ReFlow Desktop, copy your workspace token, then paste it into the desktop app to finish pairing.'}</p>
+              {!loadingWorkers && workers[0]?.lastPingAt && <p className="text-xs text-slate-500 mt-2">Last check-in: {formatHeartbeat(workers[0].lastPingAt, now)}</p>}
+            </div>
+          </div>
+          <button type="button" onClick={() => { if (primaryConnectionState === 'connected' || primaryConnectionState === 'unavailable') void handleRefresh(); else document.getElementById('desktop-setup')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }} disabled={loadingWorkers || isRefreshing} className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-sm px-4 py-2.5 transition-colors disabled:opacity-50 shrink-0">{isRefreshing || loadingWorkers ? <RefreshCw className="w-4 h-4 animate-spin" /> : primaryConnectionState === 'connected' || primaryConnectionState === 'unavailable' ? <RefreshCw className="w-4 h-4" /> : <Download className="w-4 h-4" />}{primaryConnectionState === 'loading' ? 'Checking…' : primaryConnectionState === 'unavailable' || primaryConnectionState === 'stale' ? 'Try again' : primaryConnectionState === 'connected' ? 'Check connection' : 'Set up desktop'}</button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-white/5">
+          <div className="flex items-start gap-3 rounded-xl bg-slate-950/60 border border-white/5 p-3"><span className="w-7 h-7 rounded-lg bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 flex items-center justify-center text-xs font-bold shrink-0">1</span><div><h3 className="text-xs font-semibold text-white">Install ReFlow Desktop</h3><p className="text-xs leading-relaxed text-slate-400 mt-1">Download and open the desktop app on the computer that should run workflows.</p></div></div>
+          <div className="flex items-start gap-3 rounded-xl bg-slate-950/60 border border-white/5 p-3"><span className="w-7 h-7 rounded-lg bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 flex items-center justify-center text-xs font-bold shrink-0">2</span><div><h3 className="text-xs font-semibold text-white">Copy your workspace token</h3><p className="text-xs leading-relaxed text-slate-400 mt-1">Use the secure token below to link this computer to your workspace.</p></div></div>
+          <div className="flex items-start gap-3 rounded-xl bg-slate-950/60 border border-white/5 p-3"><span className="w-7 h-7 rounded-lg bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 flex items-center justify-center text-xs font-bold shrink-0">3</span><div><h3 className="text-xs font-semibold text-white">Connect the desktop app</h3><p className="text-xs leading-relaxed text-slate-400 mt-1">Paste the token into ReFlow Desktop and choose Connect Workspace.</p></div></div>
+        </div>
+      </section>
+      {/* Token management and setup options */}
+      <div id="desktop-setup" className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Organization Runner Pairing Token Card */}
         <div className="lg:col-span-7 bg-[#0c101d] border border-white/10 rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
           <div className="space-y-4">
@@ -1329,17 +1268,17 @@ export default function RunnersPage() {
             <span className="text-slate-400">Telemetry Stream:</span>
             <span
               className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] ${
-                isRunnerOnline
+                hasRecentRunnerHeartbeat
                   ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                   : 'bg-slate-800 text-slate-400 border border-white/5'
               }`}
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full ${
-                  isRunnerOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
+                  hasRecentRunnerHeartbeat ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
                 }`}
               />
-              {isRunnerOnline ? 'Daemon Operational' : 'Awaiting Connection'}
+              {hasRecentRunnerHeartbeat ? 'Daemon Operational' : 'Awaiting Connection'}
             </span>
           </div>
         </div>
