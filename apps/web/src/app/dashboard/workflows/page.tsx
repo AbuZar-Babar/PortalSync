@@ -348,14 +348,14 @@ export default function WorkflowsPage() {
           <div>
             <div className="flex items-center gap-2.5">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-100">
-                Agent Workflows
+                Workflows
               </h1>
               <span className="text-xs px-2.5 py-0.5 rounded-full font-mono font-medium bg-slate-800 text-cyan-400 border border-cyan-500/30">
-                {workflows.length} Total
+                {workflows.length} workflows
               </span>
             </div>
             <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-              Automated browser tasks catalog, live dispatch preflight, and canvas choreography
+              Manage and run your automations.
             </p>
           </div>
         </div>
@@ -397,7 +397,7 @@ export default function WorkflowsPage() {
           <button
             type="button"
             onClick={() => setIsCreateModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-slate-950 font-semibold text-xs sm:text-sm shadow-lg shadow-cyan-950/40 hover:shadow-cyan-500/25 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs sm:text-sm shadow-sm transition-colors cursor-pointer"
           >
             <Plus className="h-4 w-4 stroke-[2.5]" />
             <span>Create Workflow</span>
@@ -446,8 +446,8 @@ export default function WorkflowsPage() {
               aria-label="Filter by execution status"
             >
               <option value="all">All Status</option>
-              <option value="running">Running Active ({activeRuns.length})</option>
-              <option value="idle">Idle Workflows</option>
+              <option value="running">Running</option>
+              <option value="idle">Not running</option>
             </select>
           </div>
 
@@ -546,11 +546,10 @@ export default function WorkflowsPage() {
               <RobotAvatar size="medium" state="idle" />
               <div className="max-w-md space-y-2">
                 <h3 className="text-base sm:text-lg font-bold text-slate-100">
-                  No agent workflows configured yet
+                  No workflows yet
                 </h3>
                 <p className="text-xs sm:text-sm text-slate-400">
-                  Teach the autonomous agent how the task should be performed once on any web portal.
-                  The agent will capture the navigation path and repeat it flawlessly.
+                  Record a task in Chrome to create your first automation.
                 </p>
               </div>
               <button
@@ -559,7 +558,7 @@ export default function WorkflowsPage() {
                 className="mt-2 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-slate-950 font-semibold text-sm shadow-xl shadow-cyan-950/50 transition-all hover:scale-105 active:scale-95 cursor-pointer"
               >
                 <Plus className="h-4 w-4 stroke-[2.5]" />
-                <span>Create Your First Workflow</span>
+                <span>Record your first workflow</span>
               </button>
             </>
           ) : (
@@ -567,10 +566,10 @@ export default function WorkflowsPage() {
               <RobotAvatar size="badge" state="waiting" />
               <div className="max-w-md space-y-1">
                 <h3 className="text-sm sm:text-base font-semibold text-slate-200">
-                  No workflows matched &ldquo;{searchQuery}&rdquo;
+                  No workflows found
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Try adjusting your search terms or resetting the active status filter.
+                  Try a different search or clear your filters.
                 </p>
               </div>
               <button
@@ -650,7 +649,7 @@ export default function WorkflowsPage() {
 
                   {/* Target Portal Snippet */}
                   <p className="text-xs text-slate-400 font-mono truncate mt-1">
-                    {wf.portal_url || 'Target Portal Not Specified'}
+                    {wf.portal_url || 'No portal URL set'}
                   </p>
 
                   {/* Feature & Telemetry Badges */}
@@ -700,10 +699,10 @@ export default function WorkflowsPage() {
                       href={`/dashboard/workflows/${wf.id}/edit`}
                       onClick={(e) => e.stopPropagation()}
                       className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 transition-colors"
-                      title="Edit in Visual Canvas"
+                      title="Edit workflow"
                     >
                       <WorkflowIcon className="h-3.5 w-3.5 text-indigo-400" />
-                      <span className="hidden sm:inline">Visual Canvas</span>
+                      <span className="hidden sm:inline">Edit</span>
                     </Link>
 
                     <button
