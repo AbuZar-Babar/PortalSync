@@ -599,16 +599,7 @@ export default function WorkflowsPage() {
             return (
               <div
                 key={wf.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => handleCardClick(wf)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleCardClick(wf);
-                  }
-                }}
-                className="group relative bg-[#0c101d] hover:bg-[#0f1527] border border-slate-800/80 hover:border-cyan-500/40 rounded-2xl p-5 transition-all duration-200 shadow-lg hover:shadow-cyan-950/20 flex flex-col justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+                className="group relative bg-[#0c101d] hover:bg-[#0f1527] border border-slate-800/80 hover:border-cyan-500/40 rounded-2xl p-5 transition-all duration-200 shadow-lg hover:shadow-cyan-950/20 flex flex-col justify-between"
               >
                 <div>
                   {/* Top Badges Row */}
@@ -641,8 +632,10 @@ export default function WorkflowsPage() {
                   </div>
 
                   {/* Workflow Title */}
-                  <h3 className="text-base font-semibold text-slate-100 group-hover:text-cyan-300 transition-colors line-clamp-1">
-                    {wf.name}
+                  <h3 className="text-base font-semibold line-clamp-1">
+                    <Link href={`/dashboard/workflows/${wf.id}/edit`} className="text-slate-100 hover:text-cyan-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 rounded-sm transition-colors" aria-label={`Edit workflow: ${wf.name}`}>
+                      {wf.name}
+                    </Link>
                   </h3>
 
                   {/* Feature & Telemetry Badges */}
@@ -652,10 +645,17 @@ export default function WorkflowsPage() {
                       <span>{stepCount} {stepCount === 1 ? 'step' : 'steps'}</span>
                     </span>
 
-                    <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 ml-auto">
-                      <Clock className="h-3 w-3 text-slate-400" />
-                      <span>{formatRelativeTime(lastRun?.started_at)}</span>
-                    </span>
+                    {lastRun ? (
+                      <button type="button" onClick={() => handleCardClick(wf)} className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-cyan-300 ml-auto transition-colors" aria-label={`View latest run for ${wf.name}`}>
+                        <Clock className="h-3 w-3" />
+                        <span>Last run: {formatRelativeTime(lastRun.started_at)}</span>
+                      </button>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 ml-auto">
+                        <Clock className="h-3 w-3" />
+                        <span>Never run</span>
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -664,10 +664,7 @@ export default function WorkflowsPage() {
                   {/* Left: Prominent [ Run ] Button */}
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPreflightWorkflow(wf);
-                    }}
+                    onClick={() => setPreflightWorkflow(wf)}
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 shadow-md shadow-cyan-950/40 hover:shadow-cyan-500/20 transition-all hover:scale-105 active:scale-95 cursor-pointer"
                   >
                     <Play className="h-3.5 w-3.5 fill-current" />
@@ -678,7 +675,6 @@ export default function WorkflowsPage() {
                   <div className="flex items-center gap-1.5">
                     <Link
                       href={`/dashboard/workflows/${wf.id}/edit`}
-                      onClick={(e) => e.stopPropagation()}
                       className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 transition-colors"
                       title="Edit workflow"
                     >
@@ -721,16 +717,7 @@ export default function WorkflowsPage() {
             return (
               <div
                 key={wf.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => handleCardClick(wf)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleCardClick(wf);
-                  }
-                }}
-                className="group bg-[#0c101d] hover:bg-[#0f1527] border border-slate-800/80 hover:border-cyan-500/40 rounded-2xl p-4 sm:px-6 sm:py-4 transition-all duration-200 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+                className="group bg-[#0c101d] hover:bg-[#0f1527] border border-slate-800/80 hover:border-cyan-500/40 rounded-2xl p-4 sm:px-6 sm:py-4 transition-all duration-200 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4"
               >
                 {/* Left Meta & Identity */}
                 <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
@@ -739,8 +726,10 @@ export default function WorkflowsPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-sm sm:text-base font-semibold text-slate-100 group-hover:text-cyan-300 transition-colors truncate">
-                        {wf.name}
+                      <h3 className="text-sm sm:text-base font-semibold truncate">
+                        <Link href={`/dashboard/workflows/${wf.id}/edit`} className="text-slate-100 hover:text-cyan-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 rounded-sm transition-colors" aria-label={`Edit workflow: ${wf.name}`}>
+                          {wf.name}
+                        </Link>
                       </h3>
                     </div>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 mt-1 font-mono">
@@ -748,7 +737,13 @@ export default function WorkflowsPage() {
                       <span className="text-slate-600">•</span>
                       <span>{stepCount} steps</span>
                       <span className="text-slate-600">•</span>
-                      <span>Last run: {formatRelativeTime(lastRun?.started_at)}</span>
+                      {lastRun ? (
+                        <button type="button" onClick={() => handleCardClick(wf)} className="hover:text-cyan-300 transition-colors" aria-label={`View latest run for ${wf.name}`}>
+                          Last run: {formatRelativeTime(lastRun.started_at)}
+                        </button>
+                      ) : (
+                        <span>Never run</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -779,10 +774,7 @@ export default function WorkflowsPage() {
                 <div className="flex items-center gap-2 shrink-0 border-t md:border-t-0 border-slate-800/60 pt-3 md:pt-0">
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPreflightWorkflow(wf);
-                    }}
+                    onClick={() => setPreflightWorkflow(wf)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 shadow-md shadow-cyan-950/40 transition-all hover:scale-105 active:scale-95 cursor-pointer"
                   >
                     <Play className="h-3.5 w-3.5 fill-current" />
@@ -791,7 +783,6 @@ export default function WorkflowsPage() {
 
                   <Link
                     href={`/dashboard/workflows/${wf.id}/edit`}
-                    onClick={(e) => e.stopPropagation()}
                     className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition-colors"
                     title="Edit in Visual Canvas"
                   >
