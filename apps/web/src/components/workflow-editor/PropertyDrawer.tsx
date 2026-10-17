@@ -300,13 +300,6 @@ export default function PropertyDrawer({
           </div>
         )}
 
-        <details className="group rounded-xl border border-slate-800 bg-slate-900/40 p-3.5">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs font-medium text-slate-200 marker:hidden">
-            <span className="flex items-center gap-2"><Sliders className="h-4 w-4 text-slate-400" />Advanced settings</span>
-            <span className="text-slate-500 transition group-open:rotate-90">›</span>
-          </summary>
-          <p className="mt-2 text-[11px] leading-5 text-slate-500">Selectors, timeouts, and action-specific options.</p>
-          <div className="mt-4 space-y-5">
         {/* Action Value */}
         {actionDef.hasValue && (
           <div>
@@ -330,6 +323,14 @@ export default function PropertyDrawer({
         )}
 
 
+
+        <details className="group rounded-xl border border-slate-800 bg-slate-900/40 p-3.5">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs font-medium text-slate-200 marker:hidden">
+            <span className="flex items-center gap-2"><Sliders className="h-4 w-4 text-slate-400" />Advanced settings</span>
+            <span className="text-slate-500 transition group-open:rotate-90">›</span>
+          </summary>
+          <p className="mt-2 text-[11px] leading-5 text-slate-500">Selectors, timeouts, and action-specific options.</p>
+          <div className="mt-4 space-y-5">
         {/* Candidate Selectors List */}
         {actionDef.hasTarget && (
           <div>
