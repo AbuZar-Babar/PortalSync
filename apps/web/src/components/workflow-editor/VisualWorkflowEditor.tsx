@@ -859,7 +859,7 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
           =================================================================== */}
       <main className="relative flex min-h-0 flex-1 w-full overflow-hidden bg-[#0B1220]">
         {/* Workflow step navigator */}
-        <aside className="hidden md:flex w-[208px] shrink-0 flex-col border-r border-slate-800 bg-[#0F172A] px-3 py-5">
+        <aside className="hidden md:flex w-[220px] shrink-0 flex-col border-r border-slate-800 bg-[#0F172A] px-3 py-5">
           <div className="mb-4 px-2">
             <h2 className="text-xs font-semibold tracking-wide text-slate-200">Workflow steps</h2>
             <p className="mt-1 text-xs text-slate-500">Select a step to edit it.</p>
@@ -891,20 +891,6 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
               );
             })}
           </div>
-          {/* Desktop worker connection status */}
-          <div
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border ${
-              isRunnerOnline
-                ? 'border-emerald-500/30 bg-emerald-950/40 text-emerald-400'
-                : 'border-slate-800 bg-slate-900/60 text-slate-400'
-            }`}
-            title={isRunnerOnline ? 'Desktop Worker daemon online' : 'Desktop Worker daemon offline'}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${isRunnerOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
-            <span>{isRunnerOnline ? 'Worker Online' : 'Worker Offline'}</span>
-          </div>
-
-
           <div className="relative">
             <button
               onClick={() => setIsPaletteOpen(!isPaletteOpen)}
@@ -1003,10 +989,7 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
           </div>
 
 
-          <div className="mt-4 rounded-xl border border-slate-800 bg-slate-900/60 p-3">
-            <div className="flex items-center gap-2 text-slate-300"><WorkflowIcon className="h-4 w-4 text-cyan-400" /><span className="text-xs font-medium">{orderedCanvasNodes.length} steps</span></div>
-            <p className="mt-1.5 text-[11px] leading-5 text-slate-500">Connect steps on the canvas to define the order.</p>
-          </div>
+          <p className="mt-3 px-2 text-[11px] text-slate-500">{orderedCanvasNodes.length} {orderedCanvasNodes.length === 1 ? 'step' : 'steps'}</p>
         </aside>
         <section className="relative min-w-0 flex-1 overflow-hidden bg-[#0B1220]">
           <div className="absolute left-4 top-4 z-10 hidden sm:block pointer-events-none">
@@ -1071,7 +1054,7 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
         </section>
 
         {/* Contextual step settings stay docked beside the canvas. */}
-        <div className="hidden lg:flex w-[260px] shrink-0 flex-col overflow-hidden border-l border-slate-800 bg-[#0F172A]">
+        <div className="hidden lg:flex w-[300px] shrink-0 flex-col overflow-hidden border-l border-slate-800 bg-[#0F172A]">
           <PropertyDrawer
             key={selectedNodeId !== null ? String(selectedNodeId) : 'none'}
             nodeId={selectedNodeId}
