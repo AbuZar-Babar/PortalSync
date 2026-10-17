@@ -74,7 +74,6 @@ export default function RunnersPage() {
   // Workers & Telemetry state
   const [workers, setWorkers] = useState<ConnectedWorker[]>([]);
   const [loadingWorkers, setLoadingWorkers] = useState<boolean>(true);
-  const [runnerStatusUnavailable, setRunnerStatusUnavailable] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [, setActiveRunsMap] = useState<Record<string, DrawerRunItem>>({});
   const [, setTotalClaimsCount] = useState<number>(0);
@@ -247,10 +246,8 @@ export default function RunnersPage() {
       if (apiRunners.length > 0) {
         setIsTokenRevoked(apiRunners.some((runner) => runner.status === 'REVOKED'));
         setWorkers(apiRunners);
-        setRunnerStatusUnavailable(false);
       } else {
         setWorkers([]);
-        setRunnerStatusUnavailable(true);
       }
     } catch (err) {
       console.error('Failed to query workers:', err);
@@ -521,10 +518,7 @@ export default function RunnersPage() {
     return `Active ${diffHr}h ago`;
   };
 
-  // Calculated overall diagnostic health
   const hasRecentRunnerHeartbeat = workers.some((worker) => worker.status === 'ONLINE' || worker.status === 'EXECUTING');
-  const primaryConnectionState = loadingWorkers ? 'loading' : runnerStatusUnavailable ? 'unavailable' : isTokenRevoked || workers.some((worker) => worker.status === 'REVOKED') ? 'revoked' : hasRecentRunnerHeartbeat ? 'connected' : workers.some((worker) => worker.lastPingAt) ? 'stale' : 'setup';
-
   return (
     <div className="space-y-6 pb-12">
       {/* Toast Notification Banner */}
@@ -692,8 +686,8 @@ export default function RunnersPage() {
           </div>
 
           <div className="flex items-center gap-3 text-xs font-semibold">
-            <button type="button" onClick={handleRefresh} disabled={isRefreshing || loadingWorkers} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50">
-              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} /> Refresh all
+            <button type="button" onClick={() => { void Promise.all(workers.map((worker) => checkWorkerStatus(worker.id))); }} disabled={loadingWorkers || workers.length === 0 || workers.some((worker) => workerChecks[worker.id]?.state === 'checking')} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50">
+              <Wifi className="w-3.5 h-3.5" /> Check all
             </button>
             <span className="text-slate-400">Status:</span>
             <span
