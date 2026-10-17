@@ -1387,18 +1387,18 @@ export default function RunnersPage() {
                         <>
                           <span className={`w-1.5 h-1.5 rounded-full ${worker.cdpActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
                           <span className={`font-medium ${worker.cdpActive ? 'text-emerald-400' : 'text-amber-400'}`}>
-                            {worker.cdpActive ? 'CDP Port 9222 Ready' : 'Chrome Standby (Auto-Launch)'}
+                            {worker.cdpActive ? 'Browser ready' : 'Browser readiness not confirmed'}
                           </span>
                         </>
                       ) : worker.status === 'REVOKED' ? (
                         <>
                           <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                          <span className="text-rose-400 font-medium">Token Revoked &bull; Port Inactive</span>
+                          <span className="text-rose-400 font-medium">Token revoked &bull; reconnect required</span>
                         </>
                       ) : (
                         <>
                           <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                          <span className="text-slate-400 font-medium">Worker Offline &bull; CDP Inactive</span>
+                          <span className="text-slate-400 font-medium">Runner offline &bull; browser status unknown</span>
                         </>
                       )}
                     </div>
