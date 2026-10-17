@@ -787,35 +787,6 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
           </div>
         </div>
 
-        {/* Center: Canvas Zoom Controls */}
-        <div className="hidden lg:flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900/80 px-1 py-1 text-slate-400">
-          <button
-            onClick={handleZoomOut}
-            className="flex h-7 w-7 items-center justify-center rounded hover:bg-slate-800 hover:text-white transition"
-            title="Zoom Out"
-          >
-            <ZoomOut className="h-3.5 w-3.5" />
-          </button>
-          <span className="px-2 text-xs font-mono font-medium text-slate-300 min-w-[48px] text-center">
-            {zoomLevel}%
-          </span>
-          <button
-            onClick={handleZoomIn}
-            className="flex h-7 w-7 items-center justify-center rounded hover:bg-slate-800 hover:text-white transition"
-            title="Zoom In"
-          >
-            <ZoomIn className="h-3.5 w-3.5" />
-          </button>
-          <div className="h-4 w-px bg-slate-800 mx-0.5" />
-          <button
-            onClick={handleZoomReset}
-            className="flex h-7 w-7 items-center justify-center rounded hover:bg-slate-800 hover:text-white transition"
-            title="Reset Zoom"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
         {/* Right: Actions */}
         <div className="flex items-center gap-2.5">
           {/* Save to Cloud Button */}
@@ -1042,6 +1013,36 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
             <h2 className="text-sm font-semibold text-slate-200">Workflow canvas</h2>
             <p className="mt-1 text-xs text-slate-500">Select a step to configure it.</p>
           </div>
+        {/* Canvas zoom controls */}
+        <div className="absolute right-4 top-4 z-10 flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900/90 px-1 py-1 text-slate-400 shadow-sm">
+          <button
+            onClick={handleZoomOut}
+            className="flex h-7 w-7 items-center justify-center rounded hover:bg-slate-800 hover:text-white transition"
+            title="Zoom Out"
+          >
+            <ZoomOut className="h-3.5 w-3.5" />
+          </button>
+          <span className="px-2 text-xs font-mono font-medium text-slate-300 min-w-[48px] text-center">
+            {zoomLevel}%
+          </span>
+          <button
+            onClick={handleZoomIn}
+            className="flex h-7 w-7 items-center justify-center rounded hover:bg-slate-800 hover:text-white transition"
+            title="Zoom In"
+          >
+            <ZoomIn className="h-3.5 w-3.5" />
+          </button>
+          <div className="h-4 w-px bg-slate-800 mx-0.5" />
+          <button
+            onClick={handleZoomReset}
+            className="flex h-7 w-7 items-center justify-center rounded hover:bg-slate-800 hover:text-white transition"
+            title="Reset Zoom"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+
           {isLoading && (
           <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-[#060913]/90 backdrop-blur-sm">
             <Loader2 className="h-8 w-8 text-emerald-400 animate-spin" />
