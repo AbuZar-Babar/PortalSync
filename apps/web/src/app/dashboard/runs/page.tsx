@@ -378,41 +378,21 @@ export default function RunsTelemetryPage() {
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
               <Layers className="h-6 w-6 text-cyan-400" />
-              <span>Executions & Runs</span>
+              <span>Run history</span>
             </h1>
             {hasActiveRuns && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/15 text-blue-400 border border-blue-500/30 animate-pulse">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping" />
-                Live Stream Active
+                Live updates
               </span>
             )}
           </div>
           <p className="text-sm text-slate-400 mt-1">
-            Real-time execution telemetry, human-in-the-loop intervention, and batch document processing logs.
+            Monitor executions and investigate failures.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleManualRefresh}
-            disabled={isRefreshingLocal}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 text-sm font-medium border border-white/10 transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
-            title="Refresh runs telemetry"
-          >
-            <RotateCw
-              className={`h-4 w-4 text-cyan-400 ${isRefreshingLocal ? 'animate-spin' : ''}`}
-            />
-            <span>Refresh</span>
-          </button>
 
-          <Link
-            href="/dashboard/workflows"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 text-sm font-semibold shadow-lg shadow-cyan-500/20 transition-all cursor-pointer"
-          >
-            <Play className="h-4 w-4 fill-slate-950" />
-            <span>Launch Workflow</span>
-          </Link>
-        </div>
       </div>
 
       {/* 90-Second Human-in-the-Loop 2FA Challenge Recovery Banner */}
@@ -435,7 +415,7 @@ export default function RunsTelemetryPage() {
       )}
 
       {/* Metric KPI Overview Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Card 1: Total Executions */}
         <div className="p-4 rounded-2xl bg-gradient-to-b from-slate-900/80 to-[#0c101d] border border-white/10 relative overflow-hidden group">
           <div className="flex items-center justify-between">
@@ -458,7 +438,7 @@ export default function RunsTelemetryPage() {
         <div className="p-4 rounded-2xl bg-gradient-to-b from-slate-900/80 to-[#0c101d] border border-white/10 relative overflow-hidden group">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-              Active Stream
+              In progress
             </span>
             <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
               <Loader2 className={`h-4 w-4 ${stats.active > 0 ? 'animate-spin' : ''}`} />
@@ -479,11 +459,11 @@ export default function RunsTelemetryPage() {
           </div>
         </div>
 
-        {/* Card 3: Invoices Downloaded */}
+        {/* Card 3: Files downloaded */}
         <div className="p-4 rounded-2xl bg-gradient-to-b from-slate-900/80 to-[#0c101d] border border-white/10 relative overflow-hidden group">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-              Files Captured
+              Files downloaded
             </span>
             <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               <Download className="h-4 w-4" />
@@ -493,29 +473,10 @@ export default function RunsTelemetryPage() {
             <span className="text-2xl font-bold text-white tracking-tight">
               {isLoading ? '—' : stats.totalFiles}
             </span>
-            <span className="text-xs text-emerald-400/90 font-medium">invoices & PDFs</span>
+            <span className="text-xs text-emerald-400/90 font-medium">files captured</span>
           </div>
         </div>
 
-        {/* Card 4: Success Rate */}
-        <div className="p-4 rounded-2xl bg-gradient-to-b from-slate-900/80 to-[#0c101d] border border-white/10 relative overflow-hidden group">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-              Success Rate
-            </span>
-            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-              <CheckCircle2 className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-white tracking-tight">
-              {isLoading ? '—' : `${stats.successRate}%`}
-            </span>
-            <span className="text-xs text-slate-400">
-              {stats.completed}/{stats.total || 1} completed
-            </span>
-          </div>
-        </div>
       </div>
 
       {/* Control Bar: Filters & Search */}
@@ -556,7 +517,7 @@ export default function RunsTelemetryPage() {
             }`}
           >
             {stats.needs2fa > 0 && <ShieldAlert className="h-3 w-3 text-amber-400" />}
-            Needs 2FA ({stats.needs2fa})
+            Needs attention ({stats.needs2fa})
           </button>
 
           <button
@@ -634,7 +595,7 @@ export default function RunsTelemetryPage() {
             <RobotAvatar size="medium" state="running" />
             <div className="flex items-center gap-2 text-sm text-cyan-400 font-medium">
               <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />
-              <span>Streaming execution runs telemetry...</span>
+              <span>Loading run history...</span>
             </div>
           </div>
         ) : runs.length === 0 ? (
@@ -643,16 +604,16 @@ export default function RunsTelemetryPage() {
             <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mb-4 shadow-lg shadow-cyan-500/10">
               <Play className="h-7 w-7 fill-cyan-400/20 stroke-cyan-400" />
             </div>
-            <h3 className="text-lg font-bold text-white">No execution runs yet</h3>
+            <h3 className="text-lg font-bold text-white">No runs yet</h3>
             <p className="text-sm text-slate-400 mt-1.5 mb-6 leading-relaxed">
-              Dispatch automated workflows from the library to record live step telemetry, human 2FA challenges, and downloaded invoices.
+              Your workflow runs will appear here once an execution starts.
             </p>
             <Link
               href="/dashboard/workflows"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-semibold text-sm shadow-lg shadow-cyan-500/25 transition-all cursor-pointer"
             >
               <Play className="h-4 w-4 fill-slate-950" />
-              <span>Browse Workflows Library</span>
+              <span>Go to Workflows</span>
             </Link>
           </div>
         ) : filteredRuns.length === 0 ? (
@@ -661,9 +622,9 @@ export default function RunsTelemetryPage() {
             <div className="w-14 h-14 rounded-2xl bg-slate-800/80 border border-white/10 flex items-center justify-center text-slate-400 mb-4">
               <Search className="h-6 w-6" />
             </div>
-            <h3 className="text-base font-bold text-white">No matching execution runs</h3>
+            <h3 className="text-base font-bold text-white">No matching runs</h3>
             <p className="text-sm text-slate-400 mt-1 mb-5">
-              No runs match the filter &ldquo;{statusFilter}&rdquo;
+              No runs match this filter: &ldquo;{statusFilter}&rdquo;
               {searchQuery ? ` and search &ldquo;${searchQuery}&rdquo;` : ''}.
             </p>
             <button
