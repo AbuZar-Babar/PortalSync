@@ -199,7 +199,7 @@ export default function RunnersPage() {
               const isOnline = diffSeconds >= 0 && diffSeconds < 60 && r.status !== 'REVOKED';
 
               let status: ConnectedWorker['status'] = 'OFFLINE';
-              if (r.status === 'REVOKED' || isTokenRevoked) {
+              if (r.status === 'REVOKED') {
                 status = 'REVOKED';
               } else if (runningRun && isOnline) {
                 status = 'EXECUTING';
@@ -221,7 +221,6 @@ export default function RunnersPage() {
                 cdpActive: r.cdpActive !== false,
               };
             });
-            setIsTokenRevoked(apiRunners.some((runner) => runner.status === 'REVOKED'));
           }
         }
       } catch (err) {
@@ -247,7 +246,7 @@ export default function RunnersPage() {
               const isOnline = diffSeconds >= 0 && diffSeconds < 60 && meta.token_revoked !== true;
 
               let status: ConnectedWorker['status'] = 'OFFLINE';
-              if (meta.token_revoked === true || isTokenRevoked) {
+              if (meta.token_revoked === true) {
                 status = 'REVOKED';
               } else if (runningRun && isOnline) {
                 status = 'EXECUTING';
@@ -279,6 +278,7 @@ export default function RunnersPage() {
       }
 
       if (apiRunners.length > 0) {
+        setIsTokenRevoked(apiRunners.some((runner) => runner.status === 'REVOKED'));
         setWorkers(apiRunners);
         setRunnerStatusUnavailable(false);
       } else {
