@@ -414,70 +414,35 @@ export default function RunsTelemetryPage() {
         />
       )}
 
-      {/* Metric KPI Overview Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {/* Card 1: Total Executions */}
-        <div className="group min-h-[132px] rounded-2xl border border-white/[0.09] bg-gradient-to-br from-slate-900/95 to-[#0a0f1b] p-5 transition hover:-translate-y-0.5 hover:border-cyan-400/25">
+      {/* KPI overview */}
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3" aria-label="Run statistics">
+        <article className="group min-h-[132px] rounded-2xl border border-white/[0.09] bg-gradient-to-br from-slate-900/95 to-[#0a0f1b] p-5 transition hover:-translate-y-0.5 hover:border-cyan-400/25">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-[1px] text-slate-400">
-              Total Runs
-            </span>
-            <div className="grid h-[34px] w-[34px] place-items-center rounded-[10px] bg-cyan-400/[0.09] text-cyan-300">
-              <Layers className="h-4 w-4" />
-            </div>
+            <span className="text-[11px] font-bold uppercase tracking-[1px] text-slate-400">Total runs</span>
+            <span className="grid h-[34px] w-[34px] place-items-center rounded-[10px] bg-cyan-400/[0.09] text-cyan-300"><Layers className="h-[17px] w-[17px]" /></span>
           </div>
-          <div className="mt-[13px] flex items-baseline gap-2">
-            <span className="text-[29px] font-bold leading-none tracking-tight text-white">
-              {isLoading ? '—' : stats.total}
-            </span>
-            <span className="mt-2 text-xs text-slate-500">All recorded executions</span>
-          </div>
-        </div>
+          <div className="mt-[13px] text-[29px] font-bold leading-none tracking-tight text-white">{isLoading ? '—' : stats.total}</div>
+          <p className="mt-2 text-xs text-slate-500">All recorded executions</p>
+        </article>
 
-        {/* Card 2: Active & Running */}
-        <div className="p-4 rounded-2xl bg-gradient-to-b from-slate-900/80 to-[#0c101d] border border-white/10 relative overflow-hidden group">
+        <article className="group min-h-[132px] rounded-2xl border border-white/[0.09] bg-gradient-to-br from-slate-900/95 to-[#0a0f1b] p-5 transition hover:-translate-y-0.5 hover:border-blue-400/25">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-              In progress
-            </span>
-            <div className="grid h-[34px] w-[34px] place-items-center rounded-[10px] bg-blue-400/[0.09] text-blue-300">
-              <Loader2 className={`h-4 w-4 ${stats.active > 0 ? 'animate-spin' : ''}`} />
-            </div>
+            <span className="text-[11px] font-bold uppercase tracking-[1px] text-slate-400">In progress</span>
+            <span className="grid h-[34px] w-[34px] place-items-center rounded-[10px] bg-blue-400/[0.09] text-blue-300"><Loader2 className={'h-[17px] w-[17px] ' + (stats.active > 0 ? 'animate-spin' : '')} /></span>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-white tracking-tight">
-              {isLoading ? '—' : stats.active}
-            </span>
-            {stats.active > 0 ? (
-              <span className="text-xs text-blue-400 flex items-center gap-1 font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping" />
-                in progress
-              </span>
-            ) : (
-              <span className="text-xs text-slate-500">idle</span>
-            )}
-          </div>
-        </div>
+          <div className="mt-[13px] text-[29px] font-bold leading-none tracking-tight text-white">{isLoading ? '—' : stats.active}</div>
+          <p className="mt-2 text-xs text-slate-500">Running or awaiting attention</p>
+        </article>
 
-        {/* Card 3: Files downloaded */}
-        <div className="p-4 rounded-2xl bg-gradient-to-b from-slate-900/80 to-[#0c101d] border border-white/10 relative overflow-hidden group">
+        <article className="group min-h-[132px] rounded-2xl border border-white/[0.09] bg-gradient-to-br from-slate-900/95 to-[#0a0f1b] p-5 transition hover:-translate-y-0.5 hover:border-emerald-400/25">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-              Files downloaded
-            </span>
-            <div className="grid h-[34px] w-[34px] place-items-center rounded-[10px] bg-emerald-400/[0.09] text-emerald-300">
-              <Download className="h-4 w-4" />
-            </div>
+            <span className="text-[11px] font-bold uppercase tracking-[1px] text-slate-400">Files downloaded</span>
+            <span className="grid h-[34px] w-[34px] place-items-center rounded-[10px] bg-emerald-400/[0.09] text-emerald-300"><Download className="h-[17px] w-[17px]" /></span>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-white tracking-tight">
-              {isLoading ? '—' : stats.totalFiles}
-            </span>
-            <span className="mt-2 text-xs text-slate-500">Across all executions</span>
-          </div>
-        </div>
-
-      </div>
+          <div className="mt-[13px] text-[29px] font-bold leading-none tracking-tight text-white">{isLoading ? '—' : stats.totalFiles}</div>
+          <p className="mt-2 text-xs text-slate-500">Across all executions</p>
+        </article>
+      </section>
 
       {/* Control Bar: Filters & Search */}
       <div className="mb-4 flex flex-col justify-between gap-4 rounded-[15px] border border-white/[0.09] bg-slate-900/70 p-4 backdrop-blur-md xl:flex-row xl:items-center">
