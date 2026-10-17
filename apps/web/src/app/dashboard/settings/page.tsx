@@ -1676,8 +1676,6 @@ export default function SettingsPage() {
                   );
                 })}
               </div>
-                </div>
-              </details>
             </div>
           )}
 
