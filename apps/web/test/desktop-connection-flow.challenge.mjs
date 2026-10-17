@@ -38,6 +38,16 @@ describe('Desktop connection primary flow', () => {
     assert.match(page, /action:\s*'rotate'/);
   });
 
+  test('desktop diagnostics probe the local desktop bridge, not cloud-server localhost', () => {
+    assert.match(page, /http:\/\/127\.0\.0\.1:49152\/health/);
+    assert.doesNotMatch(page, /fetch\('\/api\/v1\/runners\/diagnostics'/);
+  });
+
+  test('browser readiness is only shown when the runner explicitly reports it', () => {
+    assert.doesNotMatch(page, /cdpActive: r\.cdpActive !== false/);
+    assert.doesNotMatch(page, /cdpActive: meta\.cdp_active !== false/);
+  });
+
   test('token revocation calls the server before showing success', () => {
     assert.match(page, /action:\s*'revoke'/);
   });
