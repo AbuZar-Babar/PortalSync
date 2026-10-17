@@ -185,11 +185,11 @@ const BOT_PRESETS: Record<
   }
 > = {
   balanced: {
-    name: 'Balanced Automation (Recommended)',
+    name: 'Balanced (recommended)',
     tag: 'PRODUCTION DEFAULT',
     badgeColor: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20',
     description:
-      'Natural human-like timing, smooth cubic Bézier cursor curves, and balanced throughput.',
+      'A balanced setup for everyday automation.',
     browserConfig: {
       preset: 'balanced',
       minActionDelayMs: 250,
@@ -214,11 +214,11 @@ const BOT_PRESETS: Record<
     }
   },
   ultra_stealth: {
-    name: 'Ultra Stealth (High Evasion)',
+    name: 'High compatibility (advanced)',
     tag: 'ANTI-BOT BYPASS',
     badgeColor: 'text-purple-400 bg-purple-500/10 border-purple-500/20',
     description:
-      'Maximum anti-fingerprinting. Randomized dwell times, human typo hesitation, and complete navigator mask.',
+      'More specialized browser behavior for supported portals.',
     browserConfig: {
       preset: 'ultra_stealth',
       minActionDelayMs: 450,
@@ -243,11 +243,11 @@ const BOT_PRESETS: Record<
     }
   },
   fast: {
-    name: 'Fast Track (Dev & Regression Tests)',
+    name: 'Fast (testing)',
     tag: 'MAX THROUGHPUT',
     badgeColor: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
     description:
-      'High-speed playback without humanization delays for local development and rapid test benches.',
+      'Faster runs for development and repeatable checks.',
     browserConfig: {
       preset: 'fast',
       minActionDelayMs: 50,
@@ -272,11 +272,11 @@ const BOT_PRESETS: Record<
     }
   },
   erp: {
-    name: 'Enterprise ERP (Patient Polling & Async Grids)',
+    name: 'Slow-loading portals',
     tag: 'SLOW PORTALS',
     badgeColor: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
     description:
-      'Extended 60s element timeouts and generous 2s–4.5s pacing for SAP, Oracle, and complex tables.',
+      'More waiting time for portals with slow or asynchronous tables.',
     browserConfig: {
       preset: 'erp',
       minActionDelayMs: 2000,
@@ -1713,6 +1713,8 @@ export default function SettingsPage() {
                   );
                 })}
               </div>
+                </div>
+              </details>
             </div>
           )}
 
@@ -1769,6 +1771,15 @@ export default function SettingsPage() {
                 </div>
               </div>
 
+              <details className="group rounded-xl border border-white/[0.08] bg-slate-950/20">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-medium text-slate-200 marker:hidden">
+                  <span>
+                    <span className="block">Advanced browser settings</span>
+                    <span className="mt-1 block text-xs font-normal text-slate-500">Timing, cursor behavior, connection, and compatibility options</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-slate-500 transition-transform group-open:rotate-90" />
+                </summary>
+                <div className="space-y-5 border-t border-white/[0.07] p-4">
               {/* Core Execution Toggles */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 {/* CDP Port Input */}
