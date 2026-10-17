@@ -82,6 +82,7 @@ export default function RunnersPage() {
   // Workers & Telemetry state
   const [workers, setWorkers] = useState<ConnectedWorker[]>([]);
   const [loadingWorkers, setLoadingWorkers] = useState<boolean>(true);
+  const [runnerStatusUnavailable, setRunnerStatusUnavailable] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [, setActiveRunsMap] = useState<Record<string, DrawerRunItem>>({});
   const [, setTotalClaimsCount] = useState<number>(0);
@@ -145,8 +146,7 @@ export default function RunnersPage() {
       } else if (runnerToken && !isRevoked) {
         setCurrentToken(runnerToken);
       } else if (!isRevoked) {
-        const defaultToken = `rf_live_${orgId.replace(/-/g, '').slice(0, 16)}`;
-        setCurrentToken(defaultToken);
+        setCurrentToken('');
       }
     }, 0);
 
@@ -214,15 +214,13 @@ export default function RunnersPage() {
 
       // 2. Fetch registered runners and live heartbeat from /api/v1/runners
       let apiRunners: ConnectedWorker[] = [];
-      const resolvedToken = currentToken || runnerToken || `rf_live_${orgId.replace(/-/g, '').slice(0, 16)}`;
+      const resolvedToken = currentToken || runnerToken || '';
 
       try {
-        const res = await fetch(`/api/v1/runners`, {
+        const res = await fetch('/api/v1/runners', {
           cache: 'no-store',
-          headers: {
-            'x-runner-token': resolvedToken,
-            'Authorization': `Bearer ${resolvedToken}`,
-          },
+          credentials: 'same-origin',
+          ...(resolvedToken ? { headers: { 'x-runner-token': resolvedToken, Authorization: `Bearer ${resolvedToken}` } } : {}),
         });
         if (res.ok) {
           const json = await res.json();
@@ -230,7 +228,7 @@ export default function RunnersPage() {
             apiRunners = json.runners.map((r: { id?: string; hostname?: string; label?: string; token?: string; platform?: string; engineVersion?: string; status?: string; lastPingAt?: string | null; cdpActive?: boolean }, idx: number) => {
               const lastPingMs = r.lastPingAt ? new Date(r.lastPingAt).getTime() : 0;
               const diffSeconds = lastPingMs > 0 ? (Date.now() - lastPingMs) / 1000 : 999999;
-              const isOnline = diffSeconds < 60 || isRunnerOnline || r.status === 'ONLINE';
+              const isOnline = diffSeconds >= 0 && diffSeconds < 60 && r.status !== 'REVOKED';
 
               let status: ConnectedWorker['status'] = 'OFFLINE';
               if (isTokenRevoked) {
@@ -250,7 +248,7 @@ export default function RunnersPage() {
                 engineVersion: r.engineVersion || 'unknown',
                 claimsCount: Math.max(0, claimsCount),
                 status,
-                lastPingAt: r.lastPingAt || (isOnline ? new Date().toISOString() : null),
+                lastPingAt: r.lastPingAt || null,
                 activeRun: status === 'EXECUTING' ? runningRun : null,
                 cdpActive: r.cdpActive !== false,
               };
@@ -277,7 +275,7 @@ export default function RunnersPage() {
                 : JSON.parse(orgDirect.runner_metadata as string);
               const lastPingMs = meta.last_ping_at ? new Date(meta.last_ping_at).getTime() : 0;
               const diffSeconds = lastPingMs > 0 ? (Date.now() - lastPingMs) / 1000 : 999999;
-              const isOnline = diffSeconds < 60 || isRunnerOnline;
+              const isOnline = diffSeconds >= 0 && diffSeconds < 60 && meta.token_revoked !== true;
 
               let status: ConnectedWorker['status'] = 'OFFLINE';
               if (isTokenRevoked) {
@@ -291,14 +289,14 @@ export default function RunnersPage() {
               apiRunners = [
                 {
                   id: 'runner_primary',
-                  hostname: meta.hostname || (isOnline ? 'Active Desktop Runner' : 'unknown'),
+                  hostname: meta.hostname || 'unknown',
                   label: 'Primary Desktop Runner',
                   token: meta.token || resolvedToken,
                   platform: meta.platform || 'unknown',
                   engineVersion: meta.version || 'unknown',
                   claimsCount: Math.max(0, claimsCount),
                   status,
-                  lastPingAt: meta.last_ping_at || (isOnline ? new Date().toISOString() : null),
+                  lastPingAt: meta.last_ping_at || null,
                   activeRun: status === 'EXECUTING' ? runningRun : null,
                   cdpActive: meta.cdp_active !== false,
                 },
@@ -312,16 +310,18 @@ export default function RunnersPage() {
 
       if (apiRunners.length > 0) {
         setWorkers(apiRunners);
+        setRunnerStatusUnavailable(false);
       } else {
+        setRunnerStatusUnavailable(true);
         // Fallback: render primary worker representation paired to current organization token
-        const lastPing = isRunnerOnline ? new Date().toISOString() : null;
+        const lastPing = null;
         let workerStatus: ConnectedWorker['status'] = 'OFFLINE';
 
         if (isTokenRevoked) {
           workerStatus = 'REVOKED';
-        } else if (runningRun && isRunnerOnline) {
+        } else if (runningRun && isRunnerOnline && lastPing) {
           workerStatus = 'EXECUTING';
-        } else if (isRunnerOnline) {
+        } else if (isRunnerOnline && lastPing) {
           workerStatus = 'ONLINE';
         }
 
@@ -488,20 +488,10 @@ export default function RunnersPage() {
         body: JSON.stringify({ action: 'rotate' }),
       });
 
-      let newToken = '';
-      if (res.ok) {
-        const json = await res.json();
-        newToken = json.token;
-      } else {
-        const randomSuffix = Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
-        newToken = `rf_live_${orgId.replace(/-/g, '').slice(0, 16)}_${randomSuffix}`;
-      }
-
-      // Save to localStorage override
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`wf_runner_token_override_${orgId}`, newToken);
-        localStorage.removeItem(`wf_runner_token_revoked_${orgId}`);
-      }
+      if (!res.ok) throw new Error(`Token rotation failed (${res.status}). Please try again.`);
+      const json = await res.json();
+      const newToken = typeof json.token === 'string' ? json.token : '';
+      if (!newToken) throw new Error('The server did not return a new pairing token. Please try again.');
 
       setCurrentToken(newToken);
       setIsTokenRevoked(false);
@@ -525,23 +515,19 @@ export default function RunnersPage() {
     setIsRevoking(true);
 
     try {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`wf_runner_token_revoked_${orgId}`, 'true');
-      }
+      const res = await fetch('/api/v1/runners', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: 'revoke' }),
+      });
+      if (!res.ok) throw new Error(`Token revocation failed (${res.status}). Please try again.`);
 
       setIsTokenRevoked(true);
       setShowRevokeModal(false);
-      setActionSuccessNotice('Pairing token has been revoked. All connected runners have been disconnected.');
+      setActionSuccessNotice('Pairing token revoked. Desktop runners will need a new token to reconnect.');
       setTimeout(() => setActionSuccessNotice(null), 6000);
-
-      // Update worker cards
-      setWorkers((prev) =>
-        prev.map((w) => ({
-          ...w,
-          status: 'REVOKED',
-          activeRun: null,
-        }))
-      );
+      setWorkers((prev) => prev.map((worker) => ({ ...worker, status: 'REVOKED', activeRun: null })));
     } catch (err) {
       console.error('Failed to revoke token:', err);
     } finally {
