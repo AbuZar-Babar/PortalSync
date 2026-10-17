@@ -1036,8 +1036,21 @@ export function CreatePortalModal({
           </button>
         </div>
 
+        {/* Two-step progress indicator */}
+        <div className="flex shrink-0 items-center gap-2.5 px-4 pt-3 sm:px-6">
+          <div className={`flex items-center gap-2 text-[11px] ${showMethodPicker ? 'text-blue-100' : 'text-blue-300'}`}>
+            <span className={`grid h-6 w-6 place-items-center rounded-full border text-[10px] font-bold ${showMethodPicker ? 'border-blue-500 bg-blue-600 text-white' : 'border-blue-500/60 bg-blue-950 text-blue-300'}`}>{showMethodPicker ? '1' : '✓'}</span>
+            <span>Choose method</span>
+          </div>
+          <span className="h-px w-10 bg-slate-700" />
+          <div className={`flex items-center gap-2 text-[11px] ${showMethodPicker ? 'text-slate-500' : 'text-blue-100'}`}>
+            <span className={`grid h-6 w-6 place-items-center rounded-full border text-[10px] font-bold ${showMethodPicker ? 'border-slate-700 text-slate-500' : 'border-blue-500 bg-blue-600 text-white'}`}>2</span>
+            <span>Workflow details</span>
+          </div>
+        </div>
+
         {showMethodPicker && (
-          <div className="max-h-[calc(100dvh-5.5rem)] overflow-y-auto overscroll-contain px-4 py-4 sm:px-7 sm:py-6">
+          <div className="max-h-[calc(100dvh-8rem)] overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
             <div className="mb-5">
               <div className="mb-1 flex items-center justify-between gap-3"><h3 className="text-base font-semibold text-slate-100 sm:text-lg">How would you like to start?</h3><span className="shrink-0 text-[11px] text-slate-500">Step 1 of 2</span></div>
               <p className="mt-1.5 text-sm leading-5 text-slate-400">Choose an approach. You can adjust the details later.</p>
@@ -1052,7 +1065,7 @@ export function CreatePortalModal({
                 const MethodIcon = method.icon;
                 const selected = activeTab === method.id;
                 return (
-                  <button key={method.id} type="button" onClick={() => setActiveTab(method.id)} className={`relative flex min-h-[132px] w-full items-start gap-3 rounded-xl border p-3.5 text-left transition sm:min-h-[154px] sm:flex-col sm:p-4 ${selected ? 'border-blue-500/80 bg-blue-500/[0.07]' : 'border-slate-800 bg-slate-950/30 hover:border-slate-700 hover:bg-slate-800/50'}`}>
+                  <button key={method.id} type="button" onClick={() => setActiveTab(method.id)} className={`relative flex min-h-[112px] w-full items-start gap-3 rounded-xl border p-3.5 text-left transition sm:min-h-[126px] sm:p-4 ${selected ? 'border-blue-500/80 bg-blue-500/[0.07]' : 'border-slate-800 bg-slate-950/30 hover:border-slate-700 hover:bg-slate-800/50'}`}>
                     <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${selected ? 'bg-blue-500/10 text-blue-300' : 'bg-slate-800 text-slate-300'}`}><MethodIcon className="h-5 w-5" /></span>
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-2 pr-5 text-sm font-semibold text-slate-100">{method.title}</span>
