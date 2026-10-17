@@ -396,7 +396,7 @@ export default function PropertyDrawer({
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-indigo-300 flex items-center gap-1.5">
                 <ListFilter className="h-3.5 w-3.5" />
-                Available Options
+                Available Options <FieldHelp text="Options discovered from the selected dropdown. Choose a fixed option or repeat over records when appropriate." />
               </span>
               <span className="text-[10px] text-slate-400 font-mono">
                 {availableOptions.length} Discovered
@@ -447,7 +447,7 @@ export default function PropertyDrawer({
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-sky-400 flex items-center gap-1.5">
                 <CheckSquare className="h-3.5 w-3.5" />
-                Checkbox Target State
+                Checkbox Target State <FieldHelp text="Set the checkbox to a specific state instead of blindly toggling it, making retries safer." />
               </span>
               <span className="inline-flex items-center rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-300 border border-sky-500/20">
                 Safe to retry
@@ -489,7 +489,7 @@ export default function PropertyDrawer({
             <div className="flex-1">
               <span className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                State-Aware Checkbox Idempotency
+                State-Aware Checkbox Idempotency <FieldHelp text="When enabled, ReFlow skips the click if the checkbox is already in the desired state." />
               </span>
               <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
                 Skip clicking if element is already in the target state.
@@ -505,7 +505,7 @@ export default function PropertyDrawer({
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
                 <Database className="h-3.5 w-3.5" />
-                Excel Column Header (fieldName)
+                Excel Column Header (fieldName) <FieldHelp text="The column name used for this captured value in the exported spreadsheet." />
               </span>
               <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/20">
                 CSV Export
