@@ -90,8 +90,22 @@ export default function PropertyDrawer({
     return extractAvailableOptions(draft);
   }, [draft]);
 
-  if (!isOpen || !draft || nodeId === null) {
-    return null;
+  if (!isOpen) return null;
+  if (!draft || nodeId === null) {
+    return (
+      <aside className="flex h-full w-full flex-col bg-[#0F172A] text-slate-200" aria-label="Step settings">
+        <div className="border-b border-slate-800 px-4 py-5">
+          <h3 className="text-sm font-semibold text-slate-100">Step settings</h3>
+          <p className="mt-1 text-xs text-slate-500">Choose a step to configure it.</p>
+        </div>
+        <div className="flex flex-1 flex-col items-center justify-center px-5 text-center">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-700 bg-slate-800/70 text-slate-400"><Sliders className="h-5 w-5" /></div>
+          <p className="mt-3 text-sm font-medium text-slate-200">Nothing selected</p>
+          <p className="mt-1.5 text-xs leading-5 text-slate-500">Select a node on the canvas or a step in the sidebar to edit its settings.</p>
+        </div>
+        <div className="border-t border-slate-800 px-4 py-3 text-[11px] leading-5 text-slate-500"><span className="text-cyan-400">Tip:</span> Keep each step focused on one action.</div>
+      </aside>
+    );
   }
 
   const handleActionChange = (newAction: StepActionType) => {
@@ -166,8 +180,8 @@ export default function PropertyDrawer({
 
   return (
     <aside
-      className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-slate-800 bg-slate-950/95 backdrop-blur-xl shadow-2xl transition-transform duration-300 ease-in-out text-slate-200"
-      aria-label="Step Property Drawer"
+      className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#0F172A] text-slate-200"
+      aria-label="Step settings"
     >
       {/* Drawer Header */}
       <div className="flex items-center justify-between border-b border-slate-800/80 px-5 py-4 bg-slate-900/60">
@@ -176,10 +190,8 @@ export default function PropertyDrawer({
             <Sliders className="h-4 w-4" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-white tracking-wide">Step Inspector</h3>
-            <p className="text-xs text-slate-400">
-              Step #{draft.stepIndex !== undefined ? draft.stepIndex + 1 : 1} &middot; Node {nodeId}
-            </p>
+            <h3 className="text-sm font-semibold text-white">Step settings</h3>
+            <p className="text-xs text-slate-500">Step {draft.stepIndex !== undefined ? draft.stepIndex + 1 : 1}</p>
           </div>
         </div>
 
@@ -204,7 +216,7 @@ export default function PropertyDrawer({
       </div>
 
       {/* Drawer Body Form */}
-      <form onSubmit={handleSave} className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+      <form onSubmit={handleSave} className="min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-5">
         {/* Step Name */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
@@ -288,6 +300,13 @@ export default function PropertyDrawer({
           </div>
         )}
 
+        <details className="group rounded-xl border border-slate-800 bg-slate-900/40 p-3.5">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs font-medium text-slate-200 marker:hidden">
+            <span className="flex items-center gap-2"><Sliders className="h-4 w-4 text-slate-400" />Advanced settings</span>
+            <span className="text-slate-500 transition group-open:rotate-90">›</span>
+          </summary>
+          <p className="mt-2 text-[11px] leading-5 text-slate-500">Selectors, timeouts, and action-specific options.</p>
+          <div className="mt-4 space-y-5">
         {/* Candidate Selectors List */}
         {actionDef.hasTarget && (
           <div>
@@ -594,10 +613,12 @@ export default function PropertyDrawer({
             </label>
           </div>
         )}
+          </div>
+        </details>
       </form>
 
       {/* Drawer Footer Actions */}
-      <div className="border-t border-slate-800 bg-slate-900/80 px-5 py-3 flex items-center justify-end gap-3">
+      <div className="border-t border-slate-800 bg-[#0F172A] px-4 py-3 flex items-center justify-end gap-2">
         <button
           type="button"
           onClick={onClose}
@@ -611,7 +632,7 @@ export default function PropertyDrawer({
           className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-emerald-900/40 hover:bg-emerald-500 transition cursor-pointer"
         >
           <Save className="h-3.5 w-3.5" />
-          Update Step
+          Save changes
         </button>
       </div>
     </aside>
