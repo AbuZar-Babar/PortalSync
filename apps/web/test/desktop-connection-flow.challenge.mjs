@@ -7,9 +7,11 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const pagePath = path.resolve(__dirname, '../src/app/dashboard/runners/page.tsx');
+const runnersRoutePath = path.resolve(__dirname, '../src/app/api/v1/runners/route.ts');
 
 describe('Desktop connection primary flow', () => {
   const page = fs.readFileSync(pagePath, 'utf8');
+  const runnersRoute = fs.readFileSync(runnersRoutePath, 'utf8');
 
   test('uses the current page as a human-readable desktop connection flow', () => {
     assert.match(page, /Desktop connection/i);
@@ -46,6 +48,7 @@ describe('Desktop connection primary flow', () => {
   test('browser readiness is only shown when the runner explicitly reports it', () => {
     assert.doesNotMatch(page, /cdpActive: r\.cdpActive !== false/);
     assert.doesNotMatch(page, /cdpActive: meta\.cdp_active !== false/);
+    assert.doesNotMatch(runnersRoute, /cdpActive: runnerMeta\.cdp_active !== false/);
   });
 
   test('token revocation calls the server before showing success', () => {
