@@ -1209,6 +1209,9 @@ export function CreatePortalModal({
                 </div>
               </div>
 
+              <details className="group rounded-xl border border-slate-800 bg-slate-950/30 p-3.5">
+                <summary className="cursor-pointer list-none text-sm font-medium text-slate-200 marker:hidden">Optional settings <span className="float-right text-slate-500 transition group-open:rotate-180">⌄</span></summary>
+                <div className="mt-4 space-y-4">
               {/* Destination Folder */}
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1.5">
@@ -1248,6 +1251,12 @@ export function CreatePortalModal({
                   />
                 </label>
               </div>
+
+                </div>
+              </details>
+
+                </div>
+              </details>
 
               {/* Submit Buttons */}
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
@@ -1312,6 +1321,9 @@ export function CreatePortalModal({
                 </div>
               </div>
 
+              <details className="group rounded-xl border border-slate-800 bg-slate-950/30 p-3.5">
+                <summary className="cursor-pointer list-none text-sm font-medium text-slate-200 marker:hidden">Optional settings <span className="float-right text-slate-500 transition group-open:rotate-180">⌄</span></summary>
+                <div className="mt-4 space-y-4">
               {/* Schedule and Trigger dropdown */}
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1.5">
@@ -1636,6 +1648,9 @@ export function CreatePortalModal({
                     </div>
                   </div>
 
+                  <details className="group rounded-xl border border-slate-800 bg-slate-950/30 p-3.5">
+                    <summary className="cursor-pointer list-none text-sm font-medium text-slate-200 marker:hidden">Optional settings <span className="float-right text-slate-500 transition group-open:rotate-180">⌄</span></summary>
+                    <div className="mt-4 space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-slate-300 mb-1.5">Schedule</label>
@@ -1688,6 +1703,9 @@ export function CreatePortalModal({
                       />
                     </label>
                   </div>
+
+                    </div>
+                  </details>
 
                   <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
                     <button type="button" onClick={handleClose} className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white transition cursor-pointer">
