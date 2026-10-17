@@ -24,7 +24,6 @@ import {
   ChevronRight,
   Loader2,
   Cloud,
-  Layers,
   Globe,
   SlidersHorizontal,
   Archive,
