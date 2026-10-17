@@ -1529,6 +1529,7 @@ export function CreatePortalModal({
                   </div>
                 </div>
                 </div>
+                </div>
               </details>
 
               {/* Submit Buttons */}
