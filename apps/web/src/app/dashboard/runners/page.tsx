@@ -525,8 +525,6 @@ export default function RunnersPage() {
   const hasRecentRunnerHeartbeat = workers.some((worker) => worker.status === 'ONLINE' || worker.status === 'EXECUTING');
   const primaryConnectionState = loadingWorkers ? 'loading' : runnerStatusUnavailable ? 'unavailable' : isTokenRevoked || workers.some((worker) => worker.status === 'REVOKED') ? 'revoked' : hasRecentRunnerHeartbeat ? 'connected' : workers.some((worker) => worker.lastPingAt) ? 'stale' : 'setup';
 
-  }, [diagnosticsResults]);
-
   return (
     <div className="space-y-6 pb-12">
       {/* Toast Notification Banner */}
