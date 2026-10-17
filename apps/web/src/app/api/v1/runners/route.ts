@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
         engineVersion: runnerMeta.version || 'unknown',
         status: runnerMeta.token_revoked ? 'REVOKED' : (isOnline ? 'ONLINE' : 'OFFLINE'),
         lastPingAt: runnerMeta.last_ping_at || null,
-        cdpActive: runnerMeta.cdp_active !== false,
+        cdpActive: runnerMeta.cdp_active === true,
       },
     ];
 
