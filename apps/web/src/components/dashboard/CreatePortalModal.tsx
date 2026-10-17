@@ -1166,13 +1166,9 @@ export function CreatePortalModal({
           {/* Visual Canvas Builder Mode */}
           {activeTab === 'canvas' && (
             <form onSubmit={handleCanvasSubmit} className="space-y-4">
-              <div className="rounded-xl border border-indigo-500/30 bg-indigo-950/20 p-4 mb-4">
-                <div className="flex items-center gap-2 text-indigo-400 font-semibold text-xs mb-1">
-                  <WorkflowIcon className="h-4 w-4" />
-                  <span>Visual Canvas Mode</span>
-                </div>
-                <p className="text-xs text-slate-300">
-                  Instantly creates your workflow definition and launches the full-screen visual canvas editor with Quixotic Slate cards.
+              <div className="mb-2">
+                <p className="text-sm leading-5 text-slate-400">
+                  Start with a name and website. You’ll add and connect steps in the visual editor.
                 </p>
               </div>
 
@@ -1194,7 +1190,7 @@ export function CreatePortalModal({
               {/* Target Portal URL */}
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  Target Portal URL <span className="text-rose-400">*</span>
+                  Website URL <span className="text-rose-400">*</span>
                 </label>
                 <div className="relative">
                   <Globe className="absolute left-3.5 top-3 h-4 w-4 text-slate-500" />
@@ -1256,7 +1252,7 @@ export function CreatePortalModal({
               </details>
 
               {/* Submit Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="flex flex-col-reverse items-stretch gap-2 border-t border-slate-800 pt-4 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
                 <button
                   type="button"
                   onClick={handleClose}
@@ -1267,7 +1263,7 @@ export function CreatePortalModal({
                 <button
                   type="submit"
                   disabled={submitting || !canvasName.trim() || !canvasUrl.trim()}
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 px-5 py-2.5 text-xs font-semibold text-white shadow-md transition disabled:opacity-50 cursor-pointer"
+                  className="inline-flex items-center gap-2 w-full justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-blue-500 disabled:opacity-50 cursor-pointer sm:w-auto"
                 >
                   {submitting ? (
                     <>
@@ -1275,7 +1271,7 @@ export function CreatePortalModal({
                     </>
                   ) : (
                     <>
-                      <WorkflowIcon className="h-3.5 w-3.5" /> Create &amp; Open Canvas
+                      <WorkflowIcon className="h-3.5 w-3.5" /> Open visual editor
                     </>
                   )}
                 </button>
@@ -1303,7 +1299,7 @@ export function CreatePortalModal({
               {/* Target URL */}
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  Target Portal URL <span className="text-rose-400">*</span>
+                  Website URL <span className="text-rose-400">*</span>
                 </label>
                 <div className="relative">
                   <Globe className="absolute left-3.5 top-3 h-4 w-4 text-slate-500" />
@@ -1399,7 +1395,7 @@ export function CreatePortalModal({
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-semibold text-white shadow-md hover:bg-blue-500 disabled:opacity-50 transition cursor-pointer"
+                  className="inline-flex items-center gap-2 w-full justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-blue-500 disabled:opacity-50 transition cursor-pointer sm:w-auto"
                 >
                   {submitting ? (
                     <>
@@ -1407,7 +1403,7 @@ export function CreatePortalModal({
                     </>
                   ) : (
                     <>
-                      <Check className="h-3.5 w-3.5" /> Save Portal Workflow
+                      <Check className="h-3.5 w-3.5" /> Create workflow
                     </>
                   )}
                 </button>
@@ -1440,14 +1436,17 @@ export function CreatePortalModal({
                   <Upload className="h-6 w-6" />
                 </div>
                 <div className="text-xs font-semibold text-white">
-                  Drop Chrome recorder JSON file here, or{' '}
+                  Drop a workflow file here, or{' '}
                   <span className="text-blue-400 underline">browse</span>
                 </div>
                 <div className="text-[11px] text-slate-400 mt-1">
-                  Supports ReFlow &amp; Chrome recorder export schemas
+                  Supports ReFlow workflow JSON files
                 </div>
               </div>
 
+              <details className="group rounded-xl border border-slate-800 bg-slate-950/30 p-3.5">
+                <summary className="cursor-pointer list-none text-sm font-medium text-slate-200">Advanced: paste workflow JSON <span className="float-right text-slate-500 transition group-open:rotate-180">⌄</span></summary>
+                <div className="mt-4">
               {/* Paste JSON Textarea */}
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1.5">
@@ -1460,7 +1459,8 @@ export function CreatePortalModal({
                   placeholder={`{\n  "metadata": {\n    "name": "US Oil Portal Export",\n    "startUrl": "https://customerportal.usoil.com/#/home",\n    "isLoop": false\n  },\n  "actions": [ ... ]\n}`}
                   className="w-full font-mono text-xs rounded-xl border border-slate-700/80 bg-slate-950/70 p-3 text-slate-200 placeholder-slate-600 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition"
                 />
-              </div>
+                </div>
+              </details>
 
               {jsonParseError && (
                 <div className="flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">
@@ -1502,6 +1502,9 @@ export function CreatePortalModal({
                 </div>
               )}
 
+              <details className="group rounded-xl border border-slate-800 bg-slate-950/30 p-3.5">
+                <summary className="cursor-pointer list-none text-sm font-medium text-slate-200">Optional settings <span className="float-right text-slate-500 transition group-open:rotate-180">⌄</span></summary>
+                <div className="mt-4">
               {/* Hybrid storage config for imported workflow */}
               <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4 space-y-3">
                 <div className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
@@ -1530,19 +1533,22 @@ export function CreatePortalModal({
                     </label>
                   </div>
                 </div>
-              </div>
+                </div>
+              </details>
 
               {/* Submit Buttons */}
-              <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={handleExportJson}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition cursor-pointer"
-                  title="Export or download recipe JSON"
-                >
-                  <Download className="h-3.5 w-3.5 text-slate-400" /> Export Recipe JSON
-                </button>
-                <div className="flex items-center gap-3">
+              <div className="flex flex-col-reverse items-stretch justify-between gap-2 border-t border-slate-800 pt-4 sm:flex-row sm:items-center sm:gap-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleExportJson}
+                    className="text-xs text-slate-500 transition hover:text-slate-300"
+                    title="Export or download recipe JSON"
+                  >
+                    Export example JSON
+                  </button>
+                </div>
+                <div className="flex flex-col-reverse items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
                   <button
                     type="button"
                     onClick={handleClose}
@@ -1561,7 +1567,7 @@ export function CreatePortalModal({
                       </>
                     ) : (
                       <>
-                        <Upload className="h-3.5 w-3.5" /> Import &amp; Save Workflow
+                        <Upload className="h-3.5 w-3.5" /> Import workflow
                       </>
                     )}
                   </button>
@@ -1649,6 +1655,12 @@ export function CreatePortalModal({
                   </div>
 
                   <details className="group rounded-xl border border-slate-800 bg-slate-950/30 p-3.5">
+                  <div className="flex items-start gap-2 rounded-xl border border-slate-800 bg-slate-950/40 p-3.5">
+                    <Globe className="mt-0.5 h-4 w-4 shrink-0 text-blue-300" />
+                    <p className="text-xs leading-5 text-slate-400">ReFlow will open a browser when you’re ready to record.</p>
+                  </div>
+
+                  <details className="group rounded-xl border border-slate-800 bg-slate-950/30 p-3.5">
                     <summary className="cursor-pointer list-none text-sm font-medium text-slate-200 marker:hidden">Optional settings <span className="float-right text-slate-500 transition group-open:rotate-180">⌄</span></summary>
                     <div className="mt-4 space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1714,9 +1726,9 @@ export function CreatePortalModal({
                     <button
                       type="submit"
                       disabled={!agentConnected || !recordName.trim() || !recordUrl.trim()}
-                      className="inline-flex items-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-500 px-5 py-2.5 text-xs font-semibold text-white shadow-md transition disabled:opacity-40 cursor-pointer"
+                      className="inline-flex items-center gap-2 w-full justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-blue-500 disabled:opacity-40 cursor-pointer sm:w-auto"
                     >
-                      <Circle className="h-3 w-3 fill-current text-white animate-pulse" /> Start Recording on This PC
+                      <Circle className="h-3 w-3 fill-current text-white animate-pulse" /> Start recording
                     </button>
                   </div>
                 </form>
