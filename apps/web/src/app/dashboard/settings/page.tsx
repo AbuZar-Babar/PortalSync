@@ -1248,72 +1248,28 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 pb-16">
       {/* ==================================================================== */}
-      {/* Sticky Page Header & Actions */}
-      {/* ==================================================================== */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-white/5">
-        <div className="flex items-center gap-3">
-          <RobotAvatar size="badge" state={isSaving ? 'running' : 'idle'} />
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold tracking-tight text-white uppercase">
-                WORKSPACE &amp; BOT CONFIGURATION
-              </h1>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 uppercase tracking-wider">
-                6 SUITES
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Multi-tenant automation settings, anti-bot evasion parameters, themes, webhooks, and secrets vault.
-            </p>
-          </div>
+      {/* Page title and primary action */}
+      <div className="flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-white">Settings</h1>
+          <p className="mt-1 text-sm text-slate-400">Manage your workspace, automation, and preferences.</p>
         </div>
-
-        {/* Action Controls & Dirty Badge */}
-        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
-          {/* Status Indicator */}
+        <div className="flex flex-wrap items-center gap-2.5">
           {isDirty ? (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/25 animate-pulse">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-              Unsaved Changes
+            <span className="inline-flex items-center gap-2 rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-xs text-amber-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-300" />Unsaved changes
             </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <Check className="w-3.5 h-3.5" />
-              Preferences Synced
+          ) : saveSuccess ? (
+            <span className="inline-flex items-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-400/5 px-3 py-2 text-xs text-emerald-300">
+              <CheckCircle2 className="h-4 w-4" />Changes saved
             </span>
-          )}
-
-          {saveSuccess && (
-            <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 animate-fade-in">
-              <CheckCircle2 className="w-4 h-4" />
-              Saved!
-            </span>
-          )}
-
-          {/* Reset to Defaults Button */}
-          <button
-            type="button"
-            onClick={handleResetDefaults}
-            title="Restore default configurations"
-            className="flex items-center gap-1.5 px-3 py-2 bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-semibold border border-white/10 transition-all"
-          >
-            <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
-            <span>Reset</span>
+          ) : null}
+          <button type="button" onClick={handleResetDefaults} title="Restore recommended defaults" className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-900/70 px-3.5 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
+            <RotateCcw className="h-4 w-4 text-slate-400" />Reset
           </button>
-
-          {/* Save Button */}
-          <button
-            type="button"
-            onClick={handleSaveSettings}
-            disabled={isSaving}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-50"
-          >
-            {isSaving ? (
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Save className="w-3.5 h-3.5" />
-            )}
-            <span>Save Preferences</span>
+          <button type="button" onClick={handleSaveSettings} disabled={isSaving || !isDirty} className="inline-flex items-center gap-2 rounded-xl border border-blue-400/20 bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-50">
+            {isSaving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {isSaving ? 'Saving…' : 'Save changes'}
           </button>
         </div>
       </div>
@@ -1328,165 +1284,75 @@ export default function SettingsPage() {
       {/* ==================================================================== */}
       {/* 2-Column Settings Shell */}
       {/* ==================================================================== */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4 lg:gap-6">
         {/* ==================================================================== */}
-        {/* Left Vertical Tab Navigation */}
-        {/* ==================================================================== */}
-        <div className="lg:col-span-1 space-y-1.5">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-3 py-1">
-            Configuration Suites
+        {/* Compact, responsive settings navigation */}
+        <div className="lg:col-span-1">
+          <div className="lg:hidden">
+            <label htmlFor="settings-category" className="mb-2 block text-xs font-medium text-slate-400">Settings category</label>
+            <select id="settings-category" value={activeTab} onChange={(event) => setActiveTab(event.target.value as SettingsTab)} className="w-full rounded-xl border border-white/10 bg-[#101622] px-3.5 py-3 text-sm text-white outline-none focus:border-blue-400/60">
+              <option value="general">General</option>
+              <option value="themes">Appearance</option>
+              <option value="browser">Browser behavior</option>
+              <option value="workflows">Workflow defaults</option>
+              <option value="notifications">Notifications</option>
+              <option value="security">Security</option>
+            </select>
           </div>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('general')}
-            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition-all text-left ${
-              activeTab === 'general'
-                ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/35 font-bold shadow-sm shadow-cyan-500/10'
-                : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <Building className="w-4 h-4 text-cyan-400 flex-shrink-0" />
-              <div>
-                <div className="font-bold">General &amp; Profile</div>
-                <div className="text-[10px] text-slate-500 font-normal">Org, timezone, paths</div>
-              </div>
-            </div>
-            <ChevronRight className={`w-3.5 h-3.5 transition-transform ${activeTab === 'general' ? 'translate-x-0.5 text-cyan-400' : 'opacity-30'}`} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('themes')}
-            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition-all text-left ${
-              activeTab === 'themes'
-                ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/35 font-bold shadow-sm shadow-cyan-500/10'
-                : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <Palette className="w-4 h-4 text-purple-400 flex-shrink-0" />
-              <div>
-                <div className="font-bold">Themes &amp; Appearance</div>
-                <div className="text-[10px] text-slate-500 font-normal">6 palettes, dark / light</div>
-              </div>
-            </div>
-            <ChevronRight className={`w-3.5 h-3.5 transition-transform ${activeTab === 'themes' ? 'translate-x-0.5 text-cyan-400' : 'opacity-30'}`} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('browser')}
-            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition-all text-left ${
-              activeTab === 'browser'
-                ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/35 font-bold shadow-sm shadow-cyan-500/10'
-                : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <Sliders className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-              <div>
-                <div className="font-bold">Browser &amp; Stealth</div>
-                <div className="text-[10px] text-slate-500 font-normal">Bézier curves, anti-bot</div>
-              </div>
-            </div>
-            <ChevronRight className={`w-3.5 h-3.5 transition-transform ${activeTab === 'browser' ? 'translate-x-0.5 text-cyan-400' : 'opacity-30'}`} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('workflows')}
-            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition-all text-left ${
-              activeTab === 'workflows'
-                ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/35 font-bold shadow-sm shadow-cyan-500/10'
-                : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <Workflow className="w-4 h-4 text-blue-400 flex-shrink-0" />
-              <div>
-                <div className="font-bold">Workflows &amp; Defaults</div>
-                <div className="text-[10px] text-slate-500 font-normal">Iterations, retry, healing</div>
-              </div>
-            </div>
-            <ChevronRight className={`w-3.5 h-3.5 transition-transform ${activeTab === 'workflows' ? 'translate-x-0.5 text-cyan-400' : 'opacity-30'}`} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('notifications')}
-            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition-all text-left ${
-              activeTab === 'notifications'
-                ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/35 font-bold shadow-sm shadow-cyan-500/10'
-                : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <Bell className="w-4 h-4 text-amber-400 flex-shrink-0" />
-              <div>
-                <div className="font-bold">Notifications &amp; Webhooks</div>
-                <div className="text-[10px] text-slate-500 font-normal">Slack, Discord, 2FA alerts</div>
-              </div>
-            </div>
-            <ChevronRight className={`w-3.5 h-3.5 transition-transform ${activeTab === 'notifications' ? 'translate-x-0.5 text-cyan-400' : 'opacity-30'}`} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('security')}
-            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition-all text-left ${
-              activeTab === 'security'
-                ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/35 font-bold shadow-sm shadow-cyan-500/10'
-                : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <Shield className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-              <div>
-                <div className="font-bold">Security &amp; Vault</div>
-                <div className="text-[10px] text-slate-500 font-normal">AES-256 keys, portal secrets</div>
-              </div>
-            </div>
-            <ChevronRight className={`w-3.5 h-3.5 transition-transform ${activeTab === 'security' ? 'translate-x-0.5 text-cyan-400' : 'opacity-30'}`} />
-          </button>
-
-          {/* Quick Diagnostics Footnote */}
-          <div className="pt-4 mt-4 border-t border-white/5 px-2 text-[11px] text-slate-500 space-y-1">
-            <div className="flex items-center justify-between">
-              <span>Local Runner Sync:</span>
-              <span className="text-cyan-400 font-mono">localStorage</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Cloud Storage:</span>
-              <span className="text-emerald-400 font-mono">wf_organizations</span>
-            </div>
+          <nav aria-label="Settings categories" className="hidden space-y-1 lg:block">
+            {([
+              { id: 'general', label: 'General', description: 'Workspace details', icon: Building },
+              { id: 'themes', label: 'Appearance', description: 'Theme and display', icon: Palette },
+              { id: 'browser', label: 'Browser behavior', description: 'Browser setup and controls', icon: Sliders },
+              { id: 'workflows', label: 'Workflow defaults', description: 'Retries and execution', icon: Workflow },
+              { id: 'notifications', label: 'Notifications', description: 'Alerts and webhooks', icon: Bell },
+              { id: 'security', label: 'Security', description: 'Credentials and access', icon: Shield }
+            ] as const).map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button key={item.id} type="button" onClick={() => setActiveTab(item.id)} aria-current={isActive ? 'page' : undefined}
+                  className={`flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70 ${
+                    isActive ? 'border-blue-400/25 bg-blue-400/10 text-white' : 'border-transparent text-slate-400 hover:bg-white/[0.04] hover:text-slate-100'
+                  }`}>
+                  <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-blue-300' : 'text-slate-500'}`} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium">{item.label}</span>
+                    <span className="mt-0.5 block text-xs font-normal text-slate-500">{item.description}</span>
+                  </span>
+                  {isActive && <ChevronRight className="h-4 w-4 shrink-0 text-blue-300" />}
+                </button>
+              );
+            })}
+          </nav>
+          <div className="mt-4 hidden space-y-1 border-t border-white/[0.07] px-2 pt-4 text-xs text-slate-500 lg:block">
+            <p>Workspace preferences sync to your account.</p>
+            <p>Runner-specific settings apply on the connected desktop.</p>
           </div>
         </div>
 
-        {/* ==================================================================== */}
         {/* Right Settings Content Area */}
         {/* ==================================================================== */}
-        <div className="lg:col-span-3 bg-[#0c101d] border border-white/10 rounded-2xl p-6 lg:p-8 shadow-xl space-y-8">
+        <div className="min-w-0 space-y-8 rounded-2xl border border-white/[0.08] bg-[#0c101d] p-4 sm:p-6 lg:col-span-3 lg:p-7">
           {/* ================================================================ */}
           {/* SECTION 1: General & Profile */}
           {/* ================================================================ */}
           {activeTab === 'general' && (
             <div className="space-y-6 animate-fade-in">
               <div>
-                <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-white tracking-tight flex items-center gap-2">
                   <Building className="w-4 h-4 text-cyan-400" />
-                  Workspace Profile &amp; General Configuration
+                  Workspace details
                 </h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  Manage organization identity, global regional timezones, local filesystem directories, and recording defaults.
+                <p className="text-sm text-slate-400 mt-1.5">
+                  Set your workspace details and everyday preferences.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2">
                 {/* Organization Display Name */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Workspace / Org Name</label>
+                  <label className="text-xs font-semibold text-slate-300">Workspace name</label>
                   <input
                     type="text"
                     value={settings.general.orgName}
@@ -1505,13 +1371,13 @@ export default function SettingsPage() {
                     className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400/50 transition-colors"
                   />
                   <p className="text-[11px] text-slate-500">
-                    The public display name for your organization workspace.
+                    This name is shown across your workspace.
                   </p>
                 </div>
 
-                {/* Organization Slug */}
+                {/* Workspace URL slug */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Organization Slug</label>
+                  <label className="text-xs font-semibold text-slate-300">Workspace URL slug</label>
                   <input
                     type="text"
                     value={settings.general.orgSlug}
@@ -1525,14 +1391,14 @@ export default function SettingsPage() {
                     className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-400/50 transition-colors"
                   />
                   <p className="text-[11px] text-slate-500">
-                    URL-safe identifier for tenant routing and API hooks.
+                    Used to identify your workspace in links and integrations.
                   </p>
                 </div>
 
                 {/* User Email (Read-Only with Lock Badge) */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
-                    <span>Account Email Address</span>
+                    <span>Account email</span>
                     <span className="inline-flex items-center gap-1 text-[10px] text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20 font-bold uppercase">
                       <Lock className="w-2.5 h-2.5" /> Read-Only
                     </span>
@@ -1547,7 +1413,7 @@ export default function SettingsPage() {
                     <Lock className="w-3.5 h-3.5 text-slate-500 absolute right-3 top-3" />
                   </div>
                   <p className="text-[11px] text-slate-500">
-                    Authenticated user email bound to this multi-tenant session.
+                    Your sign-in email. Contact your workspace admin to change it.
                   </p>
                 </div>
 
@@ -1555,7 +1421,7 @@ export default function SettingsPage() {
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
                     <Globe className="w-3.5 h-3.5 text-cyan-400" />
-                    Workspace Regional Timezone
+                    Time zone
                   </label>
                   <select
                     value={settings.general.timezone}
@@ -1574,7 +1440,7 @@ export default function SettingsPage() {
                     ))}
                   </select>
                   <p className="text-[11px] text-slate-500">
-                    Used for schedule evaluation and telemetry timestamp rendering.
+                    Used for schedules and activity timestamps.
                   </p>
                 </div>
               </div>
@@ -1584,7 +1450,7 @@ export default function SettingsPage() {
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
                     <Folder className="w-3.5 h-3.5 text-cyan-400" />
-                    Default Downloads Directory (Desktop Runner)
+                    Download folder
                   </label>
                   <input
                     type="text"
@@ -1599,7 +1465,7 @@ export default function SettingsPage() {
                     className="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-400/50 transition-colors"
                   />
                   <p className="text-[11px] text-slate-500">
-                    Local path where the Desktop Runner daemon stores downloaded PDFs, invoices, and exported datasets before cloud sync.
+                    Where the connected desktop saves downloaded files. This path applies to the desktop runner.
                   </p>
                 </div>
 
@@ -1608,10 +1474,10 @@ export default function SettingsPage() {
                   <div>
                     <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                      Auto-Save Recorded Workflow Steps
+                      Save steps automatically
                     </h4>
                     <p className="text-[11px] text-slate-400 mt-0.5">
-                      Automatically persist recorded browser steps when recording session terminates in Chrome.
+                      Keep recorded steps saved when a recording ends.
                     </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -1630,15 +1496,15 @@ export default function SettingsPage() {
                   </label>
                 </div>
 
-                {/* Compact Table Density Toggle */}
+                {/* Compact layout Toggle */}
                 <div className="flex items-center justify-between p-4 rounded-xl bg-slate-950/40 border border-white/5">
                   <div>
                     <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
                       <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-400" />
-                      Compact Table Density
+                      Compact layout
                     </h4>
                     <p className="text-[11px] text-slate-400 mt-0.5">
-                      Condense row height and padding across Workflows and Runs tables for high-density monitors.
+                      Show more rows at once in workflow and run tables.
                     </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -1669,10 +1535,10 @@ export default function SettingsPage() {
                 <div>
                   <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
                     <Palette className="w-4 h-4 text-purple-400" />
-                    Theme Palettes &amp; Interface Appearance
+                    Appearance
                   </h3>
                   <p className="text-xs text-slate-400 mt-1">
-                    Select from 6 bespoke high-contrast themes. Instant live application with Dark, Light, and System modes.
+                    Choose a theme and display mode that works for you.
                   </p>
                 </div>
 
@@ -1858,17 +1724,17 @@ export default function SettingsPage() {
               <div>
                 <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
                   <Sliders className="w-4 h-4 text-indigo-400" />
-                  Browser Automation &amp; Anti-Bot Stealth Engine
+                  Browser behavior
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Control CDP execution parameters, stochastic human Bézier curves, randomized keystroke cadence, and anti-detection evasion.
+                  Choose a browser preset. Fine-tune timing and browser behavior in advanced settings.
                 </p>
               </div>
 
               {/* Execution Profile Presets */}
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-slate-300">
-                  Automation Profile Presets
+                  Browser preset
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   {(Object.keys(BOT_PRESETS) as BotPresetId[]).map((presetKey) => {
@@ -2271,10 +2137,10 @@ export default function SettingsPage() {
               <div>
                 <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
                   <Workflow className="w-4 h-4 text-blue-400" />
-                  Workflows &amp; Execution Defaults
+                  Workflow defaults
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Configure loop termination limits, automatic step retries, candidate selector auto-healing, and concurrency bounds.
+                  Set safe defaults for retries, loops, and parallel workflow runs.
                 </p>
               </div>
 
@@ -2480,10 +2346,10 @@ export default function SettingsPage() {
               <div>
                 <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
                   <Bell className="w-4 h-4 text-amber-400" />
-                  Notifications, Webhooks &amp; 2FA Alerts
+                  Notifications
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Configure real-time outgoing webhook destinations (Slack, Discord, generic POST), inbound trigger endpoints, and transactional alerts.
+                  Choose which events trigger alerts and configure webhook destinations.
                 </p>
               </div>
 
@@ -2917,10 +2783,10 @@ export default function SettingsPage() {
                   <div>
                     <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
                       <Terminal className="w-3.5 h-3.5 text-indigo-400" />
-                      Runner Environment Variable Overrides
+                      Environment overrides
                     </h4>
                     <p className="text-[11px] text-slate-400 mt-0.5">
-                      Pass custom process environment configurations directly to the local runner daemon.
+                      These variables apply to the local desktop runner.
                     </p>
                   </div>
                   <button
