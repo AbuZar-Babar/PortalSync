@@ -15,7 +15,8 @@ import {
   HardDrive, 
   Loader2, 
   Calendar,
-  Square
+  Square,
+  ChevronRight
 } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
 import { createClient } from '@/lib/supabase/client';
@@ -208,6 +209,10 @@ export function RunDetailsDrawer({ isOpen, onClose, run, onStopRun }: RunDetails
       })
     : run.time || '—';
 
+  const isActive = run.status === 'pending' || run.status === 'running' || run.status === 'requires_action';
+  const isFailed = run.status === 'failed';
+  const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'files' | 'audit'>('overview');
+
   return (
     <div
       role="dialog"
@@ -215,268 +220,391 @@ export function RunDetailsDrawer({ isOpen, onClose, run, onStopRun }: RunDetails
       aria-labelledby="drawer-title"
       className="fixed inset-0 z-50 overflow-hidden"
     >
-      {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm transition-opacity"
         onClick={handleClose}
         aria-hidden="true"
       />
-
-      {/* Slide-over panel */}
-      <div className="fixed inset-y-0 right-0 flex max-w-full pl-10">
-        <div className="relative w-screen max-w-xl border-l border-slate-800 bg-slate-900 shadow-2xl flex flex-col">
-          {/* Header */}
-          <div className="border-b border-slate-800 px-6 py-5 bg-slate-950/50">
+      <div className="fixed inset-y-0 right-0 flex max-w-full pl-4 sm:pl-8">
+        <div className="relative flex h-full w-screen max-w-3xl flex-col border-l border-slate-800/90 bg-[#0b1019] text-slate-100 shadow-2xl">
+          <header className="border-b border-slate-800/80 bg-[#0e1420] px-5 py-5 sm:px-7">
             <div className="flex items-start justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <h2 id="drawer-title" className="text-base font-semibold text-white">
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-cyan-400/15 bg-cyan-400/[0.08] text-cyan-300">
+                    <FileText className="h-4 w-4" />
+                  </span>
+                  <h2 id="drawer-title" className="truncate text-lg font-semibold tracking-tight text-white">
                     {workflowTitle}
                   </h2>
                   <StatusBadge status={run.status} countdownSeconds={twoFactorCountdown} />
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-400">
-                  <span>Run ID:</span>
-                  <code className="font-mono text-slate-300 bg-slate-800/80 px-2 py-0.5 rounded">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                  <span>Run ID</span>
+                  <code className="max-w-[min(55vw,360px)] truncate rounded-md border border-slate-800 bg-slate-900 px-2 py-1 font-mono text-slate-300">
                     {run.id}
                   </code>
                   <button
                     onClick={handleCopyRunId}
                     title="Copy Run ID"
-                    className="p-1 text-slate-400 hover:text-white transition cursor-pointer"
+                    aria-label="Copy run ID"
+                    className="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-800 hover:text-white"
                   >
-                    {copiedId ? (
-                      <Check className="h-3.5 w-3.5 text-emerald-400" />
-                    ) : (
-                      <Copy className="h-3.5 w-3.5" />
-                    )}
+                    {copiedId ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
                   </button>
                 </div>
               </div>
-
-              <div className="flex items-center gap-2">
-                {onStopRun && (run.status === 'pending' || run.status === 'running' || run.status === 'requires_action') && (
+              <div className="flex shrink-0 items-center gap-2">
+                {onStopRun && isActive && (
                   <button
                     onClick={() => onStopRun(run.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 text-xs font-semibold transition cursor-pointer"
+                    className="inline-flex items-center gap-2 rounded-lg border border-rose-500/30 bg-rose-500/[0.08] px-3 py-2 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/15"
                   >
-                    <Square className="h-3 w-3 fill-current text-rose-400" /> Stop Run
+                    <Square className="h-3 w-3 fill-current" /> Stop run
                   </button>
                 )}
                 <button
                   onClick={handleClose}
-                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition cursor-pointer"
-                  aria-label="Close drawer"
+                  className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white"
+                  aria-label="Close execution details"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
             </div>
 
-            {/* Run timing meta */}
-            <div className="grid grid-cols-2 gap-3 mt-4 pt-3 border-t border-slate-800/60 text-xs">
-              <div className="flex items-center gap-2 text-slate-400">
-                <Calendar className="h-3.5 w-3.5 text-slate-500" />
-                <span>Started: <strong className="text-slate-200">{formattedStartedAt}</strong></span>
+            <div className="mt-5 grid grid-cols-1 gap-3 border-t border-slate-800/80 pt-4 sm:grid-cols-2">
+              <div className="flex min-w-0 items-start gap-2.5">
+                <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Started</p>
+                  <p className="mt-1 break-words text-sm text-slate-200">{formattedStartedAt}</p>
+                </div>
               </div>
-              <div className="flex items-center gap-2 text-slate-400">
-                <Clock className="h-3.5 w-3.5 text-slate-500" />
-                <span>Duration: <strong className="font-mono text-slate-200">{durationStr}</strong></span>
+              <div className="flex min-w-0 items-start gap-2.5">
+                <Clock className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Duration</p>
+                  <p className="mt-1 font-mono text-sm text-slate-200">{durationStr}</p>
+                </div>
               </div>
             </div>
-          </div>
+          </header>
 
-          {/* Drawer Body */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            {/* 2FA Alert Box if status === 'requires_action' */}
+          <nav aria-label="Execution detail sections" className="flex gap-1 overflow-x-auto border-b border-slate-800/80 bg-[#0d131e] px-5 sm:px-7">
+            {([
+              { id: 'overview', label: 'Overview' },
+              { id: 'activity', label: 'Activity' },
+              { id: 'files', label: `Files${artifacts.length ? ` (${artifacts.length})` : ''}` },
+              { id: 'audit', label: 'Audit' },
+            ] as const).map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                aria-current={activeTab === tab.id ? 'page' : undefined}
+                className={`-mb-px whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition sm:px-4 ${
+                  activeTab === tab.id
+                    ? 'border-cyan-400 text-white'
+                    : 'border-transparent text-slate-500 hover:border-slate-700 hover:text-slate-200'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+
+          <main className="flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
             {run.status === 'requires_action' && (
-              <div className="rounded-xl border border-amber-500/50 bg-amber-950/40 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-amber-300 font-semibold text-xs">
-                    <ShieldAlert className="h-4 w-4 animate-pulse" />
-                    <span>Human 2FA Intervention Required</span>
+              <section className="rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-4 sm:p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-amber-200">
+                    <ShieldAlert className="h-4 w-4" />
+                    Verification required
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500 text-slate-950">
+                  <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold tabular-nums text-amber-200">
                     {twoFactorCountdown}s remaining
                   </span>
                 </div>
-
-                <p className="text-xs text-amber-200/90 leading-relaxed">
-                  The local browser automation runner detected an OTP/2FA or CAPTCHA challenge in the vendor portal.
+                <p className="mt-2 text-sm leading-relaxed text-amber-100/75">
+                  The browser runner is waiting for an OTP, two-factor authentication, or CAPTCHA challenge to be completed.
                 </p>
-
-                <div className="rounded-lg bg-slate-950/80 border border-amber-900/40 p-3 space-y-2 text-xs">
-                  <div className="font-semibold text-white flex items-center gap-1.5">
-                    <ExternalLink className="h-3.5 w-3.5 text-amber-400" />
-                    <span>Instructions for Local Chrome (Port 9222):</span>
-                  </div>
-                  <ol className="list-decimal list-inside space-y-1 text-slate-300 text-[11px]">
-                    <li>Switch to your open Google Chrome browser window.</li>
-                    <li>Solve the two-factor authentication or CAPTCHA verification challenge.</li>
-                    <li>Once logged in, the runner will resume invoice scraping automatically.</li>
+                <div className="mt-4 rounded-lg border border-amber-500/15 bg-slate-950/40 p-3">
+                  <p className="text-xs font-semibold text-slate-200">Next steps</p>
+                  <ol className="mt-2 list-decimal space-y-1 pl-4 text-xs leading-relaxed text-slate-400">
+                    <li>Switch to the connected Chrome browser.</li>
+                    <li>Complete the verification challenge in the vendor portal.</li>
+                    <li>The runner should resume automatically after successful verification.</li>
                   </ol>
                 </div>
-              </div>
+              </section>
             )}
 
-            {/* Error Summary Box if status === 'failed' */}
-            {run.status === 'failed' && (
-              <div className="rounded-xl border border-rose-500/40 bg-rose-950/30 p-4 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-semibold text-rose-300">
-                  <AlertCircle className="h-4 w-4 text-rose-400" />
-                  <span>Execution Error Details</span>
+            {isFailed && (
+              <section className="rounded-xl border border-rose-500/25 bg-rose-500/[0.06] p-4 sm:p-5">
+                <div className="flex items-center gap-2 text-sm font-semibold text-rose-200">
+                  <AlertCircle className="h-4 w-4" /> Execution failed
                 </div>
-                <div className="rounded-lg bg-slate-950/70 border border-rose-900/40 p-3 text-xs font-mono text-rose-200 break-words">
-                  {run.error_summary || 'Execution terminated unexpectedly without an explicit error summary.'}
-                </div>
-              </div>
+                <p className="mt-2 text-sm leading-relaxed text-rose-100/80">
+                  {run.error_summary || 'No error summary was recorded for this execution.'}
+                </p>
+              </section>
             )}
 
-            {/* Telemetry Metrics Grid */}
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
-                Telemetry & Execution Metrics
-              </h3>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4 text-center">
-                  <span className="text-[11px] text-slate-400 block">Discovered</span>
-                  <span className="text-xl font-bold text-white mt-1 block">
-                    {discoveredCount}
-                  </span>
-                  <span className="text-[10px] text-slate-500">items found</span>
-                </div>
-
-                <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4 text-center">
-                  <span className="text-[11px] text-slate-400 block">Processed</span>
-                  <span className="text-xl font-bold text-blue-400 mt-1 block">
-                    {processedCount}
-                  </span>
-                  <span className="text-[10px] text-slate-500">rows parsed</span>
-                </div>
-
-                <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4 text-center">
-                  <span className="text-[11px] text-slate-400 block">Downloaded</span>
-                  <span className="text-xl font-bold text-teal-400 mt-1 block">
-                    {downloadedCount}
-                  </span>
-                  <span className="text-[10px] text-slate-500">invoices</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Artifacts & Invoices Table */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                  <Download className="h-3.5 w-3.5 text-blue-400" />
-                  <span>Downloaded Invoices & Artifacts ({artifacts.length})</span>
-                </h3>
-                {loadingArtifacts && (
-                  <span className="flex items-center gap-1.5 text-xs text-slate-500">
-                    <Loader2 className="h-3 w-3 animate-spin" /> Loading artifacts...
-                  </span>
-                )}
-              </div>
-
-              {artifacts.length === 0 ? (
-                <div className="rounded-xl border border-slate-800 bg-slate-950/30 p-8 text-center">
-                  <HardDrive className="h-8 w-8 text-slate-600 mx-auto mb-2" />
-                  <p className="text-xs font-medium text-slate-300">No artifacts registered yet</p>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    {run.status === 'running' || run.status === 'pending'
-                      ? 'Invoices will appear here as the desktop runner downloads them.'
-                      : 'This execution completed without downloading file artifacts.'}
-                  </p>
-                </div>
-              ) : (
-                <div className="rounded-xl border border-slate-800 bg-slate-950/40 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs text-slate-300">
-                      <thead className="border-b border-slate-800 bg-slate-900/80 text-[11px] text-slate-400 font-semibold uppercase">
-                        <tr>
-                          <th className="px-4 py-3">File Name</th>
-                          <th className="px-3 py-3">Size</th>
-                          <th className="px-4 py-3">SHA-256 Hash</th>
-                          <th className="px-3 py-3 text-right">Storage</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800/60">
-                        {artifacts.map((art) => (
-                          <tr key={art.id} className="hover:bg-slate-900/50 transition">
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                <FileText className="h-3.5 w-3.5 text-blue-400 shrink-0" />
-                                <span className="font-medium text-white truncate max-w-[140px]" title={art.file_name}>
-                                  {art.file_name}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-3 py-3 font-mono text-slate-400 whitespace-nowrap">
-                              {formatBytes(art.file_size_bytes)}
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-400">
-                                <span title={art.sha256_hash}>
-                                  {art.sha256_hash.slice(0, 10)}...{art.sha256_hash.slice(-6)}
-                                </span>
-                                <button
-                                  onClick={() => handleCopyHash(art.sha256_hash)}
-                                  title="Copy SHA-256 Checksum"
-                                  className="text-slate-500 hover:text-white transition cursor-pointer"
-                                >
-                                  {copiedHash === art.sha256_hash ? (
-                                    <Check className="h-3 w-3 text-emerald-400" />
-                                  ) : (
-                                    <Copy className="h-3 w-3" />
-                                  )}
-                                </button>
-                              </div>
-                            </td>
-                            <td className="px-3 py-3 text-right">
-                              {art.cloud_storage_path ? (
-                                <div className="inline-flex items-center gap-2 justify-end">
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-teal-500/10 text-teal-300 border border-teal-500/20">
-                                    <Cloud className="h-2.5 w-2.5" /> Synced
-                                  </span>
-                                  <a
-                                    href={`/api/v1/artifacts/download?id=${encodeURIComponent(art.id)}`}
-                                    download={art.file_name}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-teal-500/15 hover:bg-teal-500/25 text-teal-300 border border-teal-500/30 text-[10px] font-medium transition cursor-pointer"
-                                    title={`Download ${art.file_name} from cloud storage`}
-                                  >
-                                    <Download className="h-3 w-3" /> Download
-                                  </a>
-                                </div>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-400 border border-slate-700">
-                                  <HardDrive className="h-2.5 w-2.5" /> Local
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+            {activeTab === 'overview' && (
+              <>
+                <section className="rounded-xl border border-slate-800 bg-slate-900/45 p-4 sm:p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-white">Execution summary</h3>
+                      <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                        A snapshot of the recorded outcome and processed items.
+                      </p>
+                    </div>
+                    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
+                      isFailed
+                        ? 'border-rose-500/25 bg-rose-500/10 text-rose-300'
+                        : isActive
+                        ? 'border-blue-500/25 bg-blue-500/10 text-blue-300'
+                        : 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
+                    }`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${isFailed ? 'bg-rose-400' : isActive ? 'bg-blue-400' : 'bg-emerald-400'}`} />
+                      {isFailed ? 'Needs investigation' : isActive ? 'In progress' : String(run.status).replace(/_/g, ' ')}
+                    </span>
                   </div>
-                </div>
-              )}
-            </div>
-          </div>
+                  <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    {[
+                      { label: 'Discovered', value: discoveredCount, hint: 'Items found', tone: 'text-white' },
+                      { label: 'Processed', value: processedCount, hint: 'Items handled', tone: 'text-cyan-300' },
+                      { label: 'Files downloaded', value: downloadedCount, hint: 'Recorded outputs', tone: 'text-emerald-300' },
+                    ].map((metric) => (
+                      <div key={metric.label} className="rounded-lg border border-slate-800/90 bg-[#0b1019] p-4">
+                        <p className="text-xs text-slate-500">{metric.label}</p>
+                        <p className={`mt-2 text-2xl font-semibold tracking-tight ${metric.tone}`}>{metric.value}</p>
+                        <p className="mt-1 text-[11px] text-slate-600">{metric.hint}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
 
-          {/* Footer */}
-          <div className="border-t border-slate-800 px-6 py-4 bg-slate-950/60 flex items-center justify-between">
-            <span className="text-[11px] text-slate-500 font-mono">
-              ReFlow Desktop Engine Bridge v1.0
-            </span>
-            <button
-              onClick={handleClose}
-              className="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-white transition cursor-pointer"
-            >
-              Close Drawer
+                <section className="rounded-xl border border-slate-800 bg-slate-900/35 p-4 sm:p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-semibold text-white">Run details</h3>
+                    <span className="text-xs text-slate-500">Recorded metadata</span>
+                  </div>
+                  <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+                    <div>
+                      <dt className="text-xs text-slate-500">Workflow</dt>
+                      <dd className="mt-1 break-words text-sm text-slate-200">{workflowTitle}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-slate-500">Run identifier</dt>
+                      <dd className="mt-1 break-all font-mono text-xs text-slate-300">{run.id}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-slate-500">Started at</dt>
+                      <dd className="mt-1 text-sm text-slate-200">{formattedStartedAt}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-slate-500">Duration</dt>
+                      <dd className="mt-1 font-mono text-sm text-slate-200">{durationStr}</dd>
+                    </div>
+                  </dl>
+                </section>
+
+                <section className="rounded-xl border border-slate-800 bg-slate-900/35 p-4 sm:p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-semibold text-white">Downloaded artifacts</h3>
+                    <button onClick={() => setActiveTab('files')} className="inline-flex items-center gap-1 text-xs font-medium text-cyan-300 transition hover:text-cyan-200">
+                      View files <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  {loadingArtifacts ? (
+                    <div className="mt-4 flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading files…</div>
+                  ) : artifacts.length === 0 ? (
+                    <div className="mt-4 rounded-lg border border-dashed border-slate-800 px-4 py-7 text-center">
+                      <HardDrive className="mx-auto h-6 w-6 text-slate-600" />
+                      <p className="mt-2 text-sm font-medium text-slate-300">No files recorded</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {isActive ? 'Artifacts may appear here as the runner processes the workflow.' : 'No file artifacts were registered for this execution.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm text-slate-400">{artifacts.length} artifact{artifacts.length === 1 ? '' : 's'} registered for this run.</p>
+                  )}
+                </section>
+              </>
+            )}
+
+            {activeTab === 'activity' && (
+              <section className="rounded-xl border border-slate-800 bg-slate-900/35 p-4 sm:p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">Execution activity</h3>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-500">Known lifecycle information for this run.</p>
+                  </div>
+                  <Clock className="h-4 w-4 text-slate-500" />
+                </div>
+                <div className="mt-5 space-y-0">
+                  <div className="relative flex gap-3 pb-5">
+                    <div className="flex w-5 shrink-0 justify-center"><span className="mt-1.5 h-2.5 w-2.5 rounded-full bg-cyan-400 ring-4 ring-cyan-400/10" /></div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-slate-200">Execution started</p>
+                      <p className="mt-1 break-words text-xs text-slate-500">{formattedStartedAt}</p>
+                    </div>
+                  </div>
+                  {run.error_summary && (
+                    <div className="relative flex gap-3 pb-5">
+                      <div className="flex w-5 shrink-0 justify-center"><span className="mt-1.5 h-2.5 w-2.5 rounded-full bg-rose-400 ring-4 ring-rose-400/10" /></div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-rose-200">Recorded error</p>
+                        <p className="mt-1 break-words text-xs leading-relaxed text-slate-400">{run.error_summary}</p>
+                      </div>
+                    </div>
+                  )}
+                  {run.completed_at && (
+                    <div className="relative flex gap-3">
+                      <div className="flex w-5 shrink-0 justify-center"><span className={`mt-1.5 h-2.5 w-2.5 rounded-full ring-4 ${isFailed ? 'bg-rose-400 ring-rose-400/10' : 'bg-emerald-400 ring-emerald-400/10'}`} /></div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-slate-200">Execution finished</p>
+                        <p className="mt-1 break-words text-xs text-slate-500">{new Date(run.completed_at).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  )}
+                  {!run.completed_at && !run.error_summary && (
+                    <div className="flex gap-3">
+                      <div className="flex w-5 shrink-0 justify-center"><span className="mt-1.5 h-2.5 w-2.5 rounded-full bg-blue-400 ring-4 ring-blue-400/10" /></div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-blue-200">{run.status === 'requires_action' ? 'Waiting for verification' : 'Execution in progress'}</p>
+                        <p className="mt-1 text-xs text-slate-500">No further event timestamps are available in the current run record.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <p className="mt-4 border-t border-slate-800 pt-3 text-[11px] leading-relaxed text-slate-600">
+                  Detailed per-step logs are not currently exposed by this run record. This timeline only shows recorded lifecycle fields and does not invent step events.
+                </p>
+              </section>
+            )}
+
+            {activeTab === 'files' && (
+              <section>
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">Downloaded files</h3>
+                    <p className="mt-1 text-xs text-slate-500">Files and checksums registered for this execution.</p>
+                  </div>
+                  <span className="rounded-full border border-slate-800 bg-slate-900 px-2.5 py-1 text-xs text-slate-400">{artifacts.length} artifacts</span>
+                </div>
+                {loadingArtifacts ? (
+                  <div className="flex items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-900/35 px-4 py-12 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading artifacts…</div>
+                ) : artifacts.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-slate-800 bg-slate-900/25 px-4 py-12 text-center">
+                    <HardDrive className="mx-auto h-8 w-8 text-slate-600" />
+                    <p className="mt-3 text-sm font-medium text-slate-300">No artifacts registered</p>
+                    <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-slate-500">
+                      {isActive ? 'Files will appear here when the runner registers downloaded artifacts.' : 'This run has no registered file artifacts.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900/25">
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[640px] text-left text-xs text-slate-300">
+                        <thead className="border-b border-slate-800 bg-slate-900/80 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                          <tr>
+                            <th className="px-4 py-3">File name</th>
+                            <th className="px-3 py-3">Size</th>
+                            <th className="px-4 py-3">SHA-256 checksum</th>
+                            <th className="px-3 py-3 text-right">Storage / action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/70">
+                          {artifacts.map((art) => (
+                            <tr key={art.id} className="transition hover:bg-slate-800/20">
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2.5">
+                                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-800 bg-slate-950 text-cyan-300"><FileText className="h-4 w-4" /></span>
+                                  <span className="max-w-[220px] truncate font-medium text-slate-200" title={art.file_name}>{art.file_name}</span>
+                                </div>
+                              </td>
+                              <td className="whitespace-nowrap px-3 py-3 font-mono text-slate-400">{formatBytes(art.file_size_bytes)}</td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-400">
+                                  <span title={art.sha256_hash}>{art.sha256_hash.slice(0, 10)}…{art.sha256_hash.slice(-6)}</span>
+                                  <button onClick={() => handleCopyHash(art.sha256_hash)} title="Copy SHA-256 checksum" aria-label="Copy SHA-256 checksum" className="rounded p-1 text-slate-500 transition hover:bg-slate-800 hover:text-white">
+                                    {copiedHash === art.sha256_hash ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                                  </button>
+                                </div>
+                              </td>
+                              <td className="px-3 py-3 text-right">
+                                {art.cloud_storage_path ? (
+                                  <div className="inline-flex items-center justify-end gap-2">
+                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/[0.08] px-2 py-1 text-[10px] font-medium text-emerald-300"><Cloud className="h-3 w-3" /> Synced</span>
+                                    <a href={`/api/v1/artifacts/download?id=${encodeURIComponent(art.id)}`} download={art.file_name} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/70 px-2.5 py-1.5 text-[11px] font-medium text-slate-200 transition hover:bg-slate-700"><Download className="h-3 w-3" /> Download</a>
+                                  </div>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800/60 px-2 py-1 text-[10px] text-slate-400"><HardDrive className="h-3 w-3" /> Local</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {activeTab === 'audit' && (
+              <section className="space-y-4">
+                <div className="rounded-xl border border-slate-800 bg-slate-900/35 p-4 sm:p-5">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="h-4 w-4 text-cyan-300" />
+                    <h3 className="text-sm font-semibold text-white">Execution audit</h3>
+                  </div>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-500">Recorded run identity, timestamps, outcome, and artifact integrity metadata.</p>
+                  <dl className="mt-5 space-y-4">
+                    {[
+                      { label: 'Run ID', value: run.id, mono: true },
+                      { label: 'Workflow', value: workflowTitle, mono: false },
+                      { label: 'Status', value: String(run.status).replace(/_/g, ' '), mono: false },
+                      { label: 'Started at', value: formattedStartedAt, mono: false },
+                      { label: 'Completed at', value: run.completed_at ? new Date(run.completed_at).toLocaleString() : 'Not recorded', mono: false },
+                      { label: 'Duration', value: durationStr, mono: true },
+                    ].map((item) => (
+                      <div key={item.label} className="grid grid-cols-1 gap-1 sm:grid-cols-[130px_minmax(0,1fr)] sm:gap-4">
+                        <dt className="text-xs text-slate-500">{item.label}</dt>
+                        <dd className={`break-words text-xs text-slate-200 ${item.mono ? 'font-mono' : ''}`}>{item.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+                <div className="rounded-xl border border-slate-800 bg-slate-900/35 p-4 sm:p-5">
+                  <h3 className="text-sm font-semibold text-white">Artifact integrity</h3>
+                  {artifacts.length === 0 ? (
+                    <p className="mt-2 text-xs leading-relaxed text-slate-500">No artifact checksum records are available for this run.</p>
+                  ) : (
+                    <div className="mt-3 space-y-3">
+                      {artifacts.map((art) => (
+                        <div key={art.id} className="rounded-lg border border-slate-800 bg-[#0b1019] p-3">
+                          <p className="break-words text-xs font-medium text-slate-200">{art.file_name}</p>
+                          <p className="mt-2 break-all font-mono text-[11px] leading-relaxed text-slate-500">{art.sha256_hash || 'No checksum recorded'}</p>
+                          {art.sha256_hash && <button onClick={() => handleCopyHash(art.sha256_hash)} className="mt-2 inline-flex items-center gap-1.5 text-xs text-cyan-300 transition hover:text-cyan-200">{copiedHash === art.sha256_hash ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />} Copy checksum</button>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+          </main>
+
+          <footer className="flex items-center justify-between gap-3 border-t border-slate-800/80 bg-[#0e1420] px-5 py-3.5 sm:px-7">
+            <span className="truncate text-[11px] text-slate-600">Execution details · ReFlow</span>
+            <button onClick={handleClose} className="rounded-lg border border-slate-700 bg-slate-800/70 px-3.5 py-2 text-xs font-semibold text-slate-200 transition hover:bg-slate-700">
+              Close
             </button>
-          </div>
+          </footer>
         </div>
       </div>
     </div>
