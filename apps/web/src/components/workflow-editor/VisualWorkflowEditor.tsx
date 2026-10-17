@@ -33,6 +33,7 @@ import {
   Database,
   Download,
   Loader2,
+  Workflow as WorkflowIcon,
 } from 'lucide-react';
 
 interface VisualWorkflowEditorProps {
@@ -382,48 +383,9 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
     }
   };
 
-  // Run Now dispatcher
-  const handleRunNow = async () => {
-    if (isRunning) return;
-    setIsRunning(true);
-    setRunMessage(null);
-
-    try {
-      // Auto-save before running if dirty
-      if (isDirty) {
-        await handleSaveToCloud();
-      }
-
-      const { steps, hasLoop, loopStepIndex } = compileTopologicalSteps();
-
-      const res = await fetch('/api/v1/runs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          workflow_id: workflowId,
-          status: 'pending',
-          mode: hasLoop ? 'loop' : 'single',
-          isLoop: hasLoop,
-          loopStepIndex: hasLoop && loopStepIndex >= 0 ? loopStepIndex : null,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to trigger run');
-      }
-
-      setRunMessage({
-        text: `Run dispatched! Status: pending (Run ID: ${data.run?.id?.slice(0, 8) || 'active'})`,
-        type: 'success',
-      });
-      setTimeout(() => setRunMessage(null), 5000);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error dispatching execution';
-      setRunMessage({ text: msg, type: 'error' });
-    } finally {
-      setIsRunning(false);
-    }
+  // Run workflow opens preflight so users can choose single or batch/filter execution.
+  const handleRunNow = () => {
+    setIsPreflightOpen(true);
   };
 
   // Add a new step node from palette
