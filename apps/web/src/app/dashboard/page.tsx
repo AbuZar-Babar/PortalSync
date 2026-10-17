@@ -274,7 +274,7 @@ export default function DashboardOverviewPage() {
         failed: 0
       };
     });
-    const dayIndexes = new Map(days.map((day, index) => [
+    const dayIndexes = new Map<string, number>(days.map((day, index): [string, number] => [
       [day.date.getFullYear(), day.date.getMonth(), day.date.getDate()].join('-'),
       index
     ]));
