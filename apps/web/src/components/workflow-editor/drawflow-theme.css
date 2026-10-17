@@ -12,9 +12,9 @@
   outline: 0;
   width: 100%;
   height: 100%;
-  background-color: #060913 !important;
-  background-size: 26px 26px !important;
-  background-image: radial-gradient(circle, rgba(16, 185, 129, 0.18) 1.25px, transparent 1.25px) !important;
+  background-color: #0B1220 !important;
+  background-size: 24px 24px !important;
+  background-image: radial-gradient(circle, rgba(148, 163, 184, 0.14) 1px, transparent 1px) !important;
   transform: translateZ(0);
   will-change: transform;
 }
@@ -48,16 +48,16 @@
   display: flex !important;
   flex-direction: column !important;
   position: absolute !important;
-  background: #0b1120 !important;
+  background: #111C2D !important;
   color: #f1f5f9 !important;
-  border: 1px solid #1e293b !important;
+  border: 1px solid #263449 !important;
   border-radius: 12px !important;
-  min-width: 310px !important;
-  max-width: 350px !important;
+  min-width: 260px !important;
+  max-width: 300px !important;
   width: auto !important;
   min-height: auto !important;
   padding: 0 !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.5) !important;
+  box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.45) !important;
   overflow: visible !important;
   font-family: inherit !important;
   cursor: grab !important;
@@ -70,14 +70,14 @@
 }
 
 .drawflow .drawflow-node:hover {
-  border-color: #059669 !important;
-  box-shadow: 0 12px 30px -5px rgba(16, 185, 129, 0.15), 0 0 0 1px rgba(16, 185, 129, 0.25) !important;
+  border-color: #64748b !important;
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5) !important;
 }
 
 .drawflow .drawflow-node.selected {
-  background: #0f172a !important;
-  border: 2px solid #10b981 !important;
-  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.3), 0 15px 35px -5px rgba(0, 0, 0, 0.8) !important;
+  background: #142033 !important;
+  border: 2px solid #3B82F6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16), 0 10px 24px -8px rgba(0, 0, 0, 0.6) !important;
   z-index: 5 !important;
 }
 
@@ -114,8 +114,8 @@
   justify-content: space-between !important;
   align-items: center !important;
   padding: 10px 14px !important;
-  background: rgba(15, 23, 42, 0.95) !important;
-  border-bottom: 1px solid #1e293b !important;
+  background: rgba(17, 28, 45, 0.95) !important;
+  border-bottom: 1px solid #263449 !important;
   border-top-left-radius: 11px !important;
   border-top-right-radius: 11px !important;
 }
