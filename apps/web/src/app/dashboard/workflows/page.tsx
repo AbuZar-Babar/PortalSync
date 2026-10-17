@@ -14,8 +14,6 @@ import {
   Clock,
   Trash2,
   Workflow as WorkflowIcon,
-  Cloud,
-  HardDrive,
   AlertTriangle,
   X,
   Loader2,
