@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Clock,
   Code,
+  Info,
   Sliders,
   Layers,
   Database,
@@ -62,6 +63,17 @@ export function extractAvailableOptions(nodeData: StepNodeData): Array<{ value: 
   }
 
   return options;
+}
+
+function FieldHelp({ text }: { text: string }) {
+  return (
+    <span className="group relative inline-flex align-middle">
+      <button type="button" aria-label={text} title={text} className="inline-flex h-4 w-4 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-800 hover:text-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-400">
+        <Info className="h-3.5 w-3.5" />
+      </button>
+      <span role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-[80] mt-2 hidden w-56 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-[11px] font-normal normal-case leading-5 tracking-normal text-slate-200 shadow-xl group-hover:block group-focus-within:block">{text}</span>
+    </span>
+  );
 }
 
 export default function PropertyDrawer({
@@ -216,11 +228,11 @@ export default function PropertyDrawer({
       </div>
 
       {/* Drawer Body Form */}
-      <form onSubmit={handleSave} className="min-h-0 flex-1 overflow-y-auto px-4 py-5 space-y-6">
+      <form onSubmit={handleSave} className="reflow-hide-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-5 space-y-6">
         {/* Step Name */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-            Step name
+            Step name <FieldHelp text="A short name so you can recognize this step in the workflow." />
           </label>
           <input
             type="text"
@@ -235,7 +247,7 @@ export default function PropertyDrawer({
         <div>
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-              Action
+              Action <FieldHelp text="Choose what ReFlow should do here, such as clicking, typing, navigating, or extracting data." />
             </label>
             <select
               value={draft.action}
@@ -261,7 +273,7 @@ export default function PropertyDrawer({
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Code className="h-3.5 w-3.5 text-sky-400" />
-                Page element
+                Page element <FieldHelp text="The button, input, dropdown, or other page element this action should interact with. CSS or XPath selectors are supported." />
               </label>
               <span className="text-[10px] text-slate-500">What should ReFlow interact with?</span>
             </div>
@@ -286,7 +298,7 @@ export default function PropertyDrawer({
                 ? 'Target URL'
                 : draft.action === 'SELECT'
                 ? 'Select Option Value'
-                : 'Action Value / Input'}
+                : 'Action Value / Input'} <FieldHelp text={draft.action === 'WAIT' ? 'How long to pause before continuing, in milliseconds.' : draft.action === 'NAVIGATE' ? 'The full web address ReFlow should open.' : draft.action === 'SELECT' ? 'The option value to choose from the dropdown.' : 'The text, URL, or value this action should use.'} />
             </label>
             <input
               type="text"
@@ -302,7 +314,7 @@ export default function PropertyDrawer({
 
         <details className="group rounded-xl border border-slate-800/90 bg-slate-950/20 p-3.5">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs font-medium text-slate-200 marker:hidden">
-            <span className="flex items-center gap-2"><Sliders className="h-4 w-4 text-slate-400" />Advanced settings</span>
+            <span className="flex items-center gap-2"><Sliders className="h-4 w-4 text-slate-400" />Advanced settings <FieldHelp text="Optional technical controls. Most steps can use the default settings." /></span>
             <span className="text-slate-500 transition group-open:rotate-90">›</span>
           </summary>
           <p className="mt-2 text-[11px] leading-5 text-slate-500">Optional behavior and technical settings. Most workflows can leave these at their defaults.</p>
@@ -341,7 +353,7 @@ export default function PropertyDrawer({
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Layers className="h-3.5 w-3.5 text-slate-400" />
-                Candidate Selectors
+                Candidate Selectors <FieldHelp text="Alternative selectors ReFlow tries if the main page element cannot be found. Add one selector per line." />
               </label>
               <span className="text-[10px] text-slate-500">One per line</span>
             </div>
@@ -363,7 +375,7 @@ export default function PropertyDrawer({
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5 text-amber-400" />
-              Timeout (Milliseconds)
+              Timeout (Milliseconds) <FieldHelp text="Maximum time ReFlow waits for this action or page element before reporting a timeout." />
             </label>
             <span className="text-[10px] text-slate-500">Default: {actionDef.defaultTimeout}ms</span>
           </div>
@@ -579,7 +591,7 @@ export default function PropertyDrawer({
               </div>
             </div>
             <div>
-              <label className="block text-[11px] text-slate-400 mb-1">Target Property</label>
+              <label className="block text-[11px] text-slate-400 mb-1">Target Property <FieldHelp text="Which value to read from the element: usually visible text, an input value, or a link URL." /></label>
               <input
                 type="text"
                 value={draft.extract_attribute || 'textContent'}
