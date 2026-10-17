@@ -78,12 +78,25 @@ export function RunDetailsDrawer({ isOpen, onClose, run, onStopRun }: RunDetails
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
   const [twoFactorCountdown, setTwoFactorCountdown] = useState(90);
   const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'files' | 'audit'>('overview');
+  const [hasEntered, setHasEntered] = useState(false);
 
   const handleClose = useCallback(() => {
     setArtifacts([]);
     setTwoFactorCountdown(90);
     onClose();
   }, [onClose]);
+
+  // Animate the drawer into view after it mounts.
+  useEffect(() => {
+    if (!isOpen) {
+      setHasEntered(false);
+      return;
+    }
+
+    setHasEntered(false);
+    const frame = window.requestAnimationFrame(() => setHasEntered(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [isOpen, run?.id]);
 
   // Close on Escape key
   useEffect(() => {
@@ -219,13 +232,14 @@ export function RunDetailsDrawer({ isOpen, onClose, run, onStopRun }: RunDetails
       aria-labelledby="drawer-title"
       className="fixed inset-0 z-50 overflow-hidden"
     >
+      <style>{`.run-details-scrollbar { scrollbar-color: #334155 #0b1019; scrollbar-width: thin; } .run-details-scrollbar::-webkit-scrollbar { width: 9px; height: 9px; } .run-details-scrollbar::-webkit-scrollbar-track { background: #0b1019; } .run-details-scrollbar::-webkit-scrollbar-thumb { background: #334155; border: 2px solid #0b1019; border-radius: 999px; } .run-details-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; } @media (prefers-reduced-motion: reduce) { .run-details-motion { transition-duration: 0ms !important; } }`}</style>
       <div
-        className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm transition-opacity"
+        className={`fixed inset-0 bg-slate-950/75 backdrop-blur-sm transition-opacity duration-300 ease-out run-details-motion ${hasEntered ? 'opacity-100' : 'opacity-0'}`}
         onClick={handleClose}
         aria-hidden="true"
       />
       <div className="fixed inset-y-0 right-0 flex max-w-full pl-4 sm:pl-8">
-        <div className="relative flex h-full w-screen max-w-3xl flex-col border-l border-slate-800/90 bg-[#0b1019] text-slate-100 shadow-2xl">
+        <div className={`relative flex h-full w-screen max-w-3xl flex-col border-l border-slate-800/90 bg-[#0b1019] text-slate-100 shadow-2xl transition-[transform,opacity] duration-300 ease-out run-details-motion ${hasEntered ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}>
           <header className="border-b border-slate-800/80 bg-[#0e1420] px-5 py-5 sm:px-7">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1 space-y-2">
@@ -290,7 +304,7 @@ export function RunDetailsDrawer({ isOpen, onClose, run, onStopRun }: RunDetails
             </div>
           </header>
 
-          <nav aria-label="Execution detail sections" className="flex gap-1 overflow-x-auto border-b border-slate-800/80 bg-[#0d131e] px-5 sm:px-7">
+          <nav aria-label="Execution detail sections" className="run-details-scrollbar flex gap-1 overflow-x-auto border-b border-slate-800/80 bg-[#0d131e] px-5 sm:px-7">
             {([
               { id: 'overview', label: 'Overview' },
               { id: 'activity', label: 'Activity' },
@@ -312,7 +326,7 @@ export function RunDetailsDrawer({ isOpen, onClose, run, onStopRun }: RunDetails
             ))}
           </nav>
 
-          <main className="flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
+          <main className="run-details-scrollbar flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
             {run.status === 'requires_action' && (
               <section className="rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-4 sm:p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
