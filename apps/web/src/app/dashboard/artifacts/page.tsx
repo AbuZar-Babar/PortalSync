@@ -75,6 +75,20 @@ export type ViewMode = 'table' | 'tree';
 export type CategoryFilter = 'all' | 'master_sheet' | 'invoices' | 'datasets' | 'json';
 export type SortOption = 'newest' | 'oldest' | 'size_desc' | 'size_asc' | 'name_asc';
 
+interface ExecutionResult {
+  id: string;
+  org_id: string;
+  workflow_id: string;
+  workflowName: string;
+  status: RunStatus | string;
+  total_items_discovered: number;
+  items_processed: number;
+  items_downloaded: number;
+  started_at: string;
+  completed_at?: string | null;
+  error_summary?: string | null;
+}
+
 const VIEW_MODE_STORAGE_KEY = 'wf_saas_artifacts_view_mode';
 
 // ==========================================
@@ -425,6 +439,9 @@ export default function ArtifactsVaultPage() {
 
   // State
   const [artifacts, setArtifacts] = useState<ArtifactItem[]>([]);
+  const [resultRuns, setResultRuns] = useState<ExecutionResult[]>([]);
+  const [activeTab, setActiveTab] = useState<'files' | 'results'>('files');
+  const [resultFilter, setResultFilter] = useState<'all' | 'completed' | 'failed' | 'requires_action' | 'active'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshingLocal, setIsRefreshingLocal] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -526,6 +543,27 @@ export default function ArtifactsVaultPage() {
             portalDomain: string;
           }
         > = {};
+
+        const formattedResults: ExecutionResult[] = Array.isArray(runsData)
+          ? runsData.map((entry) => {
+              const row = entry as Record<string, unknown>;
+              const workflow = row.wf_workflows as { name?: string } | null;
+              return {
+                id: String(row.id),
+                org_id: String(row.org_id),
+                workflow_id: row.workflow_id ? String(row.workflow_id) : '',
+                workflowName: workflow?.name || 'Automation Workflow',
+                status: (row.status as RunStatus) || 'completed',
+                total_items_discovered: Number(row.total_items_discovered ?? 0),
+                items_processed: Number(row.items_processed ?? 0),
+                items_downloaded: Number(row.items_downloaded ?? 0),
+                started_at: row.started_at ? String(row.started_at) : '',
+                completed_at: row.completed_at ? String(row.completed_at) : null,
+                error_summary: row.error_summary ? String(row.error_summary) : null,
+              };
+            })
+          : [];
+        setResultRuns(formattedResults);
 
         const runIds: string[] = [];
         if (Array.isArray(runsData)) {
@@ -996,7 +1034,7 @@ export default function ArtifactsVaultPage() {
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
               <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                Outputs &amp; Invoices Vault
+                Files &amp; Results
               </h1>
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
                 <Sparkles className="h-2.5 w-2.5" />
@@ -1004,14 +1042,14 @@ export default function ArtifactsVaultPage() {
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-1 max-w-2xl">
-              Cryptographically verified automation artifacts, captured invoices, generated
-              spreadsheets, and execution data payloads with SHA-256 integrity attestations.
+              Browse collected files, verify their integrity, and review processing outcomes.
             </p>
           </div>
         </div>
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2.5 flex-wrap">
+          {activeTab === 'files' && (
           <button
             onClick={handleExportAllZip}
             disabled={filteredArtifacts.length === 0 || isExportingZip}
@@ -1039,6 +1077,7 @@ export default function ArtifactsVaultPage() {
               </>
             )}
           </button>
+          )}
 
           <button
             onClick={handleManualRefresh}
@@ -1050,6 +1089,30 @@ export default function ArtifactsVaultPage() {
             <span>Refresh</span>
           </button>
         </div>
+      </div>
+
+      {/* Files & Results tabs */}
+      <div className="inline-flex w-full sm:w-auto p-1 rounded-xl bg-[#0c101d] border border-white/10 gap-1">
+        <button
+          type="button"
+          onClick={() => { setActiveTab('files'); setSearchQuery(''); }}
+          aria-pressed={activeTab === 'files'}
+          className={`inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'files' ? 'bg-slate-800 text-white border border-white/10' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          <Folder className="h-4 w-4" />
+          Files
+          <span className="text-[11px] text-slate-400">{counts.all}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => { setActiveTab('results'); setSearchQuery(''); setResultFilter('all'); setPreviewArtifact(null); }}
+          aria-pressed={activeTab === 'results'}
+          className={`inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'results' ? 'bg-slate-800 text-white border border-white/10' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          <Layers className="h-4 w-4" />
+          Results
+          <span className="text-[11px] text-slate-400">{resultRuns.length}</span>
+        </button>
       </div>
 
       {/* Error Banner */}
@@ -1065,6 +1128,8 @@ export default function ArtifactsVaultPage() {
         </div>
       )}
 
+      {activeTab === 'files' && (
+      <>
       {/* Toolbar: Category Filter Pills, Search, View Toggle & Sort */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-[#0c101d]/60 backdrop-blur-xl p-3.5 rounded-2xl border border-white/5">
         {/* Category Filter Pills */}
@@ -1270,13 +1335,6 @@ export default function ArtifactsVaultPage() {
                 <span>Browse Workflows</span>
                 <ChevronRight className="h-3.5 w-3.5" />
               </Link>
-              <button
-                onClick={handleManualRefresh}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium bg-slate-900 text-slate-300 hover:text-white border border-white/10"
-              >
-                <RotateCw className="h-3.5 w-3.5" />
-                <span>Check for New Runs</span>
-              </button>
             </div>
           </div>
         ) : filteredArtifacts.length === 0 ? (
@@ -1445,14 +1503,6 @@ export default function ArtifactsVaultPage() {
                               <span>Download</span>
                             </a>
 
-                            {/* Inspect Associated Run in Drawer */}
-                            <button
-                              onClick={(e) => handleOpenRun(art, e)}
-                              className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-white/5 transition-all"
-                              title="Inspect Run Telemetry"
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1722,10 +1772,175 @@ export default function ArtifactsVaultPage() {
         )}
       </div>
 
+      </>
+      )}
+
+      {activeTab === 'results' && (
+        <section className="rounded-2xl border border-white/10 bg-[#0c101d]/90 overflow-hidden">
+          <div className="p-4 sm:p-5 border-b border-white/5 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-white">Processing outcomes</h2>
+              <p className="text-xs text-slate-400 mt-1">Execution-level results from this workspace. Open a result for full execution details.</p>
+            </div>
+            <div className="relative w-full lg:w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search workflow, status, or error…"
+                aria-label="Search results"
+                className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-950/80 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30"
+              />
+            </div>
+          </div>
+
+          <div className="p-4 border-b border-white/5 flex items-center gap-2 flex-wrap">
+            {([
+              ['all', 'All results'],
+              ['completed', 'Completed'],
+              ['failed', 'Failed'],
+              ['requires_action', 'Needs action'],
+              ['active', 'In progress'],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setResultFilter(value)}
+                aria-pressed={resultFilter === value}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${resultFilter === value ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-300' : 'bg-slate-950/50 border-white/10 text-slate-400 hover:text-slate-200'}`}
+              >
+                {label}
+              </button>
+            ))}
+            <span className="ml-auto text-xs text-slate-500">{resultRuns.filter((run) => {
+              const status = String(run.status).toLowerCase();
+              const query = searchQuery.trim().toLowerCase();
+              const matchesFilter = resultFilter === 'all'
+                || (resultFilter === 'completed' && ['completed', 'succeeded', 'success'].includes(status))
+                || (resultFilter === 'failed' && ['failed', 'error'].includes(status))
+                || (resultFilter === 'requires_action' && ['requires_action', 'needs_action', 'waiting_for_2fa', 'awaiting_user'].includes(status))
+                || (resultFilter === 'active' && ['running', 'queued', 'pending', 'in_progress'].includes(status));
+              const matchesSearch = !query || [run.workflowName, run.status, run.error_summary || '', run.id].some((value) => value.toLowerCase().includes(query));
+              return matchesFilter && matchesSearch;
+            }).length} results</span>
+          </div>
+
+          {isLoading ? (
+            <div className="py-16 flex items-center justify-center gap-3 text-slate-400">
+              <Loader2 className="h-5 w-5 animate-spin text-cyan-400" />
+              <span className="text-xs">Loading results…</span>
+            </div>
+          ) : resultRuns.length === 0 ? (
+            <div className="py-16 px-6 text-center">
+              <Layers className="h-8 w-8 text-slate-600 mx-auto mb-3" />
+              <h3 className="text-sm font-semibold text-white">No results yet</h3>
+              <p className="text-xs text-slate-400 mt-1">Results will appear here after workflows have been executed.</p>
+              <Link href="/dashboard/workflows" className="inline-flex mt-4 items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 text-slate-200 border border-white/10 text-xs hover:bg-slate-700">
+                Browse workflows <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          ) : (() => {
+            const query = searchQuery.trim().toLowerCase();
+            const visibleResults = resultRuns.filter((run) => {
+              const status = String(run.status).toLowerCase();
+              const matchesFilter = resultFilter === 'all'
+                || (resultFilter === 'completed' && ['completed', 'succeeded', 'success'].includes(status))
+                || (resultFilter === 'failed' && ['failed', 'error'].includes(status))
+                || (resultFilter === 'requires_action' && ['requires_action', 'needs_action', 'waiting_for_2fa', 'awaiting_user'].includes(status))
+                || (resultFilter === 'active' && ['running', 'queued', 'pending', 'in_progress'].includes(status));
+              const matchesSearch = !query || [run.workflowName, run.status, run.error_summary || '', run.id].some((value) => value.toLowerCase().includes(query));
+              return matchesFilter && matchesSearch;
+            });
+            return visibleResults.length === 0 ? (
+              <div className="py-16 px-6 text-center">
+                <Search className="h-7 w-7 text-slate-600 mx-auto mb-3" />
+                <h3 className="text-sm font-semibold text-white">No matching results</h3>
+                <p className="text-xs text-slate-400 mt-1">Try another search term or outcome filter.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-white/5 bg-slate-950/60 text-slate-400 uppercase">
+                      <th className="px-4 py-3 font-medium">Workflow / execution</th>
+                      <th className="px-4 py-3 font-medium">Outcome</th>
+                      <th className="px-4 py-3 font-medium">Items</th>
+                      <th className="px-4 py-3 font-medium">Started</th>
+                      <th className="px-4 py-3 font-medium text-right">Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleResults.map((run) => (
+                      <tr
+                        key={run.id}
+                        onClick={() => openRunDetails({
+                          id: run.id,
+                          workflow_id: run.workflow_id,
+                          workflowName: run.workflowName,
+                          wf_workflows: { name: run.workflowName },
+                          status: run.status,
+                          total_items_discovered: run.total_items_discovered,
+                          items_discovered: run.total_items_discovered,
+                          items_processed: run.items_processed,
+                          items_downloaded: run.items_downloaded,
+                          started_at: run.started_at,
+                          completed_at: run.completed_at,
+                          error_summary: run.error_summary,
+                        })}
+                        className="border-b border-white/5 last:border-0 hover:bg-slate-900/70 cursor-pointer transition-colors"
+                        title="Open result details"
+                      >
+                        <td className="px-4 py-3.5">
+                          <div className="font-medium text-slate-100">{run.workflowName}</div>
+                          <div className="text-[11px] text-slate-500 mt-1 font-mono">#{run.id.slice(0, 8)}</div>
+                          {run.error_summary && <div className="text-[11px] text-rose-300 mt-1 max-w-xl truncate">{run.error_summary}</div>}
+                        </td>
+                        <td className="px-4 py-3.5"><StatusBadge status={run.status} /></td>
+                        <td className="px-4 py-3.5">
+                          <div className="text-slate-200">{run.items_downloaded} downloaded</div>
+                          <div className="text-[11px] text-slate-500 mt-1">{run.items_processed} processed · {run.total_items_discovered} discovered</div>
+                        </td>
+                        <td className="px-4 py-3.5 text-slate-400 whitespace-nowrap">{formatRelativeTime(run.started_at)}</td>
+                        <td className="px-4 py-3.5 text-right">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openRunDetails({
+                                id: run.id,
+                                workflow_id: run.workflow_id,
+                                workflowName: run.workflowName,
+                                wf_workflows: { name: run.workflowName },
+                                status: run.status,
+                                total_items_discovered: run.total_items_discovered,
+                                items_discovered: run.total_items_discovered,
+                                items_processed: run.items_processed,
+                                items_downloaded: run.items_downloaded,
+                                started_at: run.started_at,
+                                completed_at: run.completed_at,
+                                error_summary: run.error_summary,
+                              });
+                            }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/10 bg-slate-900 text-slate-300 hover:text-white hover:border-cyan-500/30"
+                          >
+                            View details <ChevronRight className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
+        </section>
+      )}
+
       {/* ==========================================
           FILE PREVIEW MODAL
           ========================================== */}
-      {previewArtifact && (
+      {activeTab === 'files' && previewArtifact && (
         <div
           className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6"
           onClick={() => setPreviewArtifact(null)}
