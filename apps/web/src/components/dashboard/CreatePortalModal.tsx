@@ -1166,12 +1166,6 @@ export function CreatePortalModal({
           {/* Visual Canvas Builder Mode */}
           {activeTab === 'canvas' && (
             <form onSubmit={handleCanvasSubmit} className="space-y-4">
-              <div className="mb-2">
-                <p className="text-sm leading-5 text-slate-400">
-                  Start with a name and website. You’ll add and connect steps in the visual editor.
-                </p>
-              </div>
-
               {/* Workflow Name */}
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1.5">
@@ -1252,7 +1246,7 @@ export function CreatePortalModal({
               </details>
 
               {/* Submit Buttons */}
-              <div className="flex flex-col-reverse items-stretch gap-2 border-t border-slate-800 pt-4 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+              <div className="sticky bottom-0 z-10 flex flex-col-reverse items-stretch gap-2 border-t border-slate-800 bg-slate-900/95 pt-4 pb-1 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
                 <button
                   type="button"
                   onClick={handleClose}
@@ -1537,7 +1531,7 @@ export function CreatePortalModal({
               </details>
 
               {/* Submit Buttons */}
-              <div className="flex flex-col-reverse items-stretch justify-between gap-2 border-t border-slate-800 pt-4 sm:flex-row sm:items-center sm:gap-3">
+              <div className="sticky bottom-0 z-10 flex flex-col-reverse items-stretch justify-between gap-2 border-t border-slate-800 bg-slate-900/95 pt-4 pb-1 sm:flex-row sm:items-center sm:gap-3">
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
