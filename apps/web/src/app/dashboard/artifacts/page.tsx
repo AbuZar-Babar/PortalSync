@@ -1813,9 +1813,9 @@ export default function ArtifactsVaultPage() {
               const query = searchQuery.trim().toLowerCase();
               const matchesFilter = resultFilter === 'all'
                 || (resultFilter === 'completed' && ['completed', 'succeeded', 'success'].includes(status))
-                || (resultFilter === 'failed' && ['failed', 'error'].includes(status))
+                || (resultFilter === 'failed' && ['failed', 'cancelled', 'error'].includes(status))
                 || (resultFilter === 'requires_action' && ['requires_action', 'needs_action', 'waiting_for_2fa', 'awaiting_user'].includes(status))
-                || (resultFilter === 'active' && ['running', 'queued', 'pending', 'in_progress'].includes(status));
+                || (resultFilter === 'active' && ['pending', 'running', 'requires_action', 'queued', 'in_progress'].includes(status));
               const matchesSearch = !query || [run.workflowName, run.status, run.error_summary || '', run.id].some((value) => value.toLowerCase().includes(query));
               return matchesFilter && matchesSearch;
             }).length} results</span>
@@ -1841,9 +1841,9 @@ export default function ArtifactsVaultPage() {
               const status = String(run.status).toLowerCase();
               const matchesFilter = resultFilter === 'all'
                 || (resultFilter === 'completed' && ['completed', 'succeeded', 'success'].includes(status))
-                || (resultFilter === 'failed' && ['failed', 'error'].includes(status))
+                || (resultFilter === 'failed' && ['failed', 'cancelled', 'error'].includes(status))
                 || (resultFilter === 'requires_action' && ['requires_action', 'needs_action', 'waiting_for_2fa', 'awaiting_user'].includes(status))
-                || (resultFilter === 'active' && ['running', 'queued', 'pending', 'in_progress'].includes(status));
+                || (resultFilter === 'active' && ['pending', 'running', 'requires_action', 'queued', 'in_progress'].includes(status));
               const matchesSearch = !query || [run.workflowName, run.status, run.error_summary || '', run.id].some((value) => value.toLowerCase().includes(query));
               return matchesFilter && matchesSearch;
             });
