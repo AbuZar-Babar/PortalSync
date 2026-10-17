@@ -8,12 +8,12 @@ import {
   Search,
   LayoutGrid,
   List,
+  RotateCw,
   Layers,
   Globe,
   Clock,
   Trash2,
   MoreHorizontal,
-  Pencil,
   Workflow as WorkflowIcon,
   AlertTriangle,
   X,
@@ -84,6 +84,7 @@ export default function WorkflowsPage() {
   const [activeRuns, setActiveRuns] = useState<ExecutionRun[]>([]);
   const [latestRuns, setLatestRuns] = useState<Record<string, ExecutionRun>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshingLocal, setIsRefreshingLocal] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   // View & Filter States
@@ -171,6 +172,7 @@ export default function WorkflowsPage() {
       setFetchError(err instanceof Error ? err.message : 'Failed to load workflow data');
     } finally {
       setIsLoading(false);
+      setIsRefreshingLocal(false);
     }
   }, []);
 
@@ -214,6 +216,11 @@ export default function WorkflowsPage() {
       void supabase.removeChannel(channel);
     };
   }, [orgId, loadData]);
+
+  const handleManualRefresh = async () => {
+    setIsRefreshingLocal(true);
+    await Promise.all([loadData(), refreshDashboard()]);
+  };
 
   // Delete Workflow Handlers
   const handleConfirmDelete = async () => {
@@ -351,6 +358,21 @@ export default function WorkflowsPage() {
 
         {/* Action Controls */}
         <div className="flex items-center gap-2.5">
+          {/* Refresh Button */}
+          <button
+            type="button"
+            onClick={handleManualRefresh}
+            disabled={isLoading || isRefreshingLocal}
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-900 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            title="Refresh workflows"
+            aria-label="Refresh workflows"
+          >
+            <RotateCw
+              className={`h-3.5 w-3.5 ${isRefreshingLocal ? 'animate-spin text-cyan-400' : ''}`}
+            />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+
           {/* Create Workflow CTA */}
           <button
             type="button"
@@ -638,10 +660,6 @@ export default function WorkflowsPage() {
                         <MoreHorizontal className="h-4 w-4" />
                       </summary>
                       <div className="absolute right-0 bottom-full mb-1 z-20 min-w-36 rounded-xl border border-slate-700 bg-slate-900 p-1 shadow-xl">
-                        <Link href={`/dashboard/workflows/${wf.id}/edit`} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-slate-200 hover:bg-slate-800">
-                          <Pencil className="h-3.5 w-3.5" />
-                          Edit workflow
-                        </Link>
                         <button type="button" onClick={() => { setWorkflowToDelete(wf); setDeleteError(null); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-rose-300 hover:bg-rose-500/10">
                           <Trash2 className="h-3.5 w-3.5" />
                           Delete workflow
@@ -739,11 +757,7 @@ export default function WorkflowsPage() {
                       <MoreHorizontal className="h-4 w-4" />
                     </summary>
                     <div className="absolute right-0 bottom-full mb-1 z-20 min-w-36 rounded-xl border border-slate-700 bg-slate-900 p-1 shadow-xl">
-                      <Link href={`/dashboard/workflows/${wf.id}/edit`} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-slate-200 hover:bg-slate-800">
-                          <Pencil className="h-3.5 w-3.5" />
-                          Edit workflow
-                        </Link>
-                        <button type="button" onClick={() => { setWorkflowToDelete(wf); setDeleteError(null); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-rose-300 hover:bg-rose-500/10">
+                      <button type="button" onClick={() => { setWorkflowToDelete(wf); setDeleteError(null); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-rose-300 hover:bg-rose-500/10">
                         <Trash2 className="h-3.5 w-3.5" />
                         Delete workflow
                       </button>
