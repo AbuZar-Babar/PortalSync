@@ -647,29 +647,12 @@ export default function WorkflowsPage() {
                     {wf.name}
                   </h3>
 
-                  {/* Target Portal Snippet */}
-                  <p className="text-xs text-slate-400 font-mono truncate mt-1">
-                    {wf.portal_url || 'No portal URL set'}
-                  </p>
-
                   {/* Feature & Telemetry Badges */}
                   <div className="flex flex-wrap items-center gap-2 mt-3.5 text-xs text-slate-400">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-slate-300">
                       <Layers className="h-3 w-3 text-indigo-400" />
                       <span>{stepCount} {stepCount === 1 ? 'step' : 'steps'}</span>
                     </span>
-
-                    {wf.workflow_definition?.upload_to_cloud ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-cyan-400">
-                        <Cloud className="h-3 w-3" />
-                        <span>Cloud Vault</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-slate-400">
-                        <HardDrive className="h-3 w-3" />
-                        <span>Local</span>
-                      </span>
-                    )}
 
                     <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 ml-auto">
                       <Clock className="h-3 w-3 text-slate-400" />
@@ -761,11 +744,6 @@ export default function WorkflowsPage() {
                       <h3 className="text-sm sm:text-base font-semibold text-slate-100 group-hover:text-cyan-300 transition-colors truncate">
                         {wf.name}
                       </h3>
-                      {/* Domain Badge */}
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-800/80 border border-slate-700/60 text-slate-300 text-[11px] font-mono shrink-0">
-                        <Globe className="h-2.5 w-2.5 text-cyan-400" />
-                        <span>{domain}</span>
-                      </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 mt-1 font-mono">
                       <span className="truncate max-w-[280px]">{wf.portal_url}</span>
