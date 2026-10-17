@@ -2,6 +2,17 @@
    ReFlow - Dedicated Drawflow Theme (Quixotic Slate / Emerald)
    =================================================================== */
 
+/* Hide scrollbars in compact panels without disabling scrolling. */
+.reflow-hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.reflow-hide-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* Full Canvas Viewport & Background */
 .workflow-editor-canvas,
 .parent-drawflow {
@@ -397,41 +408,33 @@
 
 .drawflow .drawflow-node .input,
 .drawflow .drawflow-node .output {
-  width: 18px !important;
-  height: 18px !important;
-  background: #0b1120 !important;
-  border: 3px solid #10b981 !important;
+  width: 13px !important;
+  height: 13px !important;
+  background: #111c2d !important;
+  border: 2px solid #64748b !important;
   border-radius: 50% !important;
   cursor: crosshair !important;
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4) !important;
-  transition: all 0.2s ease !important;
+  box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.08) !important;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease !important;
   z-index: 10 !important;
 }
 
 .drawflow .drawflow-node .input {
-  left: -10px !important;
+  left: -7px !important;
   position: absolute !important;
-  border-color: #059669 !important;
 }
 
 .drawflow .drawflow-node .output {
-  right: -10px !important;
+  right: -7px !important;
   position: absolute !important;
-  border-color: #10b981 !important;
 }
 
+.drawflow .drawflow-node .input:hover,
 .drawflow .drawflow-node .output:hover {
-  background: #10b981 !important;
-  border-color: #ffffff !important;
-  box-shadow: 0 0 14px rgba(16, 185, 129, 0.9) !important;
-  transform: scale(1.35) !important;
-}
-
-.drawflow .drawflow-node .input:hover {
-  background: #059669 !important;
-  border-color: #ffffff !important;
-  box-shadow: 0 0 14px rgba(5, 150, 105, 0.9) !important;
-  transform: scale(1.35) !important;
+  background: #3b82f6 !important;
+  border-color: #bfdbfe !important;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.16) !important;
+  transform: scale(1.18) !important;
 }
 
 /* ===================================================================
@@ -442,25 +445,25 @@
 }
 
 .drawflow .connection .main-path {
-  stroke-width: 3.5px !important;
-  stroke: #10b981 !important;
+  stroke-width: 2.5px !important;
+  stroke: #64748b !important;
   stroke-linecap: round !important;
   cursor: pointer !important;
-  filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.5)) !important;
+  filter: none !important;
   transition: stroke 0.15s ease, stroke-width 0.15s ease !important;
 }
 
 .drawflow .connection:hover .main-path,
 .drawflow .connection .main-path:hover {
-  stroke: #ef4444 !important;
-  stroke-width: 5px !important;
-  filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.7)) !important;
+  stroke: #60a5fa !important;
+  stroke-width: 3.5px !important;
+  filter: drop-shadow(0 0 3px rgba(96, 165, 250, 0.2)) !important;
 }
 
 .drawflow .connection.selected .main-path,
 .drawflow .connection .main-path.selected {
-  stroke: #ef4444 !important;
-  stroke-width: 5px !important;
+  stroke: #3b82f6 !important;
+  stroke-width: 3.5px !important;
 }
 
 /* Delete Connection Button (Drawflow Native) */
