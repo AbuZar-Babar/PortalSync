@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Cpu,
   Server,
+  Activity,
   Check,
   Copy,
   RefreshCw,
