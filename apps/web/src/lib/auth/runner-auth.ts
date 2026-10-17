@@ -166,7 +166,7 @@ export async function authenticateRunnerOrUser(request: NextRequest): Promise<Ru
           platform: incomingPlatform || meta.platform || 'unknown',
           version: incomingVersion || meta.version || 'unknown',
           token: runnerToken,
-          cdp_active: incomingCdp !== null ? incomingCdp === 'true' : (meta.cdp_active ?? true),
+          cdp_active: incomingCdp !== null ? incomingCdp === 'true' : (meta.cdp_active ?? false),
         };
 
         await client

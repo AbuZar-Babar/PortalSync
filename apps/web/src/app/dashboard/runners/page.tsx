@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Cpu,
   Server,
@@ -8,12 +8,9 @@ import {
   Check,
   Copy,
   RefreshCw,
-  Download,
-  Terminal,
   ShieldCheck,
   ExternalLink,
   Clock,
-  Radio,
   StopCircle,
   AlertTriangle,
   Key,
@@ -21,7 +18,11 @@ import {
   EyeOff,
   CheckCircle2,
   XCircle,
-  X
+  X,
+  HelpCircle,
+  Monitor,
+  Wifi,
+  LoaderCircle
 } from 'lucide-react';
 import { useDashboard } from '@/context/DashboardContext';
 import { createClient } from '@/lib/supabase/client';
@@ -43,22 +44,10 @@ interface ConnectedWorker {
   cdpActive?: boolean;
 }
 
-interface DiagnosticResult {
-  step: 'token' | 'cdp' | 'websocket';
-  name: string;
-  status: 'pending' | 'running' | 'success' | 'warning' | 'error';
-  message: string;
-  latencyMs?: number;
-  details?: string;
-  remediation?: string;
-}
-
 export default function RunnersPage() {
   const {
     orgId,
     organizationName,
-    isRunnerOnline,
-    runnerToken,
     refreshDashboard,
     openRunDetails,
     stopActiveRun,
@@ -69,15 +58,19 @@ export default function RunnersPage() {
   const [isTokenRevoked, setIsTokenRevoked] = useState<boolean>(false);
   const [isTokenMasked, setIsTokenMasked] = useState<boolean>(true);
   const [copiedToken, setCopiedToken] = useState<boolean>(false);
-  const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
 
   // Modals state
   const [showRegenModal, setShowRegenModal] = useState<boolean>(false);
   const [showRevokeModal, setShowRevokeModal] = useState<boolean>(false);
+  const [showPairingHelp, setShowPairingHelp] = useState<boolean>(false);
+  const [pairingCheckState, setPairingCheckState] = useState<'idle' | 'checking' | 'waiting' | 'connected' | 'error'>('idle');
+  const [pairingCheckError, setPairingCheckError] = useState<string | null>(null);
+  const [workerChecks, setWorkerChecks] = useState<Record<string, { state: 'checking' | 'success' | 'error'; message: string; latencyMs?: number }>>({});
   const [regenConfirmChecked, setRegenConfirmChecked] = useState<boolean>(false);
   const [isRegenerating, setIsRegenerating] = useState<boolean>(false);
   const [isRevoking, setIsRevoking] = useState<boolean>(false);
   const [actionSuccessNotice, setActionSuccessNotice] = useState<string | null>(null);
+  const [actionErrorNotice, setActionErrorNotice] = useState<string | null>(null);
 
   // Workers & Telemetry state
   const [workers, setWorkers] = useState<ConnectedWorker[]>([]);
@@ -85,37 +78,10 @@ export default function RunnersPage() {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [, setActiveRunsMap] = useState<Record<string, DrawerRunItem>>({});
   const [, setTotalClaimsCount] = useState<number>(0);
-  const [realtimeConnected, setRealtimeConnected] = useState<boolean>(false);
+  const [, setRealtimeConnected] = useState<boolean>(false);
 
   // Live seconds ticker
   const [now, setNow] = useState<number>(() => Date.now());
-
-  // Setup Guide Tabs: 'desktop' | 'cli' | 'docker'
-  const [setupTab, setSetupTab] = useState<'desktop' | 'cli' | 'docker'>('desktop');
-
-  // Diagnostics State
-  const [isRunningDiagnostics, setIsRunningDiagnostics] = useState<boolean>(false);
-  const [diagnosticsCompleted, setDiagnosticsCompleted] = useState<boolean>(false);
-  const [diagnosticsResults, setDiagnosticsResults] = useState<Record<string, DiagnosticResult>>({
-    token: {
-      step: 'token',
-      name: 'Pairing Token & Cryptographic Signature',
-      status: 'pending',
-      message: 'Awaiting execution',
-    },
-    cdp: {
-      step: 'cdp',
-      name: 'Chrome DevTools Protocol (CDP Port 9222)',
-      status: 'pending',
-      message: 'Awaiting execution',
-    },
-    websocket: {
-      step: 'websocket',
-      name: 'Supabase Realtime Channel & WebSocket Ping',
-      status: 'pending',
-      message: 'Awaiting execution',
-    },
-  });
 
   // Keep live seconds ticking every 1,000ms
   useEffect(() => {
@@ -125,36 +91,7 @@ export default function RunnersPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Initialize or restore active token for current organization
-  useEffect(() => {
-    if (!orgId) return;
-
-    let isMounted = true;
-    const timer = setTimeout(() => {
-      if (!isMounted) return;
-
-      const storageKey = `wf_runner_token_override_${orgId}`;
-      const revokedKey = `wf_runner_token_revoked_${orgId}`;
-      const savedToken = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
-      const isRevoked = typeof window !== 'undefined' ? localStorage.getItem(revokedKey) === 'true' : false;
-
-      setIsTokenRevoked(isRevoked);
-
-      if (savedToken && !isRevoked) {
-        setCurrentToken(savedToken);
-      } else if (runnerToken && !isRevoked) {
-        setCurrentToken(runnerToken);
-      } else if (!isRevoked) {
-        const defaultToken = `rf_live_${orgId.replace(/-/g, '').slice(0, 16)}`;
-        setCurrentToken(defaultToken);
-      }
-    }, 0);
-
-    return () => {
-      isMounted = false;
-      clearTimeout(timer);
-    };
-  }, [orgId, runnerToken]);
+  // The API returns the server-issued token and the authoritative runner heartbeat.
 
   // Fetch connected workers and active execution runs
   const fetchWorkersAndRuns = useCallback(async () => {
@@ -214,26 +151,22 @@ export default function RunnersPage() {
 
       // 2. Fetch registered runners and live heartbeat from /api/v1/runners
       let apiRunners: ConnectedWorker[] = [];
-      const resolvedToken = currentToken || runnerToken || `rf_live_${orgId.replace(/-/g, '').slice(0, 16)}`;
+
 
       try {
-        const res = await fetch(`/api/v1/runners`, {
-          cache: 'no-store',
-          headers: {
-            'x-runner-token': resolvedToken,
-            'Authorization': `Bearer ${resolvedToken}`,
-          },
-        });
+        const res = await fetch('/api/v1/runners', { cache: 'no-store', credentials: 'same-origin' });
         if (res.ok) {
           const json = await res.json();
           if (json.runners && Array.isArray(json.runners) && json.runners.length > 0) {
+            const serverToken = json.runners.find((runner: { token?: string }) => typeof runner.token === 'string')?.token;
+            if (serverToken) setCurrentToken(serverToken);
             apiRunners = json.runners.map((r: { id?: string; hostname?: string; label?: string; token?: string; platform?: string; engineVersion?: string; status?: string; lastPingAt?: string | null; cdpActive?: boolean }, idx: number) => {
               const lastPingMs = r.lastPingAt ? new Date(r.lastPingAt).getTime() : 0;
               const diffSeconds = lastPingMs > 0 ? (Date.now() - lastPingMs) / 1000 : 999999;
-              const isOnline = diffSeconds < 60 || isRunnerOnline || r.status === 'ONLINE';
+              const isOnline = diffSeconds >= 0 && diffSeconds < 60 && r.status !== 'REVOKED';
 
               let status: ConnectedWorker['status'] = 'OFFLINE';
-              if (isTokenRevoked) {
+              if (r.status === 'REVOKED') {
                 status = 'REVOKED';
               } else if (runningRun && isOnline) {
                 status = 'EXECUTING';
@@ -245,14 +178,14 @@ export default function RunnersPage() {
                 id: r.id || `runner-${idx}`,
                 hostname: r.hostname || 'unknown',
                 label: r.label || 'Primary Desktop Runner',
-                token: r.token || resolvedToken,
+                token: r.token || '',
                 platform: r.platform || 'unknown',
                 engineVersion: r.engineVersion || 'unknown',
                 claimsCount: Math.max(0, claimsCount),
                 status,
-                lastPingAt: r.lastPingAt || (isOnline ? new Date().toISOString() : null),
+                lastPingAt: r.lastPingAt || null,
                 activeRun: status === 'EXECUTING' ? runningRun : null,
-                cdpActive: r.cdpActive !== false,
+                cdpActive: r.cdpActive === true,
               };
             });
           }
@@ -277,10 +210,10 @@ export default function RunnersPage() {
                 : JSON.parse(orgDirect.runner_metadata as string);
               const lastPingMs = meta.last_ping_at ? new Date(meta.last_ping_at).getTime() : 0;
               const diffSeconds = lastPingMs > 0 ? (Date.now() - lastPingMs) / 1000 : 999999;
-              const isOnline = diffSeconds < 60 || isRunnerOnline;
+              const isOnline = diffSeconds >= 0 && diffSeconds < 60 && meta.token_revoked !== true;
 
               let status: ConnectedWorker['status'] = 'OFFLINE';
-              if (isTokenRevoked) {
+              if (meta.token_revoked === true) {
                 status = 'REVOKED';
               } else if (runningRun && isOnline) {
                 status = 'EXECUTING';
@@ -288,19 +221,20 @@ export default function RunnersPage() {
                 status = 'ONLINE';
               }
 
+              if (typeof meta.token === 'string') setCurrentToken(meta.token);
               apiRunners = [
                 {
                   id: 'runner_primary',
-                  hostname: meta.hostname || (isOnline ? 'Active Desktop Runner' : 'unknown'),
+                  hostname: meta.hostname || 'unknown',
                   label: 'Primary Desktop Runner',
-                  token: meta.token || resolvedToken,
+                  token: typeof meta.token === 'string' ? meta.token : '',
                   platform: meta.platform || 'unknown',
                   engineVersion: meta.version || 'unknown',
                   claimsCount: Math.max(0, claimsCount),
                   status,
-                  lastPingAt: meta.last_ping_at || (isOnline ? new Date().toISOString() : null),
+                  lastPingAt: meta.last_ping_at || null,
                   activeRun: status === 'EXECUTING' ? runningRun : null,
-                  cdpActive: meta.cdp_active !== false,
+                  cdpActive: meta.cdp_active === true,
                 },
               ];
             } catch {}
@@ -311,34 +245,10 @@ export default function RunnersPage() {
       }
 
       if (apiRunners.length > 0) {
+        setIsTokenRevoked(apiRunners.some((runner) => runner.status === 'REVOKED'));
         setWorkers(apiRunners);
       } else {
-        // Fallback: render primary worker representation paired to current organization token
-        const lastPing = isRunnerOnline ? new Date().toISOString() : null;
-        let workerStatus: ConnectedWorker['status'] = 'OFFLINE';
-
-        if (isTokenRevoked) {
-          workerStatus = 'REVOKED';
-        } else if (runningRun && isRunnerOnline) {
-          workerStatus = 'EXECUTING';
-        } else if (isRunnerOnline) {
-          workerStatus = 'ONLINE';
-        }
-
-        setWorkers([
-          {
-            id: `runner-primary-${orgId.slice(0, 8)}`,
-            hostname: 'Desktop Runner',
-            label: 'Local Desktop Runner',
-            token: resolvedToken,
-            platform: 'unknown',
-            engineVersion: 'unknown',
-            claimsCount: Math.max(0, claimsCount),
-            status: workerStatus,
-            lastPingAt: lastPing,
-            activeRun: workerStatus === 'EXECUTING' ? runningRun : null,
-          },
-        ]);
+        setWorkers([]);
       }
     } catch (err) {
       console.error('Failed to query workers:', err);
@@ -346,7 +256,7 @@ export default function RunnersPage() {
       setLoadingWorkers(false);
       setIsRefreshing(false);
     }
-  }, [orgId, currentToken, runnerToken, isRunnerOnline, isTokenRevoked]);
+  }, [orgId]);
 
   // Initial load and periodic refresh ticker (every 5 seconds)
   useEffect(() => {
@@ -463,17 +373,93 @@ export default function RunnersPage() {
     setIsRefreshing(false);
   };
 
-  // 1-Click Copy with feedback
-  const copyToClipboard = (text: string, type: 'token' | string) => {
-    if (!text) return;
-    navigator.clipboard.writeText(text);
-    if (type === 'token') {
-      setCopiedToken(true);
-      setTimeout(() => setCopiedToken(false), 2500);
-    } else {
-      setCopiedCmd(type);
-      setTimeout(() => setCopiedCmd(null), 2500);
+  const checkPairingConnection = useCallback(async (): Promise<boolean> => {
+    setPairingCheckState('checking');
+    setPairingCheckError(null);
+    try {
+      const response = await fetch('/api/v1/runners', { cache: 'no-store', credentials: 'same-origin' });
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) throw new Error('Your session could not verify this workspace. Sign in again, then retry.');
+        throw new Error('We couldn’t check your desktop status right now. Your pairing settings haven’t been changed.');
+      }
+      const payload = await response.json();
+      const runners = Array.isArray(payload.runners) ? payload.runners : [];
+      const freshWorker = runners.find((runner: { lastPingAt?: string | null; status?: string }) => {
+        const timestamp = runner.lastPingAt ? new Date(runner.lastPingAt).getTime() : 0;
+        const ageMs = Date.now() - timestamp;
+        return timestamp > 0 && ageMs >= 0 && ageMs < 60_000 && runner.status !== 'REVOKED';
+      });
+      await fetchWorkersAndRuns();
+      setPairingCheckState(freshWorker ? 'connected' : 'waiting');
+      return Boolean(freshWorker);
+    } catch (error) {
+      setPairingCheckState('error');
+      setPairingCheckError(error instanceof Error ? error.message : 'We couldn’t check your desktop status right now.');
+      return false;
     }
+  }, [fetchWorkersAndRuns]);
+
+  const checkWorkerStatus = async (workerId: string) => {
+    const startedAt = Date.now();
+    setWorkerChecks((prev) => ({ ...prev, [workerId]: { state: 'checking', message: 'Checking latest heartbeat…' } }));
+    try {
+      const response = await fetch('/api/v1/runners', { cache: 'no-store', credentials: 'same-origin' });
+      if (!response.ok) throw new Error('Could not retrieve worker status. Try again.');
+      const payload = await response.json();
+      const list = Array.isArray(payload.runners) ? payload.runners : [];
+      const worker = list.find((item: { id?: string }) => item.id === workerId);
+      const timestamp = worker?.lastPingAt ? new Date(worker.lastPingAt).getTime() : 0;
+      const ageMs = Date.now() - timestamp;
+      const latencyMs = Date.now() - startedAt;
+      if (worker && timestamp > 0 && ageMs >= 0 && ageMs < 60_000 && worker.status !== 'REVOKED') {
+        setWorkerChecks((prev) => ({ ...prev, [workerId]: { state: 'success', message: 'Recent heartbeat confirmed', latencyMs } }));
+      } else if (worker?.status === 'REVOKED') {
+        setWorkerChecks((prev) => ({ ...prev, [workerId]: { state: 'error', message: 'Pairing token revoked' } }));
+      } else {
+        setWorkerChecks((prev) => ({ ...prev, [workerId]: { state: 'error', message: 'No recent heartbeat. This checks server status; it does not send a direct network ping.' } }));
+      }
+      await fetchWorkersAndRuns();
+    } catch (error) {
+      setWorkerChecks((prev) => ({ ...prev, [workerId]: { state: 'error', message: error instanceof Error ? error.message : 'Could not retrieve worker status.' } }));
+    }
+  };
+
+  useEffect(() => {
+    if (!showPairingHelp) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowPairingHelp(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [showPairingHelp]);
+
+  useEffect(() => {
+    if (!showPairingHelp) return;
+    let attempts = 0;
+    let inFlight = false;
+    const poller = window.setInterval(async () => {
+      if (inFlight || attempts >= 12) {
+        if (attempts >= 12) window.clearInterval(poller);
+        return;
+      }
+      attempts += 1;
+      inFlight = true;
+      const connected = await checkPairingConnection();
+      inFlight = false;
+      if (connected) window.clearInterval(poller);
+    }, 5000);
+    return () => window.clearInterval(poller);
+  }, [showPairingHelp, checkPairingConnection]);
+
+  // 1-Click Copy with feedback
+  const copyToClipboard = (text: string) => {
+    if (!text) return;
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopiedToken(true);
+      window.setTimeout(() => setCopiedToken(false), 2500);
+    }).catch(() => {
+      setActionErrorNotice('Could not copy the token. Check your browser clipboard permissions and try again.');
+    });
   };
 
   // Token Regeneration
@@ -488,20 +474,10 @@ export default function RunnersPage() {
         body: JSON.stringify({ action: 'rotate' }),
       });
 
-      let newToken = '';
-      if (res.ok) {
-        const json = await res.json();
-        newToken = json.token;
-      } else {
-        const randomSuffix = Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
-        newToken = `rf_live_${orgId.replace(/-/g, '').slice(0, 16)}_${randomSuffix}`;
-      }
-
-      // Save to localStorage override
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`wf_runner_token_override_${orgId}`, newToken);
-        localStorage.removeItem(`wf_runner_token_revoked_${orgId}`);
-      }
+      if (!res.ok) throw new Error(`Token rotation failed (${res.status}). Please try again.`);
+      const json = await res.json();
+      const newToken = typeof json.token === 'string' ? json.token : '';
+      if (!newToken) throw new Error('The server did not return a new pairing token. Please try again.');
 
       setCurrentToken(newToken);
       setIsTokenRevoked(false);
@@ -514,6 +490,8 @@ export default function RunnersPage() {
       await fetchWorkersAndRuns();
     } catch (err) {
       console.error('Failed to regenerate token:', err);
+      setActionErrorNotice(err instanceof Error ? err.message : 'Could not regenerate the token. Please try again.');
+      setTimeout(() => setActionErrorNotice(null), 6000);
     } finally {
       setIsRegenerating(false);
     }
@@ -525,201 +503,26 @@ export default function RunnersPage() {
     setIsRevoking(true);
 
     try {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`wf_runner_token_revoked_${orgId}`, 'true');
-      }
+      const res = await fetch('/api/v1/runners', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: 'revoke' }),
+      });
+      if (!res.ok) throw new Error(`Token revocation failed (${res.status}). Please try again.`);
 
       setIsTokenRevoked(true);
       setShowRevokeModal(false);
-      setActionSuccessNotice('Pairing token has been revoked. All connected runners have been disconnected.');
+      setActionSuccessNotice('Pairing token revoked. Desktop runners will need a new token to reconnect.');
       setTimeout(() => setActionSuccessNotice(null), 6000);
-
-      // Update worker cards
-      setWorkers((prev) =>
-        prev.map((w) => ({
-          ...w,
-          status: 'REVOKED',
-          activeRun: null,
-        }))
-      );
+      setWorkers((prev) => prev.map((worker) => ({ ...worker, status: 'REVOKED', activeRun: null })));
     } catch (err) {
       console.error('Failed to revoke token:', err);
+      setActionErrorNotice(err instanceof Error ? err.message : 'Could not revoke the token. Please try again.');
+      setTimeout(() => setActionErrorNotice(null), 6000);
     } finally {
       setIsRevoking(false);
     }
-  };
-
-  // Interactive Connection Diagnostics Runner
-  const runDiagnosticsSuite = async () => {
-    setIsRunningDiagnostics(true);
-    setDiagnosticsCompleted(false);
-
-    // Reset results to running state
-    setDiagnosticsResults({
-      token: {
-        step: 'token',
-        name: 'Pairing Token & Cryptographic Signature',
-        status: 'running',
-        message: 'Validating token format and cryptographic binding...',
-      },
-      cdp: {
-        step: 'cdp',
-        name: 'Chrome DevTools Protocol (CDP Port 9222)',
-        status: 'running',
-        message: 'Querying local Chrome CDP HTTP interface...',
-      },
-      websocket: {
-        step: 'websocket',
-        name: 'Supabase Realtime Channel & WebSocket Ping',
-        status: 'running',
-        message: 'Testing round-trip latency to control plane...',
-      },
-    });
-
-    // Step 1: Token Validation
-    const tokenStart = Date.now();
-    await new Promise((r) => setTimeout(r, 350));
-    const isFormatValid = currentToken.startsWith('rf_live_') && currentToken.length > 10;
-    const tokenLatency = Date.now() - tokenStart;
-
-    let tokenResult: DiagnosticResult;
-    if (isTokenRevoked) {
-      tokenResult = {
-        step: 'token',
-        name: 'Pairing Token & Cryptographic Signature',
-        status: 'error',
-        message: 'Token has been revoked by workspace administrator.',
-        latencyMs: tokenLatency,
-        remediation: 'Click "Regenerate Token" to issue a new valid secret pairing key.',
-      };
-    } else if (isFormatValid) {
-      tokenResult = {
-        step: 'token',
-        name: 'Pairing Token & Cryptographic Signature',
-        status: 'success',
-        message: 'Cryptographically valid pairing token bound to organization.',
-        latencyMs: tokenLatency,
-        details: `Format: rf_live_*** | Org: ${organizationName}`,
-      };
-    } else {
-      tokenResult = {
-        step: 'token',
-        name: 'Pairing Token & Cryptographic Signature',
-        status: 'error',
-        message: 'Invalid pairing token format. Expected rf_live_<org_id>_<secret>',
-        latencyMs: tokenLatency,
-        remediation: 'Click "Regenerate Token" to create a standard pairing key.',
-      };
-    }
-
-    setDiagnosticsResults((prev) => ({ ...prev, token: tokenResult }));
-
-    // Step 2: Chrome CDP Port 9222 Accessibility via /api/v1/runners/diagnostics
-    let cdpResult: DiagnosticResult;
-    try {
-      const res = await fetch('/api/v1/runners/diagnostics', {
-        method: 'GET',
-        headers: {
-          'X-Runner-Token': currentToken,
-        },
-      });
-
-      const data = await res.json();
-      if (data.cdp_accessible) {
-        cdpResult = {
-          step: 'cdp',
-          name: 'Chrome DevTools Protocol (CDP Port 9222)',
-          status: 'success',
-          message: `CDP is active and responding. Browser: ${data.browser || 'Google Chrome'}`,
-          latencyMs: data.latency_ms || 12,
-          details: `Version: ${data.version || '1.3'} | Port: 9222 reachable`,
-        };
-      } else if (isRunnerOnline) {
-        cdpResult = {
-          step: 'cdp',
-          name: 'Chrome DevTools Protocol (CDP Port 9222)',
-          status: 'success',
-          message: 'Desktop Worker connected. Chrome CDP port 9222 managed automatically by runner daemon.',
-          latencyMs: 15,
-          details: 'Port: 9222 | Managed by ReFlow Worker Engine',
-        };
-      } else {
-        cdpResult = {
-          step: 'cdp',
-          name: 'Chrome DevTools Protocol (CDP Port 9222)',
-          status: 'warning',
-          message: 'Local Chrome CDP port 9222 is closed or connection refused.',
-          latencyMs: data.latency_ms || 35,
-          details: data.cdp?.error || 'Connection refused on 127.0.0.1:9222',
-          remediation:
-            'Start Chrome with: chrome.exe --remote-debugging-port=9222 --user-data-dir="C:\\ChromeDebug"',
-        };
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Fetch error';
-      cdpResult = {
-        step: 'cdp',
-        name: 'Chrome DevTools Protocol (CDP Port 9222)',
-        status: 'warning',
-        message: `Diagnostic probe encountered network error: ${msg}`,
-        latencyMs: 40,
-        remediation:
-          'Ensure Chrome is running with --remote-debugging-port=9222 or run `npm run runner:doctor`.',
-      };
-    }
-
-    setDiagnosticsResults((prev) => ({ ...prev, cdp: cdpResult }));
-
-    // Step 3: Supabase Realtime Channel & Control Plane Ping
-    const wsStart = performance.now();
-    let wsLatency = 0;
-    let wsStatus: 'success' | 'warning' | 'error' = 'error';
-    let wsMessage = '';
-    let wsDetails = '';
-
-    try {
-      const supabase = createClient();
-      // Authentically measure round-trip latency to control plane database
-      const pingStart = performance.now();
-      const { error: pingError } = await supabase
-        .from('wf_organizations')
-        .select('id')
-        .eq('id', orgId || '')
-        .limit(1);
-      wsLatency = Math.round(performance.now() - pingStart);
-
-      if (pingError) {
-        wsStatus = 'error';
-        wsMessage = `Control plane unreachable: ${pingError.message}`;
-        wsDetails = `Database query failed on organization ID ${orgId?.slice(0, 8) || 'unknown'}`;
-      } else if (!realtimeConnected) {
-        wsStatus = 'warning';
-        wsMessage = 'Control plane query succeeded, but Supabase Realtime WebSocket channel is disconnected.';
-        wsDetails = `Database latency: ${wsLatency}ms. Realtime status: not subscribed. Check network firewall.`;
-      } else {
-        wsStatus = 'success';
-        wsMessage = `Control plane channel active and verified (${wsLatency}ms).`;
-        wsDetails = `Active Realtime subscription on wf_execution_runs_${orgId?.slice(0, 8) || 'default'} with low latency.`;
-      }
-    } catch (err) {
-      wsLatency = Math.round(performance.now() - wsStart);
-      wsStatus = 'error';
-      wsMessage = `Control plane connection failed: ${err instanceof Error ? err.message : String(err)}`;
-      wsDetails = 'Network connection to control plane timed out or was refused.';
-    }
-
-    const wsResult: DiagnosticResult = {
-      step: 'websocket',
-      name: 'Supabase Realtime Channel & WebSocket Ping',
-      status: wsStatus,
-      message: wsMessage,
-      latencyMs: wsLatency,
-      details: wsDetails,
-    };
-
-    setDiagnosticsResults((prev) => ({ ...prev, websocket: wsResult }));
-    setIsRunningDiagnostics(false);
-    setDiagnosticsCompleted(true);
   };
 
   // Format live heartbeat counter
@@ -736,20 +539,7 @@ export default function RunnersPage() {
     return `Active ${diffHr}h ago`;
   };
 
-  // Commands for quick copy
-  const terminalDoctorCmd = 'npm run runner:doctor';
-  const terminalListenCmd = `npm run runner:listen -- --token ${currentToken || 'rf_live_token'}`;
-  const dockerCmd = `docker run -d --net=host -e WORKER_TOKEN=${currentToken || 'rf_live_token'} reflow/worker:latest`;
-  const chromeWindowsCmd = `& "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --remote-debugging-port=9222 --user-data-dir="C:\\ChromeDebug"`;
-  const chromeMacCmd = `/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --remote-debugging-port=9222 --user-data-dir=/tmp/ChromeDebug`;
-
-  // Calculated overall diagnostic health
-  const healthScore = useMemo(() => {
-    const list = Object.values(diagnosticsResults);
-    const passed = list.filter((r) => r.status === 'success').length;
-    return { passed, total: list.length };
-  }, [diagnosticsResults]);
-
+  const hasRecentRunnerHeartbeat = workers.some((worker) => worker.status === 'ONLINE' || worker.status === 'EXECUTING');
   return (
     <div className="space-y-6 pb-12">
       {/* Toast Notification Banner */}
@@ -768,64 +558,36 @@ export default function RunnersPage() {
         </div>
       )}
 
-      {/* Top Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/5">
+      {actionErrorNotice && (
+        <div role="alert" className="bg-rose-500/10 border border-rose-500/30 text-rose-300 px-4 py-3 rounded-xl flex items-center justify-between text-xs font-semibold">
+          <span>{actionErrorNotice}</span>
+          <button type="button" onClick={() => setActionErrorNotice(null)} className="text-rose-300 hover:text-white p-1" aria-label="Dismiss error"><X className="w-4 h-4" /></button>
+        </div>
+      )}
+
+      {/* Page heading */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/5">
         <div className="flex items-center gap-3">
-          <RobotAvatar
-            size="badge"
-            state={
-              workers.some((w) => w.status === 'EXECUTING')
-                ? 'running'
-                : isRunnerOnline
-                ? 'idle'
-                : 'idle'
-            }
-          />
+          <RobotAvatar size="badge" state={workers.some((worker) => worker.status === 'EXECUTING') ? 'running' : 'idle'} />
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold tracking-tight text-white">
-                WORKERS &amp; RUNNERS HUB
-              </h1>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 uppercase tracking-wider">
-                HYBRID CONTROL PLANE
-              </span>
-              <span className="hidden md:inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-white/10">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Realtime Stream Active
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Manage connected desktop automation daemons, pair organization keys, and monitor hybrid Chrome execution.
-            </p>
+            <h1 className="text-xl font-bold tracking-tight text-white">Desktop connection</h1>
+            <p className="text-sm text-slate-400 mt-1">Manage pairing and connected desktop workers.</p>
           </div>
         </div>
-
         <div className="flex items-center gap-2">
-          <button
-            onClick={runDiagnosticsSuite}
-            disabled={isRunningDiagnostics}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-xs font-semibold text-cyan-300 transition-all shadow-sm shadow-cyan-500/10"
-          >
-            <Activity className={`w-3.5 h-3.5 ${isRunningDiagnostics ? 'animate-spin' : ''}`} />
-            <span>{isRunningDiagnostics ? 'Running...' : 'Run Diagnostics'}</span>
+          <button type="button" onClick={() => { setPairingCheckState('idle'); setPairingCheckError(null); setShowPairingHelp(true); }} className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800 transition-colors">
+            <HelpCircle className="w-4 h-4" /> How to connect
           </button>
-
-          <button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20 bg-slate-900/60 hover:bg-slate-800 text-xs font-semibold text-slate-200 transition-all"
-            title="Refresh connected worker status"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-cyan-400' : ''}`} />
-            <span>Refresh</span>
+          <button type="button" onClick={handleRefresh} disabled={loadingWorkers || isRefreshing} aria-label="Refresh workers" className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800 disabled:opacity-50 transition-colors">
+            <RefreshCw className={`w-4 h-4 ${isRefreshing || loadingWorkers ? 'animate-spin' : ''}`} /> Refresh
           </button>
         </div>
       </div>
+      {/* Token management */}
 
-      {/* Top Grid: Token Management & 3-Step Setup Guide */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="space-y-6">
         {/* Organization Runner Pairing Token Card */}
-        <div className="lg:col-span-7 bg-[#0c101d] border border-white/10 rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
+        <div id="pairing-token" className="bg-[#0c101d] border border-white/10 rounded-2xl p-5 sm:p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -877,7 +639,7 @@ export default function RunnersPage() {
                   </button>
 
                   <button
-                    onClick={() => copyToClipboard(currentToken, 'token')}
+                    onClick={() => copyToClipboard(currentToken)}
                     disabled={isTokenRevoked || !currentToken}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 rounded-lg text-xs font-sans font-semibold border border-cyan-400/30 transition-all disabled:opacity-50"
                     title="Copy secret pairing token"
@@ -930,402 +692,7 @@ export default function RunnersPage() {
             </p>
           </div>
 
-          {/* Quick Terminal CLI Snippet */}
-          <div className="mt-5 pt-4 border-t border-white/5 space-y-2">
-            <div className="flex items-center justify-between text-xs text-slate-400">
-              <span className="flex items-center gap-1.5 font-medium">
-                <Terminal className="w-3.5 h-3.5 text-cyan-400" />
-                Quick Terminal Listener:
-              </span>
-              <button
-                onClick={() => copyToClipboard(terminalListenCmd, 'listen')}
-                className="text-[11px] text-cyan-400 hover:text-cyan-300 font-semibold"
-              >
-                {copiedCmd === 'listen' ? 'Copied Command!' : 'Copy Snippet'}
-              </button>
-            </div>
-            <div className="bg-slate-950/90 border border-white/5 rounded-lg px-3 py-2 text-[11px] font-mono text-slate-300 select-all overflow-x-auto">
-              {terminalListenCmd}
-            </div>
-          </div>
         </div>
-
-        {/* 3-Step Setup Guide & Desktop Binary Downloads */}
-        <div className="lg:col-span-5 bg-gradient-to-br from-[#0c101d] to-[#12172b] border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-                  <Download className="w-4 h-4" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-white tracking-tight">Setup &amp; Downloads</h2>
-                  <p className="text-[11px] text-slate-400">Zero cloud-cost local automation engine</p>
-                </div>
-              </div>
-
-              {/* Guide Mode Tabs */}
-              <div className="flex p-0.5 bg-slate-950 border border-white/5 rounded-lg text-[10px] font-semibold">
-                <button
-                  onClick={() => setSetupTab('desktop')}
-                  className={`px-2 py-0.5 rounded-md transition-all ${
-                    setupTab === 'desktop'
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Desktop
-                </button>
-                <button
-                  onClick={() => setSetupTab('cli')}
-                  className={`px-2 py-0.5 rounded-md transition-all ${
-                    setupTab === 'cli'
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  CLI
-                </button>
-                <button
-                  onClick={() => setSetupTab('docker')}
-                  className={`px-2 py-0.5 rounded-md transition-all ${
-                    setupTab === 'docker'
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Docker
-                </button>
-              </div>
-            </div>
-
-            {/* Tab 1: Desktop App */}
-            {setupTab === 'desktop' && (
-              <div className="space-y-3 text-xs text-slate-300">
-                <div className="space-y-2 text-[11px]">
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">
-                      1
-                    </span>
-                    <p className="leading-relaxed">
-                      Download and launch the Desktop Runner on your machine.
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">
-                      2
-                    </span>
-                    <p className="leading-relaxed">
-                      Paste your Organization Pairing Token in the desktop settings modal.
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">
-                      3
-                    </span>
-                    <p className="leading-relaxed">
-                      Click <strong className="text-white">Run</strong> from the web dashboard — local Chrome executes stealthily!
-                    </p>
-                  </div>
-                </div>
-
-                {/* Prebuilt Download Buttons */}
-                <div className="pt-2 space-y-2">
-                  <a
-                    href="/api/v1/runners/download?type=installer"
-                    download="ReFlow-Worker-Setup-1.0.0.exe"
-                    className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-cyan-500/20 transition-all"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Download Windows Installer (.exe &middot; 93 MB)</span>
-                  </a>
-
-                  <a
-                    href="/api/v1/runners/download?type=portable"
-                    download="ReFlow-Worker-Portable-1.0.0.exe"
-                    className="w-full flex items-center justify-center gap-2 py-1.5 px-3 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-white/10 rounded-xl text-xs font-semibold transition-all"
-                  >
-                    <Download className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Download Portable Standalone (.exe &middot; 83 MB)</span>
-                  </a>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 2: Terminal CLI */}
-            {setupTab === 'cli' && (
-              <div className="space-y-3 text-xs">
-                <p className="text-[11px] text-slate-400">
-                  Run the lightweight headless engine directly inside your development shell:
-                </p>
-
-                <div className="space-y-2 font-mono text-[11px]">
-                  <div>
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
-                      <span>1. Preflight Health Check:</span>
-                      <button
-                        onClick={() => copyToClipboard(terminalDoctorCmd, 'doctor')}
-                        className="text-cyan-400 hover:text-cyan-300"
-                      >
-                        {copiedCmd === 'doctor' ? 'Copied' : 'Copy'}
-                      </button>
-                    </div>
-                    <div className="bg-slate-950 p-2 rounded-lg border border-white/5 text-slate-300 overflow-x-auto">
-                      {terminalDoctorCmd}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
-                      <span>2. Start Worker Listener:</span>
-                      <button
-                        onClick={() => copyToClipboard(terminalListenCmd, 'listen')}
-                        className="text-cyan-400 hover:text-cyan-300"
-                      >
-                        {copiedCmd === 'listen' ? 'Copied' : 'Copy'}
-                      </button>
-                    </div>
-                    <div className="bg-slate-950 p-2 rounded-lg border border-white/5 text-slate-300 overflow-x-auto truncate">
-                      {terminalListenCmd}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 3: Docker */}
-            {setupTab === 'docker' && (
-              <div className="space-y-3 text-xs">
-                <p className="text-[11px] text-slate-400">
-                  Deploy as a background headless worker inside Docker or Kubernetes:
-                </p>
-
-                <div className="space-y-1 font-mono text-[11px]">
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
-                    <span>Host Networking Container:</span>
-                    <button
-                      onClick={() => copyToClipboard(dockerCmd, 'docker')}
-                      className="text-cyan-400 hover:text-cyan-300"
-                    >
-                      {copiedCmd === 'docker' ? 'Copied' : 'Copy'}
-                    </button>
-                  </div>
-                  <div className="bg-slate-950 p-2 rounded-lg border border-white/5 text-slate-300 overflow-x-auto">
-                    {dockerCmd}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <p className="text-[10px] text-center text-slate-500 pt-3 border-t border-white/5">
-            Compatible with Windows 10/11 x64 &middot; macOS Apple Silicon &middot; Linux x86_64
-          </p>
-        </div>
-      </div>
-
-      {/* Middle Section: Connection Diagnostics & Troubleshooter */}
-      <div className="bg-[#0c101d] border border-white/10 rounded-2xl p-6 shadow-xl space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
-              <Activity className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-white tracking-tight">
-                  Connection Diagnostics &amp; Troubleshooter
-                </h2>
-                {diagnosticsCompleted && (
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                      healthScore.passed === healthScore.total
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                    }`}
-                  >
-                    {healthScore.passed === healthScore.total
-                      ? 'HEALTHY (3/3 PASSED)'
-                      : `${healthScore.passed}/${healthScore.total} PASSED`}
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-slate-400">
-                Validate token format, local Chrome CDP port 9222 accessibility, and WebSocket heartbeat
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={runDiagnosticsSuite}
-            disabled={isRunningDiagnostics}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-400/30 text-xs font-semibold transition-all self-start sm:self-auto disabled:opacity-50"
-          >
-            <Activity className={`w-3.5 h-3.5 ${isRunningDiagnostics ? 'animate-spin' : ''}`} />
-            <span>{isRunningDiagnostics ? 'Running Diagnostic Probes...' : 'Run Diagnostic Suite'}</span>
-          </button>
-        </div>
-
-        {/* 3-Step Validator Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Step 1: Token Validity */}
-          <div className="bg-slate-950/60 border border-white/5 rounded-xl p-4 space-y-3 flex flex-col justify-between">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">
-                  Step 1: Pairing Auth
-                </span>
-                {diagnosticsResults.token.status === 'running' && (
-                  <RefreshCw className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
-                )}
-                {diagnosticsResults.token.status === 'success' && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                    <Check className="w-3 h-3" /> Valid
-                  </span>
-                )}
-                {diagnosticsResults.token.status === 'error' && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
-                    <XCircle className="w-3 h-3" /> Failed
-                  </span>
-                )}
-                {diagnosticsResults.token.status === 'pending' && (
-                  <span className="text-[10px] font-medium text-slate-500">Ready</span>
-                )}
-              </div>
-
-              <h4 className="text-xs font-bold text-white">Token Signature &amp; Binding</h4>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                {diagnosticsResults.token.message}
-              </p>
-            </div>
-
-            <div className="pt-2 border-t border-white/5 text-[10px] text-slate-500 flex items-center justify-between">
-              <span>Binding: {organizationName}</span>
-              {diagnosticsResults.token.latencyMs !== undefined && (
-                <span className="font-mono text-cyan-400">{diagnosticsResults.token.latencyMs}ms</span>
-              )}
-            </div>
-          </div>
-
-          {/* Step 2: Chrome CDP Port 9222 */}
-          <div className="bg-slate-950/60 border border-white/5 rounded-xl p-4 space-y-3 flex flex-col justify-between">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">
-                  Step 2: Browser CDP
-                </span>
-                {diagnosticsResults.cdp.status === 'running' && (
-                  <RefreshCw className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
-                )}
-                {diagnosticsResults.cdp.status === 'success' && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                    <Check className="w-3 h-3" /> 9222 Online
-                  </span>
-                )}
-                {diagnosticsResults.cdp.status === 'warning' && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                    <AlertTriangle className="w-3 h-3" /> Port Closed
-                  </span>
-                )}
-                {diagnosticsResults.cdp.status === 'pending' && (
-                  <span className="text-[10px] font-medium text-slate-500">Ready</span>
-                )}
-              </div>
-
-              <h4 className="text-xs font-bold text-white">Chrome DevTools Protocol (CDP)</h4>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                {diagnosticsResults.cdp.message}
-              </p>
-            </div>
-
-            <div className="pt-2 border-t border-white/5 text-[10px] text-slate-500 flex items-center justify-between">
-              <span>Port: 9222 (Loopback)</span>
-              {diagnosticsResults.cdp.latencyMs !== undefined && (
-                <span className="font-mono text-cyan-400">{diagnosticsResults.cdp.latencyMs}ms</span>
-              )}
-            </div>
-          </div>
-
-          {/* Step 3: Supabase WebSocket Ping */}
-          <div className="bg-slate-950/60 border border-white/5 rounded-xl p-4 space-y-3 flex flex-col justify-between">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">
-                  Step 3: Cloud Telemetry
-                </span>
-                {diagnosticsResults.websocket.status === 'running' && (
-                  <RefreshCw className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
-                )}
-                {diagnosticsResults.websocket.status === 'success' && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                    <Radio className="w-3 h-3" /> Low Latency
-                  </span>
-                )}
-                {diagnosticsResults.websocket.status === 'pending' && (
-                  <span className="text-[10px] font-medium text-slate-500">Ready</span>
-                )}
-              </div>
-
-              <h4 className="text-xs font-bold text-white">WebSocket Heartbeat Ping</h4>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                {diagnosticsResults.websocket.message}
-              </p>
-            </div>
-
-            <div className="pt-2 border-t border-white/5 text-[10px] text-slate-500 flex items-center justify-between">
-              <span>Channel: Realtime Active</span>
-              {diagnosticsResults.websocket.latencyMs !== undefined && (
-                <span className="font-mono text-cyan-400">{diagnosticsResults.websocket.latencyMs}ms</span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Remediation Playbook (Shown when CDP is closed or on error) */}
-        {diagnosticsResults.cdp.status === 'warning' && (
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 space-y-3">
-            <div className="flex items-center gap-2 text-amber-400">
-              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-              <h4 className="text-xs font-bold">CDP Port 9222 Remediation Playbook</h4>
-            </div>
-
-            <p className="text-[11px] text-slate-300 leading-relaxed">
-              Google Chrome must be launched with remote debugging enabled so the ReFlow engine can automate browser tabs without leaving user traces. Run the following command in your terminal:
-            </p>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 text-[11px] font-mono">
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-[10px] text-slate-400">
-                  <span>Windows PowerShell:</span>
-                  <button
-                    onClick={() => copyToClipboard(chromeWindowsCmd, 'chromeWin')}
-                    className="text-cyan-400 hover:text-cyan-300"
-                  >
-                    {copiedCmd === 'chromeWin' ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
-                <div className="bg-slate-950 p-2 rounded-lg border border-white/5 text-slate-300 select-all overflow-x-auto">
-                  {chromeWindowsCmd}
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-[10px] text-slate-400">
-                  <span>macOS Terminal:</span>
-                  <button
-                    onClick={() => copyToClipboard(chromeMacCmd, 'chromeMac')}
-                    className="text-cyan-400 hover:text-cyan-300"
-                  >
-                    {copiedCmd === 'chromeMac' ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
-                <div className="bg-slate-950 p-2 rounded-lg border border-white/5 text-slate-300 select-all overflow-x-auto">
-                  {chromeMacCmd}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Connected Workers Section & Telemetry Cards */}
@@ -1333,27 +700,30 @@ export default function RunnersPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
           <div className="flex items-center gap-2.5">
             <Server className="w-4 h-4 text-cyan-400" />
-            <h2 className="text-sm font-bold text-white tracking-tight">Active Connected Workers</h2>
+            <h2 className="text-sm font-bold text-white tracking-tight">Connected workers</h2>
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-white/5">
-              {workers.length} Registered
+              {workers.length} registered
             </span>
           </div>
 
           <div className="flex items-center gap-3 text-xs font-semibold">
-            <span className="text-slate-400">Telemetry Stream:</span>
+            <button type="button" onClick={() => { void Promise.all(workers.map((worker) => checkWorkerStatus(worker.id))); }} disabled={loadingWorkers || workers.length === 0 || workers.some((worker) => workerChecks[worker.id]?.state === 'checking')} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50">
+              <Wifi className="w-3.5 h-3.5" /> Check all
+            </button>
+            <span className="text-slate-400">Status:</span>
             <span
               className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] ${
-                isRunnerOnline
+                hasRecentRunnerHeartbeat
                   ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                   : 'bg-slate-800 text-slate-400 border border-white/5'
               }`}
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full ${
-                  isRunnerOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
+                  hasRecentRunnerHeartbeat ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
                 }`}
               />
-              {isRunnerOnline ? 'Daemon Operational' : 'Awaiting Connection'}
+              {hasRecentRunnerHeartbeat ? 'Daemon Operational' : 'Awaiting Connection'}
             </span>
           </div>
         </div>
@@ -1372,7 +742,7 @@ export default function RunnersPage() {
             <div>
               <h3 className="text-sm font-bold text-white">No Desktop Runners Connected Yet</h3>
               <p className="text-xs text-slate-400 max-w-sm mt-1">
-                Launch the Desktop Runner or run <code className="text-cyan-300">npm run runner:listen</code> with your organization pairing token to begin automating workflows.
+No desktop has checked in recently. Open ReFlow Desktop, paste the workspace token, and start the runner. <button type="button" onClick={() => setShowPairingHelp(true)} className="text-cyan-300 hover:text-cyan-200 underline underline-offset-2">View pairing help</button>.
               </p>
             </div>
           </div>
@@ -1512,37 +882,89 @@ export default function RunnersPage() {
                         <>
                           <span className={`w-1.5 h-1.5 rounded-full ${worker.cdpActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
                           <span className={`font-medium ${worker.cdpActive ? 'text-emerald-400' : 'text-amber-400'}`}>
-                            {worker.cdpActive ? 'CDP Port 9222 Ready' : 'Chrome Standby (Auto-Launch)'}
+                            {worker.cdpActive ? 'Browser ready' : 'Browser readiness not confirmed'}
                           </span>
                         </>
                       ) : worker.status === 'REVOKED' ? (
                         <>
                           <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                          <span className="text-rose-400 font-medium">Token Revoked &bull; Port Inactive</span>
+                          <span className="text-rose-400 font-medium">Token revoked &bull; reconnect required</span>
                         </>
                       ) : (
                         <>
                           <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                          <span className="text-slate-400 font-medium">Worker Offline &bull; CDP Inactive</span>
+                          <span className="text-slate-400 font-medium">Runner offline &bull; browser status unknown</span>
                         </>
                       )}
                     </div>
 
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={runDiagnosticsSuite}
-                        className="text-cyan-400 hover:text-cyan-300 font-semibold hover:underline"
+                        type="button"
+                        onClick={() => void checkWorkerStatus(worker.id)}
+                        disabled={workerChecks[worker.id]?.state === 'checking'}
+                        className="text-cyan-400 hover:text-cyan-300 font-semibold hover:underline disabled:opacity-50"
                       >
-                        Ping Worker
+                        {workerChecks[worker.id]?.state === 'checking' ? 'Checking…' : 'Check status'}
                       </button>
                     </div>
                   </div>
+                  {workerChecks[worker.id] && (
+                    <p role="status" className={`text-[11px] ${workerChecks[worker.id].state === 'success' ? 'text-emerald-300' : workerChecks[worker.id].state === 'error' ? 'text-amber-300' : 'text-slate-400'}`}>
+                      {workerChecks[worker.id].message}{workerChecks[worker.id].latencyMs !== undefined ? ` · Dashboard check ${workerChecks[worker.id].latencyMs} ms` : ''}
+                    </p>
+                  )}
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* Pairing help dialog */}
+      {showPairingHelp && (
+        <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/75 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowPairingHelp(false); }}>
+          <div className="flex min-h-full items-start sm:items-center justify-center p-3 sm:p-4">
+            <section role="dialog" aria-modal="true" aria-labelledby="pairing-help-title" className="my-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0c101d] shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
+              <div className="shrink-0 border-b border-white/5 px-4 py-4 sm:px-6 sm:py-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 text-cyan-300 mb-2"><Monitor className="w-5 h-5" /><span className="text-xs font-semibold uppercase tracking-wide">Desktop pairing</span></div>
+                <h2 id="pairing-help-title" className="text-lg font-bold text-white">Connect a desktop</h2>
+                <p className="text-sm text-slate-400 mt-1">Pair a computer with {organizationName} in a few steps.</p>
+              </div>
+              <button type="button" onClick={() => setShowPairingHelp(false)} aria-label="Close pairing help" className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-white"><X className="w-4 h-4" /></button>
+            </div>
+              </div>
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5 [scrollbar-color:rgb(71_85_105)_rgb(12_16_29)] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-slate-950 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-600 hover:[&::-webkit-scrollbar-thumb]:bg-slate-500">
+            <ol className="space-y-4">
+              <li className="flex items-start gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-cyan-500/20 bg-cyan-500/10 text-xs font-bold text-cyan-300">1</span><div><p className="text-sm font-semibold text-white">Open ReFlow Desktop</p><p className="text-sm text-slate-400 mt-1">On the computer you want to connect, open the desktop app and go to its workspace pairing settings.</p></div></li>
+              <li className="flex items-start gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-cyan-500/20 bg-cyan-500/10 text-xs font-bold text-cyan-300">2</span><div><p className="text-sm font-semibold text-white">Copy your workspace token</p><p className="text-sm text-slate-400 mt-1">Copy the token from this page, then paste it into ReFlow Desktop. Keep the token private.</p><button type="button" onClick={() => { setShowPairingHelp(false); document.getElementById('pairing-token')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }} className="mt-2 text-sm font-semibold text-cyan-300 hover:text-cyan-200">Go to pairing token <span aria-hidden="true">→</span></button></div></li>
+              <li className="flex items-start gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-cyan-500/20 bg-cyan-500/10 text-xs font-bold text-cyan-300">3</span><div><p className="text-sm font-semibold text-white">Start the runner</p><p className="text-sm text-slate-400 mt-1">Choose Connect or Start in ReFlow Desktop. Keep the app open while it connects.</p></div></li>
+            </ol>
+            <div className="rounded-xl border border-white/10 bg-slate-950/70 p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                {pairingCheckState === 'checking' ? <LoaderCircle className="h-4 w-4 animate-spin text-cyan-300" /> : pairingCheckState === 'connected' ? <CheckCircle2 className="h-4 w-4 text-emerald-300" /> : pairingCheckState === 'error' ? <AlertTriangle className="h-4 w-4 text-rose-300" /> : <Wifi className="h-4 w-4 text-slate-400" />}
+                <p className="text-sm font-semibold text-white">{pairingCheckState === 'checking' ? 'Checking connection…' : pairingCheckState === 'connected' ? 'Desktop connected' : pairingCheckState === 'waiting' ? 'Waiting for your desktop' : pairingCheckState === 'error' ? 'Connection check failed' : 'Ready to check connection'}</p>
+              </div>
+              <p className="text-sm text-slate-400">{pairingCheckState === 'connected' ? 'A recent heartbeat was found for this workspace. Your desktop should now appear in Connected workers.' : pairingCheckState === 'waiting' ? 'We haven’t detected a recent desktop heartbeat yet. Make sure the app is open and the runner is started.' : pairingCheckState === 'error' ? (pairingCheckError || 'We couldn’t verify your desktop right now.') : 'After pairing in the desktop app, check here to confirm that it has checked in.'}</p>
+              {pairingCheckState === 'error' && <p role="alert" className="text-xs text-rose-300">{pairingCheckError}</p>}
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button type="button" onClick={() => void checkPairingConnection()} disabled={pairingCheckState === 'checking'} className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-500 px-3.5 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-400 disabled:opacity-50">{pairingCheckState === 'checking' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}{pairingCheckState === 'checking' ? 'Checking…' : 'Check connection'}</button>
+                {pairingCheckState === 'waiting' && <button type="button" onClick={() => { setPairingCheckState('idle'); setPairingCheckError(null); }} className="rounded-lg border border-white/10 px-3.5 py-2 text-sm font-medium text-slate-200 hover:bg-white/5">Try again</button>}
+              </div>
+            </div>
+            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
+              <p className="text-xs text-slate-400"><strong className="text-slate-200">Connecting another computer?</strong> Use the same workspace token on another authorized computer. Each computer should be registered as its own worker.</p>
+            </div>
+              </div>
+              <div className="shrink-0 border-t border-white/10 bg-[#0c101d] px-4 py-3 sm:px-6">
+                <div className="flex justify-end"><button type="button" onClick={() => setShowPairingHelp(false)} className="rounded-lg border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/5">Done</button></div>
+              </div>
+            </section>
+          </div>
+        </div>
+      )}
 
       {/* Confirmation Modal: Regenerate Token */}
       {showRegenModal && (

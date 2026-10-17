@@ -5,7 +5,19 @@ import { authenticateRunnerOrUser } from '@/lib/auth/runner-auth';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+interface RegisteredWorkerMetadata {
+  id?: string;
+  hostname?: string;
+  platform?: string;
+  version?: string;
+  last_ping_at?: string;
+  cdp_active?: boolean;
+  token_revoked?: boolean;
+  [key: string]: unknown;
+}
+
 interface RunnerMetadata {
+  workers?: RegisteredWorkerMetadata[];
   last_ping_at?: string;
   hostname?: string;
   platform?: string;
@@ -57,7 +69,7 @@ export async function GET(request: NextRequest) {
 
     // Use existing token if valid rf_live_ format, otherwise generate and persist initial token & hash
     let pairedToken = runnerMeta.token;
-    if (!pairedToken || !pairedToken.startsWith('rf_live_') || !org.runner_token_hash) {
+    if (runnerMeta.token_revoked !== true && (!pairedToken || !pairedToken.startsWith('rf_live_') || !org.runner_token_hash)) {
       const rawOrgHex = orgId.replace(/-/g, '').slice(0, 16);
       const secretHex = crypto.randomBytes(16).toString('hex');
       pairedToken = `rf_live_${rawOrgHex}_${secretHex}`;
@@ -78,26 +90,42 @@ export async function GET(request: NextRequest) {
         .eq('id', orgId);
     }
 
-    const resolvedHostname = runnerMeta.hostname || (isOnline ? 'Active Desktop Runner' : 'unknown');
+    const registeredWorkers = Array.isArray(runnerMeta.workers) ? runnerMeta.workers : [];
+    const runners = registeredWorkers.length > 0
+      ? registeredWorkers.map((worker, index) => {
+          const workerPingMs = worker.last_ping_at ? new Date(worker.last_ping_at).getTime() : 0;
+          const workerAgeSeconds = workerPingMs > 0 ? (Date.now() - workerPingMs) / 1000 : 999999;
+          const workerOnline = workerAgeSeconds >= 0 && workerAgeSeconds < 60 && runnerMeta.token_revoked !== true && worker.token_revoked !== true;
+          return {
+            id: worker.id || `runner_${index + 1}`,
+            hostname: worker.hostname || 'Unknown desktop',
+            label: worker.hostname || 'Desktop runner',
+            token: pairedToken,
+            platform: worker.platform || 'unknown',
+            engineVersion: worker.version || 'unknown',
+            status: runnerMeta.token_revoked || worker.token_revoked ? 'REVOKED' : workerOnline ? 'ONLINE' : 'OFFLINE',
+            lastPingAt: worker.last_ping_at || null,
+            cdpActive: worker.cdp_active === true,
+          };
+        })
+      : [{
+          id: 'runner_primary',
+          hostname: runnerMeta.hostname || (isOnline ? 'Active Desktop Runner' : 'unknown'),
+          label: 'Primary Desktop Runner',
+          token: pairedToken,
+          platform: runnerMeta.platform || 'unknown',
+          engineVersion: runnerMeta.version || 'unknown',
+          status: runnerMeta.token_revoked ? 'REVOKED' : (isOnline ? 'ONLINE' : 'OFFLINE'),
+          lastPingAt: runnerMeta.last_ping_at || null,
+          cdpActive: runnerMeta.cdp_active === true,
+        }];
 
-    const runners = [
-      {
-        id: 'runner_primary',
-        hostname: resolvedHostname,
-        label: 'Primary Desktop Runner',
-        token: pairedToken,
-        platform: runnerMeta.platform || 'unknown',
-        engineVersion: runnerMeta.version || 'unknown',
-        status: runnerMeta.token_revoked ? 'REVOKED' : (isOnline ? 'ONLINE' : 'OFFLINE'),
-        lastPingAt: runnerMeta.last_ping_at || null,
-        cdpActive: runnerMeta.cdp_active !== false,
-      },
-    ];
+    const anyWorkerOnline = runners.some((runner) => runner.status === 'ONLINE');
 
     return NextResponse.json(
       {
         success: true,
-        is_online: isOnline,
+        is_online: anyWorkerOnline,
         diff_seconds: Math.round(diffSeconds),
         runners,
       },
@@ -157,6 +185,7 @@ export async function POST(request: NextRequest) {
       ...existingMeta,
       token: newToken,
       token_revoked: false,
+      workers: Array.isArray(existingMeta.workers) ? existingMeta.workers.map((worker) => ({ ...worker, token_revoked: true })) : existingMeta.workers,
       rotated_at: new Date().toISOString(),
     };
 
@@ -205,26 +234,49 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // Handle Runner Heartbeat
+  // Handle Runner Heartbeat. Store one heartbeat per desktop so multiple machines
+  // using the same workspace token remain independently visible.
+  const timestamp = new Date().toISOString();
+  const hostname = String(body.hostname || request.headers.get('x-runner-hostname') || 'unknown');
+  const platform = String(body.platform || request.headers.get('x-runner-platform') || 'unknown');
+  const version = String(body.version || request.headers.get('x-runner-version') || 'unknown');
+  const requestedWorkerId = typeof body.worker_id === 'string' ? body.worker_id : typeof body.workerId === 'string' ? body.workerId : '';
+  const stableIdentity = requestedWorkerId || (hostname !== 'unknown'
+    ? `runner_${crypto.createHash('sha256').update(`${hostname.toLowerCase()}|${platform.toLowerCase()}`).digest('hex').slice(0, 16)}`
+    : 'runner_primary');
+  const workerRecord: RegisteredWorkerMetadata = {
+    id: stableIdentity,
+    hostname,
+    platform,
+    version,
+    last_ping_at: timestamp,
+    cdp_active: body.cdp_active === true,
+    token_revoked: false,
+  };
+  const existingWorkers = Array.isArray(existingMeta.workers) ? existingMeta.workers : [];
+  const nextWorkers = [
+    ...existingWorkers.filter((worker) => worker.id !== stableIdentity),
+    workerRecord,
+  ];
   const rawOrgHex = orgId.replace(/-/g, '').slice(0, 16);
   const fallbackToken = existingMeta.token || `rf_live_${rawOrgHex}_${crypto.randomBytes(16).toString('hex')}`;
 
   const payload: RunnerMetadata = {
     ...existingMeta,
-    last_ping_at: new Date().toISOString(),
-    hostname: body.hostname || request.headers.get('x-runner-hostname') || existingMeta.hostname || 'unknown',
-    platform: body.platform || request.headers.get('x-runner-platform') || existingMeta.platform || 'unknown',
-    version: body.version || request.headers.get('x-runner-version') || existingMeta.version || 'unknown',
-    token: token || body.token || fallbackToken,
-    cdp_active: body.cdp_active !== undefined ? body.cdp_active : (existingMeta.cdp_active ?? true),
+    // Keep legacy top-level fields in sync while new clients migrate to the workers registry.
+    last_ping_at: timestamp,
+    hostname,
+    platform,
+    version,
+    token: token || (typeof body.token === 'string' ? body.token : fallbackToken),
+    cdp_active: body.cdp_active === true,
+    workers: nextWorkers,
   };
 
   try {
     const { error } = await supabase
       .from('wf_organizations')
-      .update({
-        runner_metadata: payload,
-      })
+      .update({ runner_metadata: payload })
       .eq('id', orgId);
 
     if (error) {
@@ -233,7 +285,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      timestamp: payload.last_ping_at,
+      worker_id: stableIdentity,
+      timestamp,
       is_online: true,
     });
   } catch (err: unknown) {
