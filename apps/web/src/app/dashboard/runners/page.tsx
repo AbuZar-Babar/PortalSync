@@ -4,16 +4,12 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Cpu,
   Server,
-  Activity,
   Check,
   Copy,
   RefreshCw,
-  Download,
-  Terminal,
   ShieldCheck,
   ExternalLink,
   Clock,
-  Radio,
   StopCircle,
   AlertTriangle,
   Key,
@@ -21,7 +17,11 @@ import {
   EyeOff,
   CheckCircle2,
   XCircle,
-  X
+  X,
+  HelpCircle,
+  Monitor,
+  Wifi,
+  LoaderCircle
 } from 'lucide-react';
 import { useDashboard } from '@/context/DashboardContext';
 import { createClient } from '@/lib/supabase/client';
@@ -72,6 +72,10 @@ export default function RunnersPage() {
   // Modals state
   const [showRegenModal, setShowRegenModal] = useState<boolean>(false);
   const [showRevokeModal, setShowRevokeModal] = useState<boolean>(false);
+  const [showPairingHelp, setShowPairingHelp] = useState<boolean>(false);
+  const [pairingCheckState, setPairingCheckState] = useState<'idle' | 'checking' | 'waiting' | 'connected' | 'error'>('idle');
+  const [pairingCheckError, setPairingCheckError] = useState<string | null>(null);
+  const [workerChecks, setWorkerChecks] = useState<Record<string, { state: 'checking' | 'success' | 'error'; message: string; latencyMs?: number }>>({});
   const [regenConfirmChecked, setRegenConfirmChecked] = useState<boolean>(false);
   const [isRegenerating, setIsRegenerating] = useState<boolean>(false);
   const [isRevoking, setIsRevoking] = useState<boolean>(false);
@@ -89,9 +93,6 @@ export default function RunnersPage() {
 
   // Live seconds ticker
   const [now, setNow] = useState<number>(() => Date.now());
-
-  // Setup Guide Tabs: 'desktop' | 'cli' | 'docker'
-  const [setupTab, setSetupTab] = useState<'desktop' | 'cli' | 'docker'>('desktop');
 
   // Diagnostics State
   const [isRunningDiagnostics, setIsRunningDiagnostics] = useState<boolean>(false);
@@ -409,6 +410,64 @@ export default function RunnersPage() {
     setIsRefreshing(false);
   };
 
+  const checkPairingConnection = async () => {
+    setPairingCheckState('checking');
+    setPairingCheckError(null);
+    try {
+      const response = await fetch('/api/v1/runners', { cache: 'no-store', credentials: 'same-origin' });
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) throw new Error('Your session could not verify this workspace. Sign in again, then retry.');
+        throw new Error('We couldn’t check your desktop status right now. Your pairing settings haven’t been changed.');
+      }
+      const payload = await response.json();
+      const runners = Array.isArray(payload.runners) ? payload.runners : [];
+      const freshWorker = runners.find((runner: { lastPingAt?: string | null; status?: string }) => {
+        const timestamp = runner.lastPingAt ? new Date(runner.lastPingAt).getTime() : 0;
+        const ageMs = Date.now() - timestamp;
+        return timestamp > 0 && ageMs >= 0 && ageMs < 60_000 && runner.status !== 'REVOKED';
+      });
+      await fetchWorkersAndRuns();
+      setPairingCheckState(freshWorker ? 'connected' : 'waiting');
+    } catch (error) {
+      setPairingCheckState('error');
+      setPairingCheckError(error instanceof Error ? error.message : 'We couldn’t check your desktop status right now.');
+    }
+  };
+
+  const checkWorkerStatus = async (workerId: string) => {
+    const startedAt = Date.now();
+    setWorkerChecks((prev) => ({ ...prev, [workerId]: { state: 'checking', message: 'Checking latest heartbeat…' } }));
+    try {
+      const response = await fetch('/api/v1/runners', { cache: 'no-store', credentials: 'same-origin' });
+      if (!response.ok) throw new Error('Could not retrieve worker status. Try again.');
+      const payload = await response.json();
+      const list = Array.isArray(payload.runners) ? payload.runners : [];
+      const worker = list.find((item: { id?: string }) => item.id === workerId);
+      const timestamp = worker?.lastPingAt ? new Date(worker.lastPingAt).getTime() : 0;
+      const ageMs = Date.now() - timestamp;
+      const latencyMs = Date.now() - startedAt;
+      if (worker && timestamp > 0 && ageMs >= 0 && ageMs < 60_000 && worker.status !== 'REVOKED') {
+        setWorkerChecks((prev) => ({ ...prev, [workerId]: { state: 'success', message: 'Recent heartbeat confirmed', latencyMs } }));
+      } else if (worker?.status === 'REVOKED') {
+        setWorkerChecks((prev) => ({ ...prev, [workerId]: { state: 'error', message: 'Pairing token revoked' } }));
+      } else {
+        setWorkerChecks((prev) => ({ ...prev, [workerId]: { state: 'error', message: 'No recent heartbeat. This checks server status; it does not send a direct network ping.' } }));
+      }
+      await fetchWorkersAndRuns();
+    } catch (error) {
+      setWorkerChecks((prev) => ({ ...prev, [workerId]: { state: 'error', message: error instanceof Error ? error.message : 'Could not retrieve worker status.' } }));
+    }
+  };
+
+  useEffect(() => {
+    if (!showPairingHelp) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowPairingHelp(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [showPairingHelp]);
+
   // 1-Click Copy with feedback
   const copyToClipboard = (text: string, type: 'token' | string) => {
     if (!text) return;
@@ -659,11 +718,6 @@ export default function RunnersPage() {
     return `Active ${diffHr}h ago`;
   };
 
-  // Commands for quick copy
-  const terminalDoctorCmd = 'npm run runner:doctor';
-  const terminalListenCmd = `npm run runner:listen -- --token ${currentToken || 'PASTE_YOUR_WORKSPACE_TOKEN'}`;
-  const dockerCmd = `docker run -d --net=host -e WORKER_TOKEN=${currentToken || 'PASTE_YOUR_WORKSPACE_TOKEN'} reflow/worker:latest`;
-
   // Calculated overall diagnostic health
   const hasRecentRunnerHeartbeat = workers.some((worker) => worker.status === 'ONLINE' || worker.status === 'EXECUTING');
   const primaryConnectionState = loadingWorkers ? 'loading' : runnerStatusUnavailable ? 'unavailable' : isTokenRevoked || workers.some((worker) => worker.status === 'REVOKED') ? 'revoked' : hasRecentRunnerHeartbeat ? 'connected' : workers.some((worker) => worker.lastPingAt) ? 'stale' : 'setup';
@@ -700,33 +754,28 @@ export default function RunnersPage() {
       )}
 
       {/* Page heading */}
-      <div className="flex items-center gap-3 pb-4 border-b border-white/5">
-        <RobotAvatar size="badge" state={workers.some((worker) => worker.status === 'EXECUTING') ? 'running' : 'idle'} />
-        <div><h1 className="text-xl font-bold tracking-tight text-white">Desktop connection</h1><p className="text-sm text-slate-400 mt-1">Connect this computer to {organizationName} so ReFlow can run your workflows.</p></div>
-      </div>
-      <section className="bg-[#0c101d] border border-white/10 rounded-2xl p-5 sm:p-6 shadow-xl space-y-5" aria-labelledby="desktop-connection-title">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="w-11 h-11 rounded-xl border border-white/10 bg-slate-800 flex items-center justify-center shrink-0 text-cyan-300">{primaryConnectionState === 'loading' ? <RefreshCw className="w-5 h-5 animate-spin" /> : primaryConnectionState === 'unavailable' ? <AlertTriangle className="w-5 h-5" /> : primaryConnectionState === 'connected' ? <CheckCircle2 className="w-5 h-5" /> : primaryConnectionState === 'revoked' ? <XCircle className="w-5 h-5" /> : <Cpu className="w-5 h-5" />}</div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2"><h2 id="desktop-connection-title" className="text-base font-bold text-white">{primaryConnectionState === 'loading' ? 'Checking your connection…' : primaryConnectionState === 'unavailable' ? 'Connection status unavailable' : primaryConnectionState === 'connected' ? (workers.some((worker) => worker.status === 'EXECUTING') ? 'Desktop is running a workflow' : 'Desktop is connected') : primaryConnectionState === 'revoked' ? 'Reconnect your desktop' : primaryConnectionState === 'stale' ? 'Desktop is not responding' : 'Connect your desktop'}</h2>
-                {primaryConnectionState !== 'loading' && primaryConnectionState !== 'unavailable' && <span className={'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold border ' + (primaryConnectionState === 'connected' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300' : primaryConnectionState === 'revoked' ? 'bg-rose-500/10 border-rose-500/20 text-rose-300' : 'bg-slate-800 border-white/10 text-slate-300')}><span className="w-1.5 h-1.5 rounded-full bg-current" />{primaryConnectionState === 'connected' ? 'Connected' : primaryConnectionState === 'revoked' ? 'Token revoked' : 'Not connected'}</span>}</div>
-              <p className="text-sm text-slate-400 mt-1.5 max-w-2xl">{primaryConnectionState === 'loading' ? 'We’re checking whether this workspace can reach your desktop runner.' : primaryConnectionState === 'unavailable' ? 'We could not verify the runner right now. Your workflows and saved settings have not been changed.' : primaryConnectionState === 'connected' ? 'This computer has checked in recently and is ready to receive workflow runs.' : primaryConnectionState === 'revoked' ? 'The current pairing token was revoked. Generate a new token and reconnect the desktop app.' : primaryConnectionState === 'stale' ? 'The last check-in is no longer recent. Make sure ReFlow Desktop is open and the runner is started.' : 'Install ReFlow Desktop, copy your workspace token, then paste it into the desktop app to finish pairing.'}</p>
-              {!loadingWorkers && workers[0]?.lastPingAt && <p className="text-xs text-slate-500 mt-2">Last check-in: {formatHeartbeat(workers[0].lastPingAt, now)}</p>}
-            </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/5">
+        <div className="flex items-center gap-3">
+          <RobotAvatar size="badge" state={workers.some((worker) => worker.status === 'EXECUTING') ? 'running' : 'idle'} />
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-white">Desktop connection</h1>
+            <p className="text-sm text-slate-400 mt-1">Manage pairing and connected desktop workers.</p>
           </div>
-          <button type="button" onClick={() => { if (primaryConnectionState === 'connected' || primaryConnectionState === 'unavailable') void handleRefresh(); else document.getElementById('desktop-setup')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }} disabled={loadingWorkers || isRefreshing} className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-sm px-4 py-2.5 transition-colors disabled:opacity-50 shrink-0">{isRefreshing || loadingWorkers ? <RefreshCw className="w-4 h-4 animate-spin" /> : primaryConnectionState === 'connected' || primaryConnectionState === 'unavailable' ? <RefreshCw className="w-4 h-4" /> : <Download className="w-4 h-4" />}{primaryConnectionState === 'loading' ? 'Checking…' : primaryConnectionState === 'unavailable' || primaryConnectionState === 'stale' ? 'Try again' : primaryConnectionState === 'connected' ? 'Check connection' : 'Set up desktop'}</button>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-white/5">
-          <div className="flex items-start gap-3 rounded-xl bg-slate-950/60 border border-white/5 p-3"><span className="w-7 h-7 rounded-lg bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 flex items-center justify-center text-xs font-bold shrink-0">1</span><div><h3 className="text-xs font-semibold text-white">Install ReFlow Desktop</h3><p className="text-xs leading-relaxed text-slate-400 mt-1">Download and open the desktop app on the computer that should run workflows.</p></div></div>
-          <div className="flex items-start gap-3 rounded-xl bg-slate-950/60 border border-white/5 p-3"><span className="w-7 h-7 rounded-lg bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 flex items-center justify-center text-xs font-bold shrink-0">2</span><div><h3 className="text-xs font-semibold text-white">Copy your workspace token</h3><p className="text-xs leading-relaxed text-slate-400 mt-1">Use the secure token below to link this computer to your workspace.</p></div></div>
-          <div className="flex items-start gap-3 rounded-xl bg-slate-950/60 border border-white/5 p-3"><span className="w-7 h-7 rounded-lg bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 flex items-center justify-center text-xs font-bold shrink-0">3</span><div><h3 className="text-xs font-semibold text-white">Connect the desktop app</h3><p className="text-xs leading-relaxed text-slate-400 mt-1">Paste the token into ReFlow Desktop and choose Connect Workspace.</p></div></div>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => { setPairingCheckState('idle'); setPairingCheckError(null); setShowPairingHelp(true); }} className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800 transition-colors">
+            <HelpCircle className="w-4 h-4" /> How to connect
+          </button>
+          <button type="button" onClick={handleRefresh} disabled={loadingWorkers || isRefreshing} aria-label="Refresh workers" className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800 disabled:opacity-50 transition-colors">
+            <RefreshCw className={`w-4 h-4 ${isRefreshing || loadingWorkers ? 'animate-spin' : ''}`} /> Refresh
+          </button>
         </div>
-      </section>
-      {/* Token management and setup options */}
-      <div id="desktop-setup" className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      </div>
+      {/* Token management */}
+
+      <div className="space-y-6">
         {/* Organization Runner Pairing Token Card */}
-        <div className="lg:col-span-7 bg-[#0c101d] border border-white/10 rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
+        <div id="pairing-token" className="bg-[#0c101d] border border-white/10 rounded-2xl p-5 sm:p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -831,376 +880,7 @@ export default function RunnersPage() {
             </p>
           </div>
 
-          {/* Quick Terminal CLI Snippet */}
-          <div className="mt-5 pt-4 border-t border-white/5 space-y-2">
-            <div className="flex items-center justify-between text-xs text-slate-400">
-              <span className="flex items-center gap-1.5 font-medium">
-                <Terminal className="w-3.5 h-3.5 text-cyan-400" />
-                Quick Terminal Listener:
-              </span>
-              <button
-                onClick={() => copyToClipboard(terminalListenCmd, 'listen')}
-                className="text-[11px] text-cyan-400 hover:text-cyan-300 font-semibold"
-              >
-                {copiedCmd === 'listen' ? 'Copied Command!' : 'Copy Snippet'}
-              </button>
-            </div>
-            <div className="bg-slate-950/90 border border-white/5 rounded-lg px-3 py-2 text-[11px] font-mono text-slate-300 select-all overflow-x-auto">
-              {terminalListenCmd}
-            </div>
-          </div>
         </div>
-
-        {/* 3-Step Setup Guide & Desktop Binary Downloads */}
-        <div className="lg:col-span-5 bg-gradient-to-br from-[#0c101d] to-[#12172b] border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-                  <Download className="w-4 h-4" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-white tracking-tight">Setup &amp; Downloads</h2>
-                  <p className="text-[11px] text-slate-400">Zero cloud-cost local automation engine</p>
-                </div>
-              </div>
-
-              {/* Guide Mode Tabs */}
-              <div className="flex p-0.5 bg-slate-950 border border-white/5 rounded-lg text-[10px] font-semibold">
-                <button
-                  onClick={() => setSetupTab('desktop')}
-                  className={`px-2 py-0.5 rounded-md transition-all ${
-                    setupTab === 'desktop'
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Desktop
-                </button>
-                <button
-                  onClick={() => setSetupTab('cli')}
-                  className={`px-2 py-0.5 rounded-md transition-all ${
-                    setupTab === 'cli'
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  CLI
-                </button>
-                <button
-                  onClick={() => setSetupTab('docker')}
-                  className={`px-2 py-0.5 rounded-md transition-all ${
-                    setupTab === 'docker'
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Docker
-                </button>
-              </div>
-            </div>
-
-            {/* Tab 1: Desktop App */}
-            {setupTab === 'desktop' && (
-              <div className="space-y-3 text-xs text-slate-300">
-                <div className="space-y-2 text-[11px]">
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">
-                      1
-                    </span>
-                    <p className="leading-relaxed">
-                      Download and launch the Desktop Runner on your machine.
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">
-                      2
-                    </span>
-                    <p className="leading-relaxed">
-                      Paste your Organization Pairing Token in the desktop settings modal.
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">
-                      3
-                    </span>
-                    <p className="leading-relaxed">
-                      Click <strong className="text-white">Run</strong> from the web dashboard — local Chrome executes stealthily!
-                    </p>
-                  </div>
-                </div>
-
-                {/* Prebuilt Download Buttons */}
-                <div className="pt-2 space-y-2">
-                  <a
-                    href="/api/v1/runners/download?type=installer"
-                    download="ReFlow-Worker-Setup-1.0.0.exe"
-                    className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-cyan-500/20 transition-all"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Download Windows Installer (.exe &middot; 93 MB)</span>
-                  </a>
-
-                  <a
-                    href="/api/v1/runners/download?type=portable"
-                    download="ReFlow-Worker-Portable-1.0.0.exe"
-                    className="w-full flex items-center justify-center gap-2 py-1.5 px-3 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-white/10 rounded-xl text-xs font-semibold transition-all"
-                  >
-                    <Download className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Download Portable Standalone (.exe &middot; 83 MB)</span>
-                  </a>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 2: Terminal CLI */}
-            {setupTab === 'cli' && (
-              <div className="space-y-3 text-xs">
-                <p className="text-[11px] text-slate-400">
-                  Run the lightweight headless engine directly inside your development shell:
-                </p>
-
-                <div className="space-y-2 font-mono text-[11px]">
-                  <div>
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
-                      <span>1. Preflight Health Check:</span>
-                      <button
-                        onClick={() => copyToClipboard(terminalDoctorCmd, 'doctor')}
-                        className="text-cyan-400 hover:text-cyan-300"
-                      >
-                        {copiedCmd === 'doctor' ? 'Copied' : 'Copy'}
-                      </button>
-                    </div>
-                    <div className="bg-slate-950 p-2 rounded-lg border border-white/5 text-slate-300 overflow-x-auto">
-                      {terminalDoctorCmd}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
-                      <span>2. Start Worker Listener:</span>
-                      <button
-                        onClick={() => copyToClipboard(terminalListenCmd, 'listen')}
-                        className="text-cyan-400 hover:text-cyan-300"
-                      >
-                        {copiedCmd === 'listen' ? 'Copied' : 'Copy'}
-                      </button>
-                    </div>
-                    <div className="bg-slate-950 p-2 rounded-lg border border-white/5 text-slate-300 overflow-x-auto truncate">
-                      {terminalListenCmd}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 3: Docker */}
-            {setupTab === 'docker' && (
-              <div className="space-y-3 text-xs">
-                <p className="text-[11px] text-slate-400">
-                  Deploy as a background headless worker inside Docker or Kubernetes:
-                </p>
-
-                <div className="space-y-1 font-mono text-[11px]">
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
-                    <span>Host Networking Container:</span>
-                    <button
-                      onClick={() => copyToClipboard(dockerCmd, 'docker')}
-                      className="text-cyan-400 hover:text-cyan-300"
-                    >
-                      {copiedCmd === 'docker' ? 'Copied' : 'Copy'}
-                    </button>
-                  </div>
-                  <div className="bg-slate-950 p-2 rounded-lg border border-white/5 text-slate-300 overflow-x-auto">
-                    {dockerCmd}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <p className="text-[10px] text-center text-slate-500 pt-3 border-t border-white/5">
-            Compatible with Windows 10/11 x64 &middot; macOS Apple Silicon &middot; Linux x86_64
-          </p>
-        </div>
-      </div>
-
-      {/* Middle Section: Connection Diagnostics & Troubleshooter */}
-      <div className="bg-[#0c101d] border border-white/10 rounded-2xl p-6 shadow-xl space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
-              <Activity className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-white tracking-tight">
-                  Connection Diagnostics &amp; Troubleshooter
-                </h2>
-                {diagnosticsCompleted && (
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                      healthScore.passed === healthScore.total
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                    }`}
-                  >
-                    {healthScore.passed === healthScore.total
-                      ? 'HEALTHY (3/3 PASSED)'
-                      : `${healthScore.passed}/${healthScore.total} PASSED`}
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-slate-400">
-                Validate token format, local Chrome CDP port 9222 accessibility, and WebSocket heartbeat
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={runDiagnosticsSuite}
-            disabled={isRunningDiagnostics}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-400/30 text-xs font-semibold transition-all self-start sm:self-auto disabled:opacity-50"
-          >
-            <Activity className={`w-3.5 h-3.5 ${isRunningDiagnostics ? 'animate-spin' : ''}`} />
-            <span>{isRunningDiagnostics ? 'Running Diagnostic Probes...' : 'Run Diagnostic Suite'}</span>
-          </button>
-        </div>
-
-        {/* 3-Step Validator Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Step 1: Token Validity */}
-          <div className="bg-slate-950/60 border border-white/5 rounded-xl p-4 space-y-3 flex flex-col justify-between">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">
-                  Step 1: Pairing Auth
-                </span>
-                {diagnosticsResults.token.status === 'running' && (
-                  <RefreshCw className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
-                )}
-                {diagnosticsResults.token.status === 'success' && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                    <Check className="w-3 h-3" /> Valid
-                  </span>
-                )}
-                {diagnosticsResults.token.status === 'error' && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
-                    <XCircle className="w-3 h-3" /> Failed
-                  </span>
-                )}
-                {diagnosticsResults.token.status === 'pending' && (
-                  <span className="text-[10px] font-medium text-slate-500">Ready</span>
-                )}
-              </div>
-
-              <h4 className="text-xs font-bold text-white">Token Signature &amp; Binding</h4>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                {diagnosticsResults.token.message}
-              </p>
-            </div>
-
-            <div className="pt-2 border-t border-white/5 text-[10px] text-slate-500 flex items-center justify-between">
-              <span>Binding: {organizationName}</span>
-              {diagnosticsResults.token.latencyMs !== undefined && (
-                <span className="font-mono text-cyan-400">{diagnosticsResults.token.latencyMs}ms</span>
-              )}
-            </div>
-          </div>
-
-          {/* Step 2: Chrome CDP Port 9222 */}
-          <div className="bg-slate-950/60 border border-white/5 rounded-xl p-4 space-y-3 flex flex-col justify-between">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">
-                  Step 2: Desktop App
-                </span>
-                {diagnosticsResults.cdp.status === 'running' && (
-                  <RefreshCw className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
-                )}
-                {diagnosticsResults.cdp.status === 'success' && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                    <Check className="w-3 h-3" /> 9222 Online
-                  </span>
-                )}
-                {diagnosticsResults.cdp.status === 'warning' && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                    <AlertTriangle className="w-3 h-3" /> Port Closed
-                  </span>
-                )}
-                {diagnosticsResults.cdp.status === 'pending' && (
-                  <span className="text-[10px] font-medium text-slate-500">Ready</span>
-                )}
-              </div>
-
-              <h4 className="text-xs font-bold text-white">Local Desktop Bridge</h4>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                {diagnosticsResults.cdp.message}
-              </p>
-            </div>
-
-            <div className="pt-2 border-t border-white/5 text-[10px] text-slate-500 flex items-center justify-between">
-              <span>Port: 49152 (Local)</span>
-              {diagnosticsResults.cdp.latencyMs !== undefined && (
-                <span className="font-mono text-cyan-400">{diagnosticsResults.cdp.latencyMs}ms</span>
-              )}
-            </div>
-          </div>
-
-          {/* Step 3: Supabase WebSocket Ping */}
-          <div className="bg-slate-950/60 border border-white/5 rounded-xl p-4 space-y-3 flex flex-col justify-between">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">
-                  Step 3: Cloud Telemetry
-                </span>
-                {diagnosticsResults.websocket.status === 'running' && (
-                  <RefreshCw className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
-                )}
-                {diagnosticsResults.websocket.status === 'success' && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                    <Radio className="w-3 h-3" /> Low Latency
-                  </span>
-                )}
-                {diagnosticsResults.websocket.status === 'pending' && (
-                  <span className="text-[10px] font-medium text-slate-500">Ready</span>
-                )}
-              </div>
-
-              <h4 className="text-xs font-bold text-white">WebSocket Heartbeat Ping</h4>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                {diagnosticsResults.websocket.message}
-              </p>
-            </div>
-
-            <div className="pt-2 border-t border-white/5 text-[10px] text-slate-500 flex items-center justify-between">
-              <span>Channel: Realtime Active</span>
-              {diagnosticsResults.websocket.latencyMs !== undefined && (
-                <span className="font-mono text-cyan-400">{diagnosticsResults.websocket.latencyMs}ms</span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Remediation Playbook (Shown when CDP is closed or on error) */}
-        {diagnosticsResults.cdp.status === 'warning' && (
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 space-y-3">
-            <div className="flex items-center gap-2 text-amber-400">
-              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-              <h4 className="text-xs font-bold">Desktop connection help</h4>
-            </div>
-
-            <p className="text-[11px] text-slate-300 leading-relaxed">
-              ReFlow Desktop must be open on this computer so the web dashboard can reach its local bridge.
-            </p>
-
-            <ol className="space-y-2 text-xs text-slate-300">
-              <li>1. Open ReFlow Desktop on the same computer as this browser.</li>
-              <li>2. If it is already open, restart the app and wait a few seconds.</li>
-              <li>3. Allow local-network access if your browser asks, then run the check again.</li>
-            </ol>
-          </div>
-        )}
       </div>
 
       {/* Connected Workers Section & Telemetry Cards */}
@@ -1208,14 +888,17 @@ export default function RunnersPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
           <div className="flex items-center gap-2.5">
             <Server className="w-4 h-4 text-cyan-400" />
-            <h2 className="text-sm font-bold text-white tracking-tight">Active Connected Workers</h2>
+            <h2 className="text-sm font-bold text-white tracking-tight">Connected workers</h2>
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-white/5">
-              {workers.length} Registered
+              {workers.length} registered
             </span>
           </div>
 
           <div className="flex items-center gap-3 text-xs font-semibold">
-            <span className="text-slate-400">Telemetry Stream:</span>
+            <button type="button" onClick={handleRefresh} disabled={isRefreshing || loadingWorkers} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50">
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} /> Refresh all
+            </button>
+            <span className="text-slate-400">Status:</span>
             <span
               className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] ${
                 hasRecentRunnerHeartbeat
@@ -1247,7 +930,7 @@ export default function RunnersPage() {
             <div>
               <h3 className="text-sm font-bold text-white">No Desktop Runners Connected Yet</h3>
               <p className="text-xs text-slate-400 max-w-sm mt-1">
-                Launch the Desktop Runner or run <code className="text-cyan-300">npm run runner:listen</code> with your organization pairing token to begin automating workflows.
+No desktop has checked in recently. Open ReFlow Desktop, paste the workspace token, and start the runner. <button type="button" onClick={() => setShowPairingHelp(true)} className="text-cyan-300 hover:text-cyan-200 underline underline-offset-2">View pairing help</button>.
               </p>
             </div>
           </div>
@@ -1405,19 +1088,63 @@ export default function RunnersPage() {
 
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={runDiagnosticsSuite}
-                        className="text-cyan-400 hover:text-cyan-300 font-semibold hover:underline"
+                        type="button"
+                        onClick={() => void checkWorkerStatus(worker.id)}
+                        disabled={workerChecks[worker.id]?.state === 'checking'}
+                        className="text-cyan-400 hover:text-cyan-300 font-semibold hover:underline disabled:opacity-50"
                       >
-                        Ping Worker
+                        {workerChecks[worker.id]?.state === 'checking' ? 'Checking…' : 'Check status'}
                       </button>
                     </div>
                   </div>
+                  {workerChecks[worker.id] && (
+                    <p role="status" className={`text-[11px] ${workerChecks[worker.id].state === 'success' ? 'text-emerald-300' : workerChecks[worker.id].state === 'error' ? 'text-amber-300' : 'text-slate-400'}`}>
+                      {workerChecks[worker.id].message}{workerChecks[worker.id].latencyMs !== undefined ? ` · Dashboard check ${workerChecks[worker.id].latencyMs} ms` : ''}
+                    </p>
+                  )}
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* Pairing help dialog */}
+      {showPairingHelp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowPairingHelp(false); }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="pairing-help-title" className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0c101d] p-5 sm:p-6 shadow-2xl space-y-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 text-cyan-300 mb-2"><Monitor className="w-5 h-5" /><span className="text-xs font-semibold uppercase tracking-wide">Desktop pairing</span></div>
+                <h2 id="pairing-help-title" className="text-lg font-bold text-white">Connect a desktop</h2>
+                <p className="text-sm text-slate-400 mt-1">Pair a computer with {organizationName} in a few steps.</p>
+              </div>
+              <button type="button" onClick={() => setShowPairingHelp(false)} aria-label="Close pairing help" className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-white"><X className="w-4 h-4" /></button>
+            </div>
+            <ol className="space-y-4">
+              <li className="flex items-start gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-cyan-500/20 bg-cyan-500/10 text-xs font-bold text-cyan-300">1</span><div><p className="text-sm font-semibold text-white">Open ReFlow Desktop</p><p className="text-sm text-slate-400 mt-1">On the computer you want to connect, open the desktop app and go to its workspace pairing settings.</p></div></li>
+              <li className="flex items-start gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-cyan-500/20 bg-cyan-500/10 text-xs font-bold text-cyan-300">2</span><div><p className="text-sm font-semibold text-white">Copy your workspace token</p><p className="text-sm text-slate-400 mt-1">Copy the token from this page, then paste it into ReFlow Desktop. Keep the token private.</p><button type="button" onClick={() => { setShowPairingHelp(false); document.getElementById('pairing-token')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }} className="mt-2 text-sm font-semibold text-cyan-300 hover:text-cyan-200">Go to pairing token <span aria-hidden="true">→</span></button></div></li>
+              <li className="flex items-start gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-cyan-500/20 bg-cyan-500/10 text-xs font-bold text-cyan-300">3</span><div><p className="text-sm font-semibold text-white">Start the runner</p><p className="text-sm text-slate-400 mt-1">Choose Connect or Start in ReFlow Desktop. Keep the app open while it connects.</p></div></li>
+            </ol>
+            <div className="rounded-xl border border-white/10 bg-slate-950/70 p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                {pairingCheckState === 'checking' ? <LoaderCircle className="h-4 w-4 animate-spin text-cyan-300" /> : pairingCheckState === 'connected' ? <CheckCircle2 className="h-4 w-4 text-emerald-300" /> : pairingCheckState === 'error' ? <AlertTriangle className="h-4 w-4 text-rose-300" /> : <Wifi className="h-4 w-4 text-slate-400" />}
+                <p className="text-sm font-semibold text-white">{pairingCheckState === 'checking' ? 'Checking connection…' : pairingCheckState === 'connected' ? 'Desktop connected' : pairingCheckState === 'waiting' ? 'Waiting for your desktop' : pairingCheckState === 'error' ? 'Connection check failed' : 'Ready to check connection'}</p>
+              </div>
+              <p className="text-sm text-slate-400">{pairingCheckState === 'connected' ? 'A recent heartbeat was found for this workspace. Your desktop should now appear in Connected workers.' : pairingCheckState === 'waiting' ? 'We haven’t detected a recent desktop heartbeat yet. Make sure the app is open and the runner is started.' : pairingCheckState === 'error' ? (pairingCheckError || 'We couldn’t verify your desktop right now.') : 'After pairing in the desktop app, check here to confirm that it has checked in.'}</p>
+              {pairingCheckState === 'error' && <p role="alert" className="text-xs text-rose-300">{pairingCheckError}</p>}
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button type="button" onClick={() => void checkPairingConnection()} disabled={pairingCheckState === 'checking'} className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-500 px-3.5 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-400 disabled:opacity-50">{pairingCheckState === 'checking' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}{pairingCheckState === 'checking' ? 'Checking…' : 'Check connection'}</button>
+                {pairingCheckState === 'waiting' && <button type="button" onClick={() => { setPairingCheckState('idle'); setPairingCheckError(null); }} className="rounded-lg border border-white/10 px-3.5 py-2 text-sm font-medium text-slate-200 hover:bg-white/5">Try again</button>}
+              </div>
+            </div>
+            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
+              <p className="text-xs text-slate-400"><strong className="text-slate-200">Connecting another computer?</strong> Use the same workspace token on another authorized computer. Each computer should be registered as its own worker.</p>
+            </div>
+            <div className="flex justify-end border-t border-white/5 pt-3"><button type="button" onClick={() => setShowPairingHelp(false)} className="rounded-lg border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/5">Done</button></div>
+          </section>
+        </div>
+      )}
 
       {/* Confirmation Modal: Regenerate Token */}
       {showRegenModal && (
