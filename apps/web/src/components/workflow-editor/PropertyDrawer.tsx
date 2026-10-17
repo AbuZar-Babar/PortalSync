@@ -235,7 +235,7 @@ export default function PropertyDrawer({
         <div>
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-              Action Type
+              Action
             </label>
             <select
               value={draft.action}
@@ -261,17 +261,18 @@ export default function PropertyDrawer({
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Code className="h-3.5 w-3.5 text-sky-400" />
-                Target Selector
+                Page element
               </label>
-              <span className="text-[10px] text-slate-500">Optional technical selector</span>
+              <span className="text-[10px] text-slate-500">What should ReFlow interact with?</span>
             </div>
             <input
               type="text"
               value={draft.target || ''}
               onChange={(e) => setDraft({ ...draft, target: e.target.value })}
-              placeholder="Choose an element or enter a selector"
+              placeholder="e.g. Submit button or CSS selector"
               className="w-full rounded-xl border border-slate-700/80 bg-slate-950/50 px-3 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition"
             />
+            <p className="mt-1.5 text-[11px] leading-5 text-slate-500">Choose the page element ReFlow should interact with. Advanced selector options are available below.</p>
           </div>
         )}
 
