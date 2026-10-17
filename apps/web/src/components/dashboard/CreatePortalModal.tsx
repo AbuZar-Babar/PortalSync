@@ -1023,7 +1023,7 @@ export function CreatePortalModal({
                 Create workflow
               </h2>
               <p className="text-xs text-slate-400">
-                Record a workflow in Chrome, then run it whenever you need.
+                Create a workflow the way that works best for you.
               </p>
             </div>
           </div>
