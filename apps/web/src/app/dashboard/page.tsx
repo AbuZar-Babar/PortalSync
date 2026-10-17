@@ -81,6 +81,7 @@ export default function DashboardOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [stoppingRunId, setStoppingRunId] = useState<string | null>(null);
+  const [chartRange, setChartRange] = useState<'7d' | '30d'>('7d');
 
   // Modals
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
