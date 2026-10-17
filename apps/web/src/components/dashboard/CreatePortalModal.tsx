@@ -1649,7 +1649,6 @@ export function CreatePortalModal({
                     </div>
                   </div>
 
-                  <details className="group rounded-xl border border-slate-800 bg-slate-950/30 p-3.5">
                   <div className="flex items-start gap-2 rounded-xl border border-slate-800 bg-slate-950/40 p-3.5">
                     <Globe className="mt-0.5 h-4 w-4 shrink-0 text-blue-300" />
                     <p className="text-xs leading-5 text-slate-400">ReFlow will open a browser when you’re ready to record.</p>
