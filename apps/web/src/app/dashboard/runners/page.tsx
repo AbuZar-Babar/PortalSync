@@ -372,7 +372,7 @@ export default function RunnersPage() {
     setIsRefreshing(false);
   };
 
-  const checkPairingConnection = async () => {
+  const checkPairingConnection = useCallback(async (): Promise<boolean> => {
     setPairingCheckState('checking');
     setPairingCheckError(null);
     try {
@@ -390,11 +390,13 @@ export default function RunnersPage() {
       });
       await fetchWorkersAndRuns();
       setPairingCheckState(freshWorker ? 'connected' : 'waiting');
+      return Boolean(freshWorker);
     } catch (error) {
       setPairingCheckState('error');
       setPairingCheckError(error instanceof Error ? error.message : 'We couldn’t check your desktop status right now.');
+      return false;
     }
-  };
+  }, [fetchWorkersAndRuns]);
 
   const checkWorkerStatus = async (workerId: string) => {
     const startedAt = Date.now();
@@ -429,6 +431,24 @@ export default function RunnersPage() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [showPairingHelp]);
+
+  useEffect(() => {
+    if (!showPairingHelp) return;
+    let attempts = 0;
+    let inFlight = false;
+    const poller = window.setInterval(async () => {
+      if (inFlight || attempts >= 12) {
+        if (attempts >= 12) window.clearInterval(poller);
+        return;
+      }
+      attempts += 1;
+      inFlight = true;
+      const connected = await checkPairingConnection();
+      inFlight = false;
+      if (connected) window.clearInterval(poller);
+    }, 5000);
+    return () => window.clearInterval(poller);
+  }, [showPairingHelp, checkPairingConnection]);
 
   // 1-Click Copy with feedback
   const copyToClipboard = (text: string) => {
