@@ -78,7 +78,7 @@ function formatRelativeTime(dateInput?: string | null): string {
 }
 
 export default function WorkflowsPage() {
-  const { orgId, isRunnerOnline, openRunDetails, refreshDashboard } = useDashboard();
+  const { orgId, openRunDetails, refreshDashboard } = useDashboard();
 
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [activeRuns, setActiveRuns] = useState<ExecutionRun[]>([]);
@@ -349,9 +349,6 @@ export default function WorkflowsPage() {
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-100">
                 Workflows
               </h1>
-              <span className="text-xs px-2.5 py-0.5 rounded-full font-mono font-medium bg-slate-800 text-cyan-400 border border-cyan-500/30">
-                {workflows.length} workflows
-              </span>
             </div>
             <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
               Manage and run your automations.
@@ -361,22 +358,6 @@ export default function WorkflowsPage() {
 
         {/* Action Controls */}
         <div className="flex items-center gap-2.5">
-          {/* Runner Health Pill */}
-          <div
-            className={`hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border ${
-              isRunnerOnline
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-            }`}
-          >
-            <span
-              className={`w-2 h-2 rounded-full ${
-                isRunnerOnline ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
-              }`}
-            />
-            <span>{isRunnerOnline ? 'Desktop Worker Online' : 'No Worker Connected'}</span>
-          </div>
-
           {/* Refresh Button */}
           <button
             type="button"
@@ -553,7 +534,7 @@ export default function WorkflowsPage() {
               <button
                 type="button"
                 onClick={() => setIsCreateModalOpen(true)}
-                className="mt-2 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-slate-950 font-semibold text-sm shadow-xl shadow-cyan-950/50 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                className="mt-2 inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-sm transition-colors cursor-pointer"
               >
                 <Plus className="h-4 w-4 stroke-[2.5]" />
                 <span>Record your first workflow</span>
@@ -575,10 +556,11 @@ export default function WorkflowsPage() {
                 onClick={() => {
                   setSearchQuery('');
                   setStatusFilter('all');
+                  setSortBy('recent');
                 }}
                 className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors"
               >
-                Clear Filters
+                Reset search & filters
               </button>
             </>
           )}
@@ -665,7 +647,7 @@ export default function WorkflowsPage() {
                   <button
                     type="button"
                     onClick={() => setPreflightWorkflow(wf)}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 shadow-md shadow-cyan-950/40 hover:shadow-cyan-500/20 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-cyan-500 hover:bg-cyan-400 text-slate-950 transition-colors cursor-pointer"
                   >
                     <Play className="h-3.5 w-3.5 fill-current" />
                     <span>Run</span>
@@ -673,10 +655,6 @@ export default function WorkflowsPage() {
 
                   {/* Right Actions: Visual Canvas Link & Delete */}
                   <div className="flex items-center gap-1.5">
-                    <Link href={`/dashboard/workflows/${wf.id}/edit`} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 transition-colors" title="Edit workflow">
-                      <WorkflowIcon className="h-3.5 w-3.5 text-indigo-400" />
-                      <span>Edit</span>
-                    </Link>
                     <details className="relative">
                       <summary className="list-none p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50" aria-label={`More actions for ${wf.name}`} title="More actions">
                         <MoreHorizontal className="h-4 w-4" />
@@ -726,7 +704,7 @@ export default function WorkflowsPage() {
                       </h3>
                     </div>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 mt-1 font-mono">
-                      <span className="truncate max-w-[280px]">{wf.portal_url}</span>
+                      <span className="truncate max-w-[280px]">{domain}</span>
                       <span className="text-slate-600">•</span>
                       <span>{stepCount} steps</span>
                       <span className="text-slate-600">•</span>
@@ -768,16 +746,12 @@ export default function WorkflowsPage() {
                   <button
                     type="button"
                     onClick={() => setPreflightWorkflow(wf)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 shadow-md shadow-cyan-950/40 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-500 hover:bg-cyan-400 text-slate-950 transition-colors cursor-pointer"
                   >
                     <Play className="h-3.5 w-3.5 fill-current" />
                     <span>Run</span>
                   </button>
 
-                  <Link href={`/dashboard/workflows/${wf.id}/edit`} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition-colors" title="Edit workflow">
-                    <WorkflowIcon className="h-3.5 w-3.5 text-indigo-400" />
-                    <span>Edit</span>
-                  </Link>
                   <details className="relative">
                     <summary className="list-none p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50" aria-label={`More actions for ${wf.name}`} title="More actions">
                       <MoreHorizontal className="h-4 w-4" />
