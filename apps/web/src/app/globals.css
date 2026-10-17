@@ -396,11 +396,11 @@ body {
 [data-theme="charcoal-indigo"] .to-blue-600 {
   --tw-gradient-to: #5686dc var(--tw-gradient-to-position) !important;
 }
-[data-theme="charcoal-indigo"] .hover\\:from-cyan-400:hover {
+[data-theme="charcoal-indigo"] .hover\:from-cyan-400:hover {
   --tw-gradient-from: #a5c2ff var(--tw-gradient-from-position) !important;
 }
-[data-theme="charcoal-indigo"] .hover\\:to-indigo-500:hover,
-[data-theme="charcoal-indigo"] .hover\\:to-blue-500:hover {
+[data-theme="charcoal-indigo"] .hover\:to-indigo-500:hover,
+[data-theme="charcoal-indigo"] .hover\:to-blue-500:hover {
   --tw-gradient-to: #82abff var(--tw-gradient-to-position) !important;
 }
 
