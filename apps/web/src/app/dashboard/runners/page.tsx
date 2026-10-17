@@ -191,13 +191,15 @@ export default function RunnersPage() {
         if (res.ok) {
           const json = await res.json();
           if (json.runners && Array.isArray(json.runners) && json.runners.length > 0) {
+            const serverToken = json.runners.find((runner: { token?: string }) => typeof runner.token === 'string')?.token;
+            if (serverToken) setCurrentToken(serverToken);
             apiRunners = json.runners.map((r: { id?: string; hostname?: string; label?: string; token?: string; platform?: string; engineVersion?: string; status?: string; lastPingAt?: string | null; cdpActive?: boolean }, idx: number) => {
               const lastPingMs = r.lastPingAt ? new Date(r.lastPingAt).getTime() : 0;
               const diffSeconds = lastPingMs > 0 ? (Date.now() - lastPingMs) / 1000 : 999999;
               const isOnline = diffSeconds >= 0 && diffSeconds < 60 && r.status !== 'REVOKED';
 
               let status: ConnectedWorker['status'] = 'OFFLINE';
-              if (isTokenRevoked) {
+              if (r.status === 'REVOKED' || isTokenRevoked) {
                 status = 'REVOKED';
               } else if (runningRun && isOnline) {
                 status = 'EXECUTING';
@@ -244,7 +246,7 @@ export default function RunnersPage() {
               const isOnline = diffSeconds >= 0 && diffSeconds < 60 && meta.token_revoked !== true;
 
               let status: ConnectedWorker['status'] = 'OFFLINE';
-              if (isTokenRevoked) {
+              if (meta.token_revoked === true || isTokenRevoked) {
                 status = 'REVOKED';
               } else if (runningRun && isOnline) {
                 status = 'EXECUTING';
@@ -252,6 +254,7 @@ export default function RunnersPage() {
                 status = 'ONLINE';
               }
 
+              if (typeof meta.token === 'string') setCurrentToken(meta.token);
               apiRunners = [
                 {
                   id: 'runner_primary',
@@ -278,33 +281,8 @@ export default function RunnersPage() {
         setWorkers(apiRunners);
         setRunnerStatusUnavailable(false);
       } else {
+        setWorkers([]);
         setRunnerStatusUnavailable(true);
-        // Fallback: render primary worker representation paired to current organization token
-        const lastPing = null;
-        let workerStatus: ConnectedWorker['status'] = 'OFFLINE';
-
-        if (isTokenRevoked) {
-          workerStatus = 'REVOKED';
-        } else if (runningRun && hasRecentRunnerHeartbeat && lastPing) {
-          workerStatus = 'EXECUTING';
-        } else if (hasRecentRunnerHeartbeat && lastPing) {
-          workerStatus = 'ONLINE';
-        }
-
-        setWorkers([
-          {
-            id: `runner-primary-${orgId.slice(0, 8)}`,
-            hostname: 'Desktop Runner',
-            label: 'Local Desktop Runner',
-            token: '',
-            platform: 'unknown',
-            engineVersion: 'unknown',
-            claimsCount: Math.max(0, claimsCount),
-            status: workerStatus,
-            lastPingAt: lastPing,
-            activeRun: workerStatus === 'EXECUTING' ? runningRun : null,
-          },
-        ]);
       }
     } catch (err) {
       console.error('Failed to query workers:', err);
@@ -312,7 +290,7 @@ export default function RunnersPage() {
       setLoadingWorkers(false);
       setIsRefreshing(false);
     }
-  }, [orgId, currentToken, runnerToken, hasRecentRunnerHeartbeat, isTokenRevoked]);
+  }, [orgId]);
 
   // Initial load and periodic refresh ticker (every 5 seconds)
   useEffect(() => {
