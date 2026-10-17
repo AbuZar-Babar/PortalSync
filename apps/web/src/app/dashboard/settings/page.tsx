@@ -466,46 +466,9 @@ const DEFAULT_SETTINGS: UnifiedSettings = {
   },
   security: {
     maskCredentials: true,
-    masterKeyVerified: true,
+    masterKeyVerified: false,
     encryptionAlgorithm: 'AES-256-GCM (Authenticated)',
-    portalCredentials: [
-      {
-        id: 'cred_1',
-        name: 'SAP Corporate ERP',
-        targetDomain: 'sap.portal.corp.internal',
-        placeholder: '{{secret:erp_login}}',
-        maskedValue: '••••••••••••••••',
-        status: 'synced',
-        lastUpdated: '2 hours ago'
-      },
-      {
-        id: 'cred_2',
-        name: 'Vendor Invoice Portal',
-        targetDomain: 'portal.vendor.example.com',
-        placeholder: '{{secret:vendor_auth}}',
-        maskedValue: '••••••••••••••••',
-        status: 'synced',
-        lastUpdated: '1 day ago'
-      },
-      {
-        id: 'cred_3',
-        name: 'Stripe Billing Gateway',
-        targetDomain: 'dashboard.stripe.com',
-        placeholder: '{{secret:stripe_secret}}',
-        maskedValue: '••••••••••••••••',
-        status: 'synced',
-        lastUpdated: '3 days ago'
-      },
-      {
-        id: 'cred_4',
-        name: 'AWS S3 Invoices Storage',
-        targetDomain: 's3.amazonaws.com',
-        placeholder: '{{secret:s3_access_key}}',
-        maskedValue: '••••••••••••••••',
-        status: 'synced',
-        lastUpdated: 'Just now'
-      }
-    ],
+    portalCredentials: [],
     envOverrides: [
       { id: 'env_1', key: 'CHROME_PATH', value: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' },
       { id: 'env_2', key: 'CDP_PORT', value: '9222' },
@@ -1533,11 +1496,11 @@ export default function SettingsPage() {
             <div className="space-y-6 animate-fade-in">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-white tracking-tight flex items-center gap-2">
                     <Palette className="w-4 h-4 text-purple-400" />
                     Appearance
                   </h3>
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="text-sm text-slate-400 mt-1.5">
                     Choose a theme and display mode that works for you.
                   </p>
                 </div>
@@ -2675,48 +2638,36 @@ export default function SettingsPage() {
               <div>
                 <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
                   <Shield className="w-4 h-4 text-emerald-400" />
-                  Security, Secrets Vault &amp; Cryptography
+                  Security
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Manage portal authentication credentials, 256-bit encryption keys, environment variable overrides, and local session caches.
+                  Manage saved credentials, local runner settings, and session data.
                 </p>
               </div>
 
-              {/* Master Key Verification Badge Card */}
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                    <Key className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-white">256-Bit Master Cryptographic Key</span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        Verified Active
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      Symmetric authenticated cipher: <code className="text-emerald-300 font-mono">AES-256-GCM</code> with 96-bit IV. Zero plaintext leakage to cloud database.
-                    </p>
-                  </div>
-                </div>
+              {/* Credential storage scope */}
+          <div className="flex items-start gap-3 rounded-xl border border-amber-400/20 bg-amber-400/[0.04] p-4">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-400/20 bg-amber-400/[0.08] text-amber-200">
+              <Lock className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <h4 className="text-sm font-medium text-slate-100">Local credential storage</h4>
+              <p className="mt-1 text-sm leading-relaxed text-slate-400">
+                Credentials are kept in this browser’s local storage for the connected desktop workflow. They are not automatically shared across devices. Avoid storing production secrets here until managed secret storage is configured.
+              </p>
+            </div>
+          </div>
 
-                <div className="text-[11px] font-mono text-slate-400 px-3 py-1.5 rounded-lg bg-slate-900 border border-white/5 self-start sm:self-auto">
-                  SHA-256 Fingerprint: <span className="text-emerald-400">7f9a...c32d</span>
-                </div>
-              </div>
-
-              {/* Connected Portal Credentials Widget */}
+          {/* Connected Portal Credentials Widget */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
                       <Lock className="w-3.5 h-3.5 text-cyan-400" />
-                      Connected Portal Credentials ({settings.security.portalCredentials.length} Configured)
+                      Saved credentials ({settings.security.portalCredentials.length})
                     </h4>
                     <p className="text-[11px] text-slate-400 mt-0.5">
-                      Encrypted credentials referenced via semantic tags like <code className="text-cyan-300">{"{{secret:name}}"}</code> in automation steps.
+                      Use a saved credential in workflow steps with its secret reference. Credentials are stored locally on this browser.
                     </p>
                   </div>
                   <button
@@ -2739,7 +2690,7 @@ export default function SettingsPage() {
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-white truncate">{cred.name}</span>
                           <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                            Synced
+                            Local
                           </span>
                         </div>
                         <div className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
@@ -2847,7 +2798,7 @@ export default function SettingsPage() {
                   <div>
                     <h4 className="text-xs font-bold text-red-300 flex items-center gap-1.5">
                       <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
-                      Purge Local Runner Session Cache
+                      Clear local session cache
                     </h4>
                     <p className="text-[11px] text-slate-400 mt-0.5">
                       Clears temporary browser session tokens, cached CDP cookies, and runner checkpoints from this workstation. Does not affect saved workflows or cloud databases.
@@ -2884,7 +2835,7 @@ export default function SettingsPage() {
             </div>
 
             <p className="text-xs text-slate-300 leading-relaxed">
-              This will clear cached session tokens, temporary telemetry checkpoints, and Chrome automation cookies on this workstation.
+              This clears cached session tokens and temporary runner data on this workstation. Saved workflows and downloaded files are not deleted.
               Your workflows, recorded steps, and downloaded invoices are safe and will <span className="font-bold text-white">not</span> be deleted.
             </p>
 
