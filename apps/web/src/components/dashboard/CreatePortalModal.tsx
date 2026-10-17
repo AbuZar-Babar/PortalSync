@@ -1255,9 +1255,6 @@ export function CreatePortalModal({
                 </div>
               </details>
 
-                </div>
-              </details>
-
               {/* Submit Buttons */}
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
                 <button
@@ -1386,6 +1383,9 @@ export function CreatePortalModal({
                   />
                 </label>
               </div>
+
+                </div>
+              </details>
 
               {/* Submit Buttons */}
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
