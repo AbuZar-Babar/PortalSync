@@ -45,25 +45,25 @@
   --input-border: rgba(255, 255, 255, 0.1);
 }
 
-/* 2. Charcoal Indigo (Developer Slate) */
+/* 2. Charcoal Blue (Refined Dashboard) */
 [data-theme="charcoal-indigo"],
 .theme-charcoal-indigo {
-  --canvas-bg: #0f172a;
-  --surface-bg: #1e293b;
-  --surface-hover: #273549;
-  --sidebar-bg: #0b1120;
-  --header-bg: #0d1527;
-  --border-color: rgba(129, 140, 248, 0.18);
-  --border-hover: rgba(129, 140, 248, 0.45);
-  --primary-color: #818cf8;
-  --primary-rgb: 129, 140, 248;
-  --accent-color: #a855f7;
-  --accent-rgb: 168, 85, 247;
-  --glow-color: rgba(129, 140, 248, 0.45);
-  --foreground: #f8fafc;
-  --text-muted: #94a3b8;
-  --input-bg: rgba(15, 23, 42, 0.85);
-  --input-border: rgba(129, 140, 248, 0.2);
+  --canvas-bg: #11151d;
+  --surface-bg: #1b2330;
+  --surface-hover: #252f3d;
+  --sidebar-bg: #0d1118;
+  --header-bg: #141a23;
+  --border-color: #303b4b;
+  --border-hover: rgba(130, 171, 255, 0.48);
+  --primary-color: #82abff;
+  --primary-rgb: 130, 171, 255;
+  --accent-color: #80d9b0;
+  --accent-rgb: 128, 217, 176;
+  --glow-color: rgba(130, 171, 255, 0.18);
+  --foreground: #f4f6fa;
+  --text-muted: #aab5c5;
+  --input-bg: rgba(13, 17, 24, 0.88);
+  --input-border: #303b4b;
 }
 
 /* 3. Emerald Matrix (Cyber Mint) */
@@ -183,13 +183,20 @@
 
 [data-mode="light"][data-theme="charcoal-indigo"],
 .light.theme-charcoal-indigo {
-  --canvas-bg: #f5f3ff;
+  --canvas-bg: #f4f6f9;
   --surface-bg: #ffffff;
-  --primary-color: #4f46e5;
-  --primary-rgb: 79, 70, 229;
-  --accent-color: #7c3aed;
-  --accent-rgb: 124, 58, 237;
-  --border-color: #ede9fe;
+  --surface-hover: #edf1f6;
+  --sidebar-bg: #f8fafc;
+  --header-bg: rgba(255, 255, 255, 0.96);
+  --primary-color: #376fce;
+  --primary-rgb: 55, 111, 206;
+  --accent-color: #16845d;
+  --accent-rgb: 22, 132, 93;
+  --border-color: #dce3ec;
+  --foreground: #17202d;
+  --text-muted: #58677b;
+  --input-bg: #ffffff;
+  --input-border: #cbd5e1;
 }
 
 [data-mode="light"][data-theme="emerald-matrix"],
@@ -355,20 +362,20 @@ body {
    Theme-Specific Primary Accent Highlights & Buttons
    ======================================================== */
 
-/* 2. Charcoal Indigo */
+/* 2. Charcoal Blue */
 [data-theme="charcoal-indigo"] .text-cyan-400,
 [data-theme="charcoal-indigo"] .text-cyan-300,
 [data-theme="charcoal-indigo"] .text-cyan-500 {
-  color: #818cf8 !important;
+  color: #82abff !important;
 }
 [data-theme="charcoal-indigo"] .bg-cyan-400,
 [data-theme="charcoal-indigo"] .bg-cyan-500 {
-  background-color: #818cf8 !important;
+  background-color: #82abff !important;
 }
 [data-theme="charcoal-indigo"] .bg-cyan-500\/10,
 [data-theme="charcoal-indigo"] .bg-cyan-500\/15,
 [data-theme="charcoal-indigo"] .bg-cyan-500\/20 {
-  background-color: rgba(129, 140, 248, 0.15) !important;
+  background-color: rgba(130, 171, 255, 0.14) !important;
 }
 [data-theme="charcoal-indigo"] .border-cyan-500\/20,
 [data-theme="charcoal-indigo"] .border-cyan-500\/30,
@@ -376,25 +383,25 @@ body {
 [data-theme="charcoal-indigo"] .border-cyan-500\/50,
 [data-theme="charcoal-indigo"] .border-cyan-400\/30,
 [data-theme="charcoal-indigo"] .border-cyan-400\/40 {
-  border-color: rgba(129, 140, 248, 0.35) !important;
+  border-color: rgba(130, 171, 255, 0.32) !important;
 }
 [data-theme="charcoal-indigo"] .ring-cyan-500\/30,
 [data-theme="charcoal-indigo"] .ring-cyan-500\/50 {
-  --tw-ring-color: rgba(129, 140, 248, 0.35) !important;
+  --tw-ring-color: rgba(130, 171, 255, 0.36) !important;
 }
 [data-theme="charcoal-indigo"] .from-cyan-500 {
-  --tw-gradient-from: #818cf8 var(--tw-gradient-from-position) !important;
+  --tw-gradient-from: #82abff var(--tw-gradient-from-position) !important;
 }
 [data-theme="charcoal-indigo"] .to-indigo-600,
 [data-theme="charcoal-indigo"] .to-blue-600 {
-  --tw-gradient-to: #6366f1 var(--tw-gradient-to-position) !important;
+  --tw-gradient-to: #5686dc var(--tw-gradient-to-position) !important;
 }
 [data-theme="charcoal-indigo"] .hover\:from-cyan-400:hover {
-  --tw-gradient-from: #a5b4fc var(--tw-gradient-from-position) !important;
+  --tw-gradient-from: #a5c2ff var(--tw-gradient-from-position) !important;
 }
 [data-theme="charcoal-indigo"] .hover\:to-indigo-500:hover,
 [data-theme="charcoal-indigo"] .hover\:to-blue-500:hover {
-  --tw-gradient-to: #818cf8 var(--tw-gradient-to-position) !important;
+  --tw-gradient-to: #82abff var(--tw-gradient-to-position) !important;
 }
 
 /* 3. Emerald Matrix */

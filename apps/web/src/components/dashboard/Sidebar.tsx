@@ -11,8 +11,7 @@ import {
   Cpu,
   Settings,
   ChevronLeft,
-  ChevronRight,
-  LogOut
+  ChevronRight
 } from 'lucide-react';
 import { RobotAvatar } from './RobotAvatar';
 
@@ -22,20 +21,19 @@ interface SidebarProps {
 
 export function Sidebar({ isRunnerOnline = false }: SidebarProps) {
   const pathname = usePathname();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  // Keep the rail compact by default; preserve an explicit user preference.
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setMounted(true);
-      try {
-        const saved = localStorage.getItem('wf_saas_sidebar_collapsed');
-        if (saved === '1') {
-          setIsCollapsed(true);
-        }
-      } catch {}
-    }, 0);
-    return () => clearTimeout(timer);
+    try {
+      const saved = localStorage.getItem('wf_saas_sidebar_collapsed');
+      if (saved === '0') setIsCollapsed(false);
+      else setIsCollapsed(true);
+    } catch {
+      setIsCollapsed(true);
+    }
+    setMounted(true);
   }, []);
 
   const toggleCollapse = () => {
@@ -47,90 +45,44 @@ export function Sidebar({ isRunnerOnline = false }: SidebarProps) {
   };
 
   const navItems = [
-    {
-      label: 'Overview',
-      href: '/dashboard',
-      icon: LayoutGrid,
-      exact: true,
-      tooltip: 'Overview & Stats'
-    },
-    {
-      label: 'Workflows',
-      href: '/dashboard/workflows',
-      icon: Workflow,
-      exact: false,
-      tooltip: 'Workflows Library'
-    },
-    {
-      label: 'Executions',
-      href: '/dashboard/runs',
-      icon: Activity,
-      exact: false,
-      tooltip: 'Run History & Telemetry'
-    },
-    {
-      label: 'Outputs',
-      href: '/dashboard/artifacts',
-      icon: FileText,
-      exact: false,
-      tooltip: 'Invoices & Downloaded Files'
-    },
-    {
-      label: 'Workers',
-      href: '/dashboard/runners',
-      icon: Cpu,
-      exact: false,
-      tooltip: 'Connected Runners & Tokens'
-    },
-    {
-      label: 'Settings',
-      href: '/dashboard/settings',
-      icon: Settings,
-      exact: false,
-      tooltip: 'Automation Preferences'
-    }
+    { label: 'Home', href: '/dashboard', icon: LayoutGrid, exact: true },
+    { label: 'Workflows', href: '/dashboard/workflows', icon: Workflow, exact: false },
+    { label: 'Run history', href: '/dashboard/runs', icon: Activity, exact: false },
+    { label: 'Files & results', href: '/dashboard/artifacts', icon: FileText, exact: false },
+    { label: 'Desktop connection', href: '/dashboard/runners', icon: Cpu, exact: false },
+    { label: 'Settings', href: '/dashboard/settings', icon: Settings, exact: false }
   ];
 
   const isActive = (itemHref: string, exact: boolean) => {
     if (!pathname) return false;
-    if (exact) {
-      return pathname === itemHref;
-    }
-    return pathname.startsWith(itemHref);
+    return exact ? pathname === itemHref : pathname.startsWith(itemHref);
   };
 
   return (
     <aside
-      className={`relative flex flex-col justify-between h-screen sticky top-0 bg-[var(--sidebar-bg,#0c101d)] border-r border-[var(--border-color,rgba(255,255,255,0.05))] transition-all duration-300 ease-in-out z-30 select-none flex-shrink-0 ${
-        isCollapsed ? 'w-[72px] px-2.5 py-4' : 'w-[230px] px-3.5 py-4'
+      className={`sticky top-0 z-30 flex h-screen flex-shrink-0 select-none flex-col justify-between border-r border-[var(--border-color,rgba(255,255,255,0.07))] bg-[var(--sidebar-bg,#0c101d)] py-4 transition-[width,padding] duration-200 ease-out ${
+        isCollapsed ? 'w-14 px-2' : 'w-[230px] px-3.5'
       }`}
       aria-label="Sidebar navigation"
     >
-      {/* Top Section */}
-      <div className="flex flex-col gap-4">
-        {/* Brand Header */}
+      <div className="flex flex-col gap-5">
         <Link
           href="/dashboard"
-          className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-white/5 transition-colors group"
-          title="ReFlow Cloud SaaS"
+          className={`group flex min-h-10 items-center rounded-lg p-1.5 transition-colors hover:bg-white/5 ${
+            isCollapsed ? 'justify-center' : 'gap-3'
+          }`}
+          title="ReFlow"
+          aria-label="ReFlow overview"
         >
           <RobotAvatar size={isCollapsed ? 'mini' : 'badge'} state={isRunnerOnline ? 'running' : 'idle'} />
           {!isCollapsed && (
-            <div className="flex flex-col overflow-hidden">
-              <div className="flex items-center gap-1.5">
-                <span className="font-extrabold text-sm tracking-tight text-white group-hover:text-cyan-400 transition-colors">
-                  ReFlow
-                </span>
-              </div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400/80">
-                Cloud SaaS
-              </span>
-            </div>
+            <span className="truncate text-sm font-semibold tracking-tight text-[var(--foreground,#f8fafc)]">
+              ReFlow
+            </span>
           )}
         </Link>
 
-        {/* Navigation Items */}
-        <nav className="flex flex-col gap-1 mt-1" aria-label="Main Navigation">
+        <nav className="flex flex-col gap-1" aria-label="Main navigation">
           {navItems.map((item) => {
             const active = mounted && isActive(item.href, item.exact);
             const Icon = item.icon;
@@ -139,25 +91,33 @@ export function Sidebar({ isRunnerOnline = false }: SidebarProps) {
               <Link
                 key={item.href}
                 href={item.href}
-                title={isCollapsed ? item.tooltip : undefined}
-                className={`relative flex items-center gap-3 h-10 px-3 rounded-lg text-xs font-semibold transition-all duration-150 group ${
+                aria-label={item.label}
+                aria-current={active ? 'page' : undefined}
+                title={isCollapsed ? item.label : undefined}
+                className={`group relative flex h-10 items-center rounded-lg border text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-color,#00f0ff)] ${
+                  isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
+                } ${
                   active
-                    ? 'bg-gradient-to-r from-cyan-500/15 to-indigo-500/15 text-cyan-300 border border-cyan-500/30 font-bold'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
-                } ${isCollapsed ? 'justify-center px-0' : ''}`}
-                style={active ? { boxShadow: '0 0 12px var(--glow-color, rgba(0,240,255,0.15))' } : undefined}
+                    ? 'border-[var(--border-color,rgba(255,255,255,0.08))] bg-[var(--surface-hover,#11182c)] text-[var(--foreground,#f8fafc)]'
+                    : 'border-transparent text-slate-400 hover:bg-white/5 hover:text-[var(--foreground,#f8fafc)]'
+                }`}
               >
+                {active && (
+                  <span className="absolute bottom-2 left-0 top-2 w-0.5 rounded-full bg-[var(--primary-color,#00f0ff)]" />
+                )}
                 <Icon
-                  className={`w-4 h-4 flex-shrink-0 transition-transform group-hover:scale-110 ${
-                    active ? 'text-cyan-400' : 'text-slate-400 group-hover:text-slate-200'
+                  aria-hidden="true"
+                  className={`h-4 w-4 flex-shrink-0 ${
+                    active ? 'text-[var(--primary-color,#00f0ff)]' : 'text-slate-400 group-hover:text-slate-200'
                   }`}
                 />
-                {!isCollapsed && (
-                  <span className="truncate">{item.label}</span>
-                )}
-                {/* Collapsed Tooltip Floating Bubble */}
+                {!isCollapsed && <span className="truncate">{item.label}</span>}
                 {isCollapsed && (
-                  <span className="absolute left-full ml-3 px-2.5 py-1.5 bg-[#0f172a] text-slate-200 text-[11px] font-semibold rounded-md border border-white/10 shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity z-50 whitespace-nowrap">
+                  <span
+                    role="tooltip"
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-full z-50 ml-2 whitespace-nowrap rounded-md border border-[var(--border-color,rgba(255,255,255,0.1))] bg-[var(--surface-bg,#0c101d)] px-2.5 py-1.5 text-[11px] font-medium text-[var(--foreground,#f8fafc)] opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+                  >
                     {item.label}
                   </span>
                 )}
@@ -167,43 +127,22 @@ export function Sidebar({ isRunnerOnline = false }: SidebarProps) {
         </nav>
       </div>
 
-      {/* Bottom Section */}
-      <div className="flex flex-col gap-1 pt-3 border-t border-white/5">
-        {/* Sign Out Button */}
+      <div className="border-t border-[var(--border-color,rgba(255,255,255,0.07))] pt-3">
         <button
-          onClick={async () => {
-            try {
-              const { createClient } = await import('@/lib/supabase/client');
-              const supabase = createClient();
-              await supabase.auth.signOut();
-              await fetch('/auth/signout', { method: 'POST' }).catch(() => {});
-            } finally {
-              window.location.href = '/';
-            }
-          }}
-          title={isCollapsed ? 'Sign Out' : undefined}
-          className={`flex items-center gap-3 h-9 px-3 rounded-lg text-xs font-medium text-rose-400/80 hover:text-rose-300 hover:bg-rose-500/10 transition-colors ${
-            isCollapsed ? 'justify-center px-0' : ''
-          }`}
-        >
-          <LogOut className="w-4 h-4 flex-shrink-0" />
-          {!isCollapsed && <span>Sign Out</span>}
-        </button>
-
-        {/* Sidebar Collapse Toggle Button */}
-        <button
+          type="button"
           onClick={toggleCollapse}
-          className={`flex items-center gap-3 h-9 px-3 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors ${
-            isCollapsed ? 'justify-center px-0' : ''
+          className={`flex h-9 w-full items-center rounded-lg text-xs font-medium text-slate-400 transition-colors hover:bg-white/5 hover:text-[var(--foreground,#f8fafc)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-color,#00f0ff)] ${
+            isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'
           }`}
-          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={isCollapsed ? 'Expand navigation' : 'Collapse navigation'}
+          aria-label={isCollapsed ? 'Expand navigation' : 'Collapse navigation'}
+          aria-expanded={!isCollapsed}
         >
           {isCollapsed ? (
-            <ChevronRight className="w-4 h-4 flex-shrink-0 text-slate-400" />
+            <ChevronRight aria-hidden="true" className="h-4 w-4" />
           ) : (
             <>
-              <ChevronLeft className="w-4 h-4 flex-shrink-0 text-slate-400" />
+              <ChevronLeft aria-hidden="true" className="h-4 w-4" />
               <span>Collapse</span>
             </>
           )}

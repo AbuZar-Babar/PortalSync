@@ -28,10 +28,18 @@ export default function ScrollReveal({
     const element = ref.current;
     if (!element) return;
 
-    // Bidirectional observer: triggers both on entering and leaving the viewport
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setIsVisible(true);
+      return;
+    }
+
+    // Reveal once, then leave content visible when the user scrolls away.
     const observer = new IntersectionObserver(
       ([entry]) => {
-        setIsVisible(entry.isIntersecting);
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.unobserve(element);
+        }
       },
       {
         threshold,

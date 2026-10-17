@@ -328,15 +328,15 @@ const THEME_PALETTES: {
   },
   {
     id: 'charcoal-indigo',
-    name: 'Charcoal Indigo',
-    tag: 'DEVELOPER SLATE',
-    desc: 'Slate charcoal with rich violet accents and clean enterprise telemetry.',
-    previewBg: '#0f172a',
-    previewSidebar: '#0b1120',
-    previewSurface: '#1e293b',
-    primaryColor: '#818cf8',
-    accentColor: '#6366f1',
-    borderColor: '#334155'
+    name: 'Charcoal Blue',
+    tag: 'REFINED DARK',
+    desc: 'Clean charcoal surfaces, restrained blue highlights, and calm status colors.',
+    previewBg: '#11151d',
+    previewSidebar: '#0d1118',
+    previewSurface: '#1b2330',
+    primaryColor: '#82abff',
+    accentColor: '#80d9b0',
+    borderColor: '#303b4b'
   },
   {
     id: 'emerald-matrix',
