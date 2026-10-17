@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
 
     // Use existing token if valid rf_live_ format, otherwise generate and persist initial token & hash
     let pairedToken = runnerMeta.token;
-    if (!pairedToken || !pairedToken.startsWith('rf_live_') || !org.runner_token_hash) {
+    if (runnerMeta.token_revoked !== true && (!pairedToken || !pairedToken.startsWith('rf_live_') || !org.runner_token_hash)) {
       const rawOrgHex = orgId.replace(/-/g, '').slice(0, 16);
       const secretHex = crypto.randomBytes(16).toString('hex');
       pairedToken = `rf_live_${rawOrgHex}_${secretHex}`;
@@ -185,6 +185,7 @@ export async function POST(request: NextRequest) {
       ...existingMeta,
       token: newToken,
       token_revoked: false,
+      workers: Array.isArray(existingMeta.workers) ? existingMeta.workers.map((worker) => ({ ...worker, token_revoked: true })) : existingMeta.workers,
       rotated_at: new Date().toISOString(),
     };
 
