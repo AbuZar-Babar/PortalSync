@@ -864,7 +864,7 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
             <h2 className="text-xs font-semibold tracking-wide text-slate-200">Workflow steps</h2>
             <p className="mt-1 text-xs text-slate-500">Select a step to edit it.</p>
           </div>
-          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+          <div className="reflow-hide-scrollbar min-h-0 flex-1 space-y-1 overflow-y-auto">
             {orderedCanvasNodes.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-700 px-3 py-5 text-center">
                 <Plus className="mx-auto h-5 w-5 text-slate-500" />
@@ -903,7 +903,7 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
             {/* Dropdown Menu */}
             {isPaletteOpen && (
               <div
-                className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-800 bg-slate-900/95 p-1.5 shadow-2xl backdrop-blur-xl z-50 text-xs"
+                className="reflow-hide-scrollbar absolute bottom-full right-0 mb-2 max-h-[min(68vh,520px)] w-56 overflow-y-auto overscroll-contain rounded-xl border border-slate-800 bg-slate-900/95 p-1.5 shadow-2xl backdrop-blur-xl z-50 text-xs"
                 onClick={() => setIsPaletteOpen(false)}
               >
                 <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
@@ -1053,13 +1053,16 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
         />
         </section>
 
-        {/* Contextual step settings stay docked beside the canvas. */}
-        <div className="hidden lg:flex w-[300px] shrink-0 flex-col overflow-hidden border-l border-slate-800 bg-[#0F172A]">
+        {/* Step settings slide out only when a workflow step is selected. */}
+        <div
+          className={`absolute inset-y-0 right-0 z-30 w-[320px] max-w-[92vw] border-l border-slate-800 bg-[#0F172A] shadow-2xl transition-transform duration-200 ease-out ${isDrawerOpen && selectedNodeId !== null ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`}
+          aria-hidden={!(isDrawerOpen && selectedNodeId !== null)}
+        >
           <PropertyDrawer
             key={selectedNodeId !== null ? String(selectedNodeId) : 'none'}
             nodeId={selectedNodeId}
             nodeData={selectedNodeData}
-            isOpen={true}
+            isOpen={isDrawerOpen && selectedNodeId !== null}
             onClose={() => { setIsDrawerOpen(false); setSelectedNodeId(null); setSelectedNodeData(null); }}
             onUpdate={handleUpdateStep}
             onDelete={handleDeleteNode}
