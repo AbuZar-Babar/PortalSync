@@ -1254,7 +1254,7 @@ export default function ArtifactsVaultPage() {
                             <button type="button" onClick={(e) => handleOpenPreview(art, e)} className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-slate-900 text-slate-400 hover:border-cyan-400/30 hover:bg-slate-800 hover:text-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400" title={"Preview " + art.file_name} aria-label={"Preview " + art.file_name}><Eye className="h-4 w-4" /></button>
                             <a href={"/api/v1/artifacts/download?id=" + art.id} download={art.file_name} className="grid h-8 w-8 place-items-center rounded-lg border border-cyan-400/20 bg-cyan-400/[0.08] text-cyan-200 hover:border-cyan-400/40 hover:bg-cyan-400/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400" title={"Download " + art.file_name} aria-label={"Download " + art.file_name}><Download className="h-4 w-4" /></a>
                           </div>
-                        </td>                   </td>
+                        </td>
                       </tr>
                     );
                   })}
