@@ -104,7 +104,7 @@ export default function RunnersPage() {
     },
     cdp: {
       step: 'cdp',
-      name: 'Chrome DevTools Protocol (CDP Port 9222)',
+      name: 'ReFlow Desktop Bridge',
       status: 'pending',
       message: 'Awaiting execution',
     },
@@ -495,7 +495,7 @@ export default function RunnersPage() {
       },
       cdp: {
         step: 'cdp',
-        name: 'Chrome DevTools Protocol (CDP Port 9222)',
+        name: 'ReFlow Desktop Bridge',
         status: 'running',
         message: 'Querying local Chrome CDP HTTP interface...',
       },
@@ -545,57 +545,44 @@ export default function RunnersPage() {
 
     setDiagnosticsResults((prev) => ({ ...prev, token: tokenResult }));
 
-    // Step 2: Chrome CDP Port 9222 Accessibility via /api/v1/runners/diagnostics
+    // Step 2: Probe the local desktop bridge from the user's browser.
+    // Cloud-server localhost is not the user's computer, so do not use the cloud diagnostics route here.
     let cdpResult: DiagnosticResult;
+    const bridgeStart = performance.now();
     try {
-      const res = await fetch('/api/v1/runners/diagnostics', {
-        method: 'GET',
-        headers: {
-          'X-Runner-Token': currentToken,
-        },
-      });
-
-      const data = await res.json();
-      if (data.cdp_accessible) {
+      const res = await fetch('http://127.0.0.1:49152/health', { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      const bridgeLatency = Math.round(performance.now() - bridgeStart);
+      if (res.ok && data.status === 'ok') {
         cdpResult = {
           step: 'cdp',
-          name: 'Chrome DevTools Protocol (CDP Port 9222)',
+          name: 'ReFlow Desktop Bridge',
           status: 'success',
-          message: `CDP is active and responding. Browser: ${data.browser || 'Google Chrome'}`,
-          latencyMs: data.latency_ms || 12,
-          details: `Version: ${data.version || '1.3'} | Port: 9222 reachable`,
-        };
-      } else if (hasRecentRunnerHeartbeat) {
-        cdpResult = {
-          step: 'cdp',
-          name: 'Chrome DevTools Protocol (CDP Port 9222)',
-          status: 'success',
-          message: 'Desktop Worker connected. Chrome CDP port 9222 managed automatically by runner daemon.',
-          latencyMs: 15,
-          details: 'Port: 9222 | Managed by ReFlow Worker Engine',
+          message: 'ReFlow Desktop is reachable from this browser.',
+          latencyMs: bridgeLatency,
+          details: 'Local bridge responded on port 49152. Browser readiness is reported separately by the runner.',
         };
       } else {
         cdpResult = {
           step: 'cdp',
-          name: 'Chrome DevTools Protocol (CDP Port 9222)',
+          name: 'ReFlow Desktop Bridge',
           status: 'warning',
-          message: 'Local Chrome CDP port 9222 is closed or connection refused.',
-          latencyMs: data.latency_ms || 35,
-          details: data.cdp?.error || 'Connection refused on 127.0.0.1:9222',
-          remediation:
-            'Start Chrome with: chrome.exe --remote-debugging-port=9222 --user-data-dir="C:\\ChromeDebug"',
+          message: 'ReFlow Desktop did not return a healthy response.',
+          latencyMs: bridgeLatency,
+          details: 'The local bridge response was not healthy.',
+          remediation: 'Open ReFlow Desktop on this computer, then run the connection check again.',
         };
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Fetch error';
+      const msg = err instanceof Error ? err.message : 'Local connection failed';
       cdpResult = {
         step: 'cdp',
-        name: 'Chrome DevTools Protocol (CDP Port 9222)',
+        name: 'ReFlow Desktop Bridge',
         status: 'warning',
-        message: `Diagnostic probe encountered network error: ${msg}`,
-        latencyMs: 40,
-        remediation:
-          'Ensure Chrome is running with --remote-debugging-port=9222 or run `npm run runner:doctor`.',
+        message: 'Could not reach ReFlow Desktop from this browser.',
+        latencyMs: Math.round(performance.now() - bridgeStart),
+        details: msg,
+        remediation: 'Open ReFlow Desktop and keep it running. If your browser asks for local-network access, allow it for ReFlow.',
       };
     }
 
@@ -1116,7 +1103,7 @@ export default function RunnersPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">
-                  Step 2: Browser CDP
+                  Step 2: Desktop App
                 </span>
                 {diagnosticsResults.cdp.status === 'running' && (
                   <RefreshCw className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
@@ -1136,14 +1123,14 @@ export default function RunnersPage() {
                 )}
               </div>
 
-              <h4 className="text-xs font-bold text-white">Chrome DevTools Protocol (CDP)</h4>
+              <h4 className="text-xs font-bold text-white">Local Desktop Bridge</h4>
               <p className="text-[11px] text-slate-400 leading-relaxed">
                 {diagnosticsResults.cdp.message}
               </p>
             </div>
 
             <div className="pt-2 border-t border-white/5 text-[10px] text-slate-500 flex items-center justify-between">
-              <span>Port: 9222 (Loopback)</span>
+              <span>Port: 49152 (Local)</span>
               {diagnosticsResults.cdp.latencyMs !== undefined && (
                 <span className="font-mono text-cyan-400">{diagnosticsResults.cdp.latencyMs}ms</span>
               )}
@@ -1190,11 +1177,11 @@ export default function RunnersPage() {
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 space-y-3">
             <div className="flex items-center gap-2 text-amber-400">
               <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-              <h4 className="text-xs font-bold">CDP Port 9222 Remediation Playbook</h4>
+              <h4 className="text-xs font-bold">Desktop connection help</h4>
             </div>
 
             <p className="text-[11px] text-slate-300 leading-relaxed">
-              Google Chrome must be launched with remote debugging enabled so the ReFlow engine can automate browser tabs without leaving user traces. Run the following command in your terminal:
+              ReFlow Desktop must be open on this computer so the web dashboard can reach its local bridge.
             </p>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 text-[11px] font-mono">
