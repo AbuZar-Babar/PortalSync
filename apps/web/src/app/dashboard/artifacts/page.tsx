@@ -1066,7 +1066,6 @@ export default function ArtifactsVaultPage() {
         </div>
       )}
 
-      <>
       <section aria-label="File search and filters" className="rounded-2xl border border-white/[0.08] bg-[#0c101d]/75 p-3.5 sm:p-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
           <div className="relative min-w-0 flex-1">
