@@ -1117,7 +1117,22 @@ export default function RunnersPage() {
         </div>
       </div>
 
-      {/* Middle Section: Connection Diagnostics & Troubleshooter */}
+      {/* Advanced troubleshooting is available on demand to keep the main connection flow focused. */}
+      <details className="group rounded-2xl border border-white/10 bg-[#0c101d]">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-4 sm:px-5 [&::-webkit-details-marker]:hidden">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-slate-300">
+              <Activity className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-white">Connection troubleshooting</h2>
+              <p className="mt-1 text-sm text-slate-400">Open these checks if your computer is not connecting or workflows are not running.</p>
+            </div>
+          </div>
+          <span className="shrink-0 text-xs font-medium text-slate-300 group-open:hidden">View checks</span>
+          <span className="hidden shrink-0 text-xs font-medium text-slate-300 group-open:inline">Hide checks</span>
+        </summary>
+        <div className="p-4 pt-0 sm:px-5 sm:pb-5">
       <div className="bg-[#0c101d] border border-white/10 rounded-2xl p-6 shadow-xl space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
           <div className="flex items-center gap-2.5">
@@ -1320,6 +1335,8 @@ export default function RunnersPage() {
           </div>
         )}
       </div>
+        </div>
+      </details>
 
       {/* Connected Workers Section & Telemetry Cards */}
       <div className="bg-[#0c101d] border border-white/10 rounded-2xl p-6 shadow-xl space-y-4">
