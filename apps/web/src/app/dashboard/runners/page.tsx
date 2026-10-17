@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Cpu,
   Server,
@@ -43,16 +43,6 @@ interface ConnectedWorker {
   cdpActive?: boolean;
 }
 
-interface DiagnosticResult {
-  step: 'token' | 'cdp' | 'websocket';
-  name: string;
-  status: 'pending' | 'running' | 'success' | 'warning' | 'error';
-  message: string;
-  latencyMs?: number;
-  details?: string;
-  remediation?: string;
-}
-
 export default function RunnersPage() {
   const {
     orgId,
@@ -67,7 +57,6 @@ export default function RunnersPage() {
   const [isTokenRevoked, setIsTokenRevoked] = useState<boolean>(false);
   const [isTokenMasked, setIsTokenMasked] = useState<boolean>(true);
   const [copiedToken, setCopiedToken] = useState<boolean>(false);
-  const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
 
   // Modals state
   const [showRegenModal, setShowRegenModal] = useState<boolean>(false);
@@ -93,30 +82,6 @@ export default function RunnersPage() {
 
   // Live seconds ticker
   const [now, setNow] = useState<number>(() => Date.now());
-
-  // Diagnostics State
-  const [isRunningDiagnostics, setIsRunningDiagnostics] = useState<boolean>(false);
-  const [diagnosticsCompleted, setDiagnosticsCompleted] = useState<boolean>(false);
-  const [diagnosticsResults, setDiagnosticsResults] = useState<Record<string, DiagnosticResult>>({
-    token: {
-      step: 'token',
-      name: 'Pairing Token & Cryptographic Signature',
-      status: 'pending',
-      message: 'Awaiting execution',
-    },
-    cdp: {
-      step: 'cdp',
-      name: 'ReFlow Desktop Bridge',
-      status: 'pending',
-      message: 'Awaiting execution',
-    },
-    websocket: {
-      step: 'websocket',
-      name: 'Supabase Realtime Channel & WebSocket Ping',
-      status: 'pending',
-      message: 'Awaiting execution',
-    },
-  });
 
   // Keep live seconds ticking every 1,000ms
   useEffect(() => {
@@ -469,16 +434,14 @@ export default function RunnersPage() {
   }, [showPairingHelp]);
 
   // 1-Click Copy with feedback
-  const copyToClipboard = (text: string, type: 'token' | string) => {
+  const copyToClipboard = (text: string) => {
     if (!text) return;
-    navigator.clipboard.writeText(text);
-    if (type === 'token') {
+    void navigator.clipboard.writeText(text).then(() => {
       setCopiedToken(true);
-      setTimeout(() => setCopiedToken(false), 2500);
-    } else {
-      setCopiedCmd(type);
-      setTimeout(() => setCopiedCmd(null), 2500);
-    }
+      window.setTimeout(() => setCopiedToken(false), 2500);
+    }).catch(() => {
+      setActionErrorNotice('Could not copy the token. Check your browser clipboard permissions and try again.');
+    });
   };
 
   // Token Regeneration
@@ -544,166 +507,6 @@ export default function RunnersPage() {
     }
   };
 
-  // Interactive Connection Diagnostics Runner
-  const runDiagnosticsSuite = async () => {
-    setIsRunningDiagnostics(true);
-    setDiagnosticsCompleted(false);
-
-    // Reset results to running state
-    setDiagnosticsResults({
-      token: {
-        step: 'token',
-        name: 'Pairing Token & Cryptographic Signature',
-        status: 'running',
-        message: 'Validating token format and cryptographic binding...',
-      },
-      cdp: {
-        step: 'cdp',
-        name: 'ReFlow Desktop Bridge',
-        status: 'running',
-        message: 'Querying local Chrome CDP HTTP interface...',
-      },
-      websocket: {
-        step: 'websocket',
-        name: 'Supabase Realtime Channel & WebSocket Ping',
-        status: 'running',
-        message: 'Testing round-trip latency to control plane...',
-      },
-    });
-
-    // Step 1: Token Validation
-    const tokenStart = Date.now();
-    await new Promise((r) => setTimeout(r, 350));
-    const isFormatValid = currentToken.startsWith('rf_live_') && currentToken.length > 10;
-    const tokenLatency = Date.now() - tokenStart;
-
-    let tokenResult: DiagnosticResult;
-    if (isTokenRevoked) {
-      tokenResult = {
-        step: 'token',
-        name: 'Pairing Token & Cryptographic Signature',
-        status: 'error',
-        message: 'Token has been revoked by workspace administrator.',
-        latencyMs: tokenLatency,
-        remediation: 'Click "Regenerate Token" to issue a new valid secret pairing key.',
-      };
-    } else if (isFormatValid) {
-      tokenResult = {
-        step: 'token',
-        name: 'Pairing Token & Cryptographic Signature',
-        status: 'success',
-        message: 'Cryptographically valid pairing token bound to organization.',
-        latencyMs: tokenLatency,
-        details: `Format: rf_live_*** | Org: ${organizationName}`,
-      };
-    } else {
-      tokenResult = {
-        step: 'token',
-        name: 'Pairing Token & Cryptographic Signature',
-        status: 'error',
-        message: 'Invalid pairing token format. Expected rf_live_<org_id>_<secret>',
-        latencyMs: tokenLatency,
-        remediation: 'Click "Regenerate Token" to create a standard pairing key.',
-      };
-    }
-
-    setDiagnosticsResults((prev) => ({ ...prev, token: tokenResult }));
-
-    // Step 2: Probe the local desktop bridge from the user's browser.
-    // Cloud-server localhost is not the user's computer, so do not use the cloud diagnostics route here.
-    let cdpResult: DiagnosticResult;
-    const bridgeStart = performance.now();
-    try {
-      const res = await fetch('http://127.0.0.1:49152/health', { cache: 'no-store' });
-      const data = await res.json().catch(() => ({}));
-      const bridgeLatency = Math.round(performance.now() - bridgeStart);
-      if (res.ok && data.status === 'ok') {
-        cdpResult = {
-          step: 'cdp',
-          name: 'ReFlow Desktop Bridge',
-          status: 'success',
-          message: 'ReFlow Desktop is reachable from this browser.',
-          latencyMs: bridgeLatency,
-          details: 'Local bridge responded on port 49152. Browser readiness is reported separately by the runner.',
-        };
-      } else {
-        cdpResult = {
-          step: 'cdp',
-          name: 'ReFlow Desktop Bridge',
-          status: 'warning',
-          message: 'ReFlow Desktop did not return a healthy response.',
-          latencyMs: bridgeLatency,
-          details: 'The local bridge response was not healthy.',
-          remediation: 'Open ReFlow Desktop on this computer, then run the connection check again.',
-        };
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Local connection failed';
-      cdpResult = {
-        step: 'cdp',
-        name: 'ReFlow Desktop Bridge',
-        status: 'warning',
-        message: 'Could not reach ReFlow Desktop from this browser.',
-        latencyMs: Math.round(performance.now() - bridgeStart),
-        details: msg,
-        remediation: 'Open ReFlow Desktop and keep it running. If your browser asks for local-network access, allow it for ReFlow.',
-      };
-    }
-
-    setDiagnosticsResults((prev) => ({ ...prev, cdp: cdpResult }));
-
-    // Step 3: Supabase Realtime Channel & Control Plane Ping
-    const wsStart = performance.now();
-    let wsLatency = 0;
-    let wsStatus: 'success' | 'warning' | 'error' = 'error';
-    let wsMessage = '';
-    let wsDetails = '';
-
-    try {
-      const supabase = createClient();
-      // Authentically measure round-trip latency to control plane database
-      const pingStart = performance.now();
-      const { error: pingError } = await supabase
-        .from('wf_organizations')
-        .select('id')
-        .eq('id', orgId || '')
-        .limit(1);
-      wsLatency = Math.round(performance.now() - pingStart);
-
-      if (pingError) {
-        wsStatus = 'error';
-        wsMessage = `Control plane unreachable: ${pingError.message}`;
-        wsDetails = `Database query failed on organization ID ${orgId?.slice(0, 8) || 'unknown'}`;
-      } else if (!realtimeConnected) {
-        wsStatus = 'warning';
-        wsMessage = 'Control plane query succeeded, but Supabase Realtime WebSocket channel is disconnected.';
-        wsDetails = `Database latency: ${wsLatency}ms. Realtime status: not subscribed. Check network firewall.`;
-      } else {
-        wsStatus = 'success';
-        wsMessage = `Control plane channel active and verified (${wsLatency}ms).`;
-        wsDetails = `Active Realtime subscription on wf_execution_runs_${orgId?.slice(0, 8) || 'default'} with low latency.`;
-      }
-    } catch (err) {
-      wsLatency = Math.round(performance.now() - wsStart);
-      wsStatus = 'error';
-      wsMessage = `Control plane connection failed: ${err instanceof Error ? err.message : String(err)}`;
-      wsDetails = 'Network connection to control plane timed out or was refused.';
-    }
-
-    const wsResult: DiagnosticResult = {
-      step: 'websocket',
-      name: 'Supabase Realtime Channel & WebSocket Ping',
-      status: wsStatus,
-      message: wsMessage,
-      latencyMs: wsLatency,
-      details: wsDetails,
-    };
-
-    setDiagnosticsResults((prev) => ({ ...prev, websocket: wsResult }));
-    setIsRunningDiagnostics(false);
-    setDiagnosticsCompleted(true);
-  };
-
   // Format live heartbeat counter
   const formatHeartbeat = (isoDate: string | null | undefined, currentNow: number) => {
     if (!isoDate) return 'Awaiting initial ping';
@@ -722,10 +525,6 @@ export default function RunnersPage() {
   const hasRecentRunnerHeartbeat = workers.some((worker) => worker.status === 'ONLINE' || worker.status === 'EXECUTING');
   const primaryConnectionState = loadingWorkers ? 'loading' : runnerStatusUnavailable ? 'unavailable' : isTokenRevoked || workers.some((worker) => worker.status === 'REVOKED') ? 'revoked' : hasRecentRunnerHeartbeat ? 'connected' : workers.some((worker) => worker.lastPingAt) ? 'stale' : 'setup';
 
-  const healthScore = useMemo(() => {
-    const list = Object.values(diagnosticsResults);
-    const passed = list.filter((r) => r.status === 'success').length;
-    return { passed, total: list.length };
   }, [diagnosticsResults]);
 
   return (
@@ -827,7 +626,7 @@ export default function RunnersPage() {
                   </button>
 
                   <button
-                    onClick={() => copyToClipboard(currentToken, 'token')}
+                    onClick={() => copyToClipboard(currentToken)}
                     disabled={isTokenRevoked || !currentToken}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 rounded-lg text-xs font-sans font-semibold border border-cyan-400/30 transition-all disabled:opacity-50"
                     title="Copy secret pairing token"
