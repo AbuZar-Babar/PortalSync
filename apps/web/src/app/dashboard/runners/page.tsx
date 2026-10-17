@@ -218,7 +218,7 @@ export default function RunnersPage() {
                 status,
                 lastPingAt: r.lastPingAt || null,
                 activeRun: status === 'EXECUTING' ? runningRun : null,
-                cdpActive: r.cdpActive !== false,
+                cdpActive: r.cdpActive === true,
               };
             });
           }
@@ -267,7 +267,7 @@ export default function RunnersPage() {
                   status,
                   lastPingAt: meta.last_ping_at || null,
                   activeRun: status === 'EXECUTING' ? runningRun : null,
-                  cdpActive: meta.cdp_active !== false,
+                  cdpActive: meta.cdp_active === true,
                 },
               ];
             } catch {}
@@ -658,8 +658,6 @@ export default function RunnersPage() {
   const terminalDoctorCmd = 'npm run runner:doctor';
   const terminalListenCmd = `npm run runner:listen -- --token ${currentToken || 'PASTE_YOUR_WORKSPACE_TOKEN'}`;
   const dockerCmd = `docker run -d --net=host -e WORKER_TOKEN=${currentToken || 'PASTE_YOUR_WORKSPACE_TOKEN'} reflow/worker:latest`;
-  const chromeWindowsCmd = `& "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --remote-debugging-port=9222 --user-data-dir="C:\\ChromeDebug"`;
-  const chromeMacCmd = `/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --remote-debugging-port=9222 --user-data-dir=/tmp/ChromeDebug`;
 
   // Calculated overall diagnostic health
   const hasRecentRunnerHeartbeat = workers.some((worker) => worker.status === 'ONLINE' || worker.status === 'EXECUTING');
@@ -1184,37 +1182,11 @@ export default function RunnersPage() {
               ReFlow Desktop must be open on this computer so the web dashboard can reach its local bridge.
             </p>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 text-[11px] font-mono">
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-[10px] text-slate-400">
-                  <span>Windows PowerShell:</span>
-                  <button
-                    onClick={() => copyToClipboard(chromeWindowsCmd, 'chromeWin')}
-                    className="text-cyan-400 hover:text-cyan-300"
-                  >
-                    {copiedCmd === 'chromeWin' ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
-                <div className="bg-slate-950 p-2 rounded-lg border border-white/5 text-slate-300 select-all overflow-x-auto">
-                  {chromeWindowsCmd}
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-[10px] text-slate-400">
-                  <span>macOS Terminal:</span>
-                  <button
-                    onClick={() => copyToClipboard(chromeMacCmd, 'chromeMac')}
-                    className="text-cyan-400 hover:text-cyan-300"
-                  >
-                    {copiedCmd === 'chromeMac' ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
-                <div className="bg-slate-950 p-2 rounded-lg border border-white/5 text-slate-300 select-all overflow-x-auto">
-                  {chromeMacCmd}
-                </div>
-              </div>
-            </div>
+            <ol className="space-y-2 text-xs text-slate-300">
+              <li>1. Open ReFlow Desktop on the same computer as this browser.</li>
+              <li>2. If it is already open, restart the app and wait a few seconds.</li>
+              <li>3. Allow local-network access if your browser asks, then run the check again.</li>
+            </ol>
           </div>
         )}
       </div>
