@@ -813,7 +813,7 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
             disabled={isSaving}
             className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-4 py-2 text-xs font-semibold text-white hover:bg-cyan-500 transition cursor-pointer"
           >
-            {isRunning ? (
+            {isSaving ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <Play className="h-3.5 w-3.5 fill-current" />
@@ -1043,6 +1043,16 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
         </div>
 
 
+          {orderedCanvasNodes.length === 0 && !isLoading && (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center px-6">
+              <div className="max-w-sm rounded-2xl border border-slate-800 bg-[#111C2D]/95 p-6 text-center shadow-xl">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-slate-700 bg-slate-800 text-cyan-300"><WorkflowIcon className="h-6 w-6" /></div>
+                <h3 className="mt-4 text-sm font-semibold text-slate-100">Build your first workflow</h3>
+                <p className="mt-2 text-xs leading-5 text-slate-400">Add a step from the left panel, then connect steps on the canvas to define what ReFlow should do.</p>
+                <p className="mt-3 text-[11px] text-slate-500"><span className="text-cyan-300">Tip:</span> Start with a navigation step, then add the actions you perform in the browser.</p>
+              </div>
+            </div>
+          )}
           {isLoading && (
           <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-[#060913]/90 backdrop-blur-sm">
             <Loader2 className="h-8 w-8 text-emerald-400 animate-spin" />
