@@ -101,6 +101,7 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
   const [saveMessage, setSaveMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [runMessage, setRunMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
+  const [stepListVersion, setStepListVersion] = useState<number>(0);
   const [filterRules, setFilterRules] = useState<Record<string, unknown>>({});
 
   // Property Drawer State
@@ -170,6 +171,7 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
           }
         }
       });
+      setStepListVersion((version) => version + 1);
     } catch (err) {
       console.warn('refreshStepVisuals error:', err);
     }
@@ -773,6 +775,10 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
   }, [isDirty]);
 
   const preflightCompiled = isPreflightOpen ? compileTopologicalSteps() : null;
+  const exportedCanvasNodes = editorRef.current?.export().drawflow.Home?.data as Record<string, DrawflowNode> | undefined;
+  const orderedCanvasNodes = Object.entries(exportedCanvasNodes || {}).sort(([, a], [, b]) => (a.pos_x || 0) - (b.pos_x || 0));
+  // stepListVersion intentionally triggers a render after graph mutations.
+  void stepListVersion;
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-[#060913] text-slate-100 antialiased select-none">
@@ -977,13 +983,13 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
             ) : (
               <Save className="h-3.5 w-3.5" />
             )}
-            {isSaving ? 'Saving…' : isDirty ? 'Save to Cloud *' : 'Saved'}
+            {isSaving ? 'Saving…' : 'Save'}
           </button>
 
           {/* Configure Batch & Filter Button */}
           <button
             onClick={() => setIsPreflightOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-950/40 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 transition cursor-pointer"
             title="Configure batch loop and filter parameters before running"
           >
             <ListFilter className="h-3.5 w-3.5 text-cyan-400" />
@@ -994,14 +1000,14 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
           <button
             onClick={handleRunNow}
             disabled={isRunning}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-lg shadow-emerald-900/50 hover:brightness-110 transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-4 py-2 text-xs font-semibold text-white hover:bg-cyan-500 transition cursor-pointer"
           >
             {isRunning ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <Play className="h-3.5 w-3.5 fill-current" />
             )}
-            Run Now
+            Run workflow
           </button>
         </div>
       </header>
@@ -1040,8 +1046,51 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
       {/* ===================================================================
           Main Editor Canvas Area
           =================================================================== */}
-      <main className="relative flex-1 w-full h-full overflow-hidden bg-[#060913]">
-        {isLoading && (
+      <main className="relative flex min-h-0 flex-1 w-full overflow-hidden bg-[#0B1220]">
+        {/* Workflow step navigator */}
+        <aside className="hidden md:flex w-[208px] shrink-0 flex-col border-r border-slate-800 bg-[#0F172A] px-3 py-5">
+          <div className="mb-4 px-2">
+            <h2 className="text-xs font-semibold tracking-wide text-slate-200">Workflow steps</h2>
+            <p className="mt-1 text-xs text-slate-500">Select a step to edit it.</p>
+          </div>
+          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+            {orderedCanvasNodes.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-700 px-3 py-5 text-center">
+                <Plus className="mx-auto h-5 w-5 text-slate-500" />
+                <p className="mt-2 text-xs font-medium text-slate-300">Start with a step</p>
+                <p className="mt-1 text-[11px] leading-5 text-slate-500">Add an action to begin building your workflow.</p>
+              </div>
+            ) : orderedCanvasNodes.map(([nodeKey, node], index) => {
+              const step = node.data as StepNodeData;
+              const selected = String(selectedNodeId) === nodeKey;
+              return (
+                <button key={nodeKey} type="button" onClick={() => {
+                  setSelectedNodeId(nodeKey);
+                  setSelectedNodeData(step);
+                  setIsDrawerOpen(true);
+                  const element = document.getElementById(`node-${nodeKey}`);
+                  element?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                }} className={`group flex w-full items-start gap-2.5 rounded-xl border px-3 py-3 text-left transition ${selected ? 'border-blue-500/70 bg-blue-500/10' : 'border-transparent hover:border-slate-700 hover:bg-slate-800/70'}`}>
+                  <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold ${selected ? 'bg-blue-500/20 text-blue-300' : 'bg-slate-800 text-slate-400'}`}>{index + 1}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className={`block truncate text-xs font-medium ${selected ? 'text-white' : 'text-slate-200'}`}>{step.name || step.action || 'Workflow step'}</span>
+                    <span className="mt-1 block truncate text-[11px] text-slate-500">{String(step.action || 'Action').replaceAll('_', ' ').toLowerCase()}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-4 rounded-xl border border-slate-800 bg-slate-900/60 p-3">
+            <div className="flex items-center gap-2 text-slate-300"><WorkflowIcon className="h-4 w-4 text-cyan-400" /><span className="text-xs font-medium">{orderedCanvasNodes.length} steps</span></div>
+            <p className="mt-1.5 text-[11px] leading-5 text-slate-500">Connect steps on the canvas to define the order.</p>
+          </div>
+        </aside>
+        <section className="relative min-w-0 flex-1 overflow-hidden bg-[#0B1220]">
+          <div className="absolute left-4 top-4 z-10 hidden sm:block pointer-events-none">
+            <h2 className="text-sm font-semibold text-slate-200">Workflow canvas</h2>
+            <p className="mt-1 text-xs text-slate-500">Select a step to configure it.</p>
+          </div>
+          {isLoading && (
           <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-[#060913]/90 backdrop-blur-sm">
             <Loader2 className="h-8 w-8 text-emerald-400 animate-spin" />
             <p className="mt-3 text-xs font-semibold tracking-wider text-slate-400 uppercase">
@@ -1056,17 +1105,20 @@ export default function VisualWorkflowEditor({ workflowId }: VisualWorkflowEdito
           id="drawflow"
           className="parent-drawflow workflow-editor-canvas"
         />
+        </section>
 
-        {/* Property Slide-Over Drawer */}
-        <PropertyDrawer
-          key={selectedNodeId !== null ? String(selectedNodeId) : 'none'}
-          nodeId={selectedNodeId}
-          nodeData={selectedNodeData}
-          isOpen={isDrawerOpen}
-          onClose={() => setIsDrawerOpen(false)}
-          onUpdate={handleUpdateStep}
-          onDelete={handleDeleteNode}
-        />
+        {/* Contextual step settings stay docked beside the canvas. */}
+        <div className="hidden lg:flex w-[260px] shrink-0 flex-col overflow-hidden border-l border-slate-800 bg-[#0F172A]">
+          <PropertyDrawer
+            key={selectedNodeId !== null ? String(selectedNodeId) : 'none'}
+            nodeId={selectedNodeId}
+            nodeData={selectedNodeData}
+            isOpen={true}
+            onClose={() => { setIsDrawerOpen(false); setSelectedNodeId(null); setSelectedNodeData(null); }}
+            onUpdate={handleUpdateStep}
+            onDelete={handleDeleteNode}
+          />
+        </div>
 
         {/* Execution Preflight Modal */}
         {isPreflightOpen && (
