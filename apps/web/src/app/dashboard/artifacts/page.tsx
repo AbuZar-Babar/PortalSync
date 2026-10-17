@@ -74,8 +74,6 @@ export type CategoryFilter = 'all' | 'master_sheet' | 'invoices' | 'datasets' | 
 export type SortOption = 'newest' | 'oldest' | 'size_desc' | 'size_asc' | 'name_asc';
 
 
-}
-
 const VIEW_MODE_STORAGE_KEY = 'wf_saas_artifacts_view_mode';
 
 // ==========================================
