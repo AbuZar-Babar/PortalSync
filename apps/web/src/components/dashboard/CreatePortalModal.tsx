@@ -1378,7 +1378,7 @@ export function CreatePortalModal({
               </details>
 
               {/* Submit Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="sticky bottom-0 z-10 flex flex-col-reverse items-stretch gap-2 border-t border-slate-800 bg-slate-900/95 pt-4 pb-1 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
                 <button
                   type="button"
                   onClick={handleClose}
@@ -1761,7 +1761,7 @@ export function CreatePortalModal({
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-800">
+                  <div className="sticky bottom-0 z-10 flex flex-col-reverse items-stretch justify-between gap-2 border-t border-slate-800 bg-slate-900/95 pt-4 pb-1 sm:flex-row sm:items-center sm:gap-3">
                     <button
                       type="button"
                       onClick={handleResetRecordingState}
