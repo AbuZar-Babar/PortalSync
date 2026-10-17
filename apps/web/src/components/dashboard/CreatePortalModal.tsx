@@ -164,7 +164,7 @@ export function CreatePortalModal({
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Tab: Visual Canvas Builder State
+  // Tab: Visual canvas State
   const [canvasName, setCanvasName] = useState('');
   const [canvasUrl, setCanvasUrl] = useState('');
   const [canvasTargetFolder, setCanvasTargetFolder] = useState('~/Documents/ReFlow/Invoices');
@@ -1018,10 +1018,10 @@ export function CreatePortalModal({
             </div>
             <div>
               <h2 id="modal-title" className="text-base font-semibold text-white">
-                Create New Portal Workflow
+                Create workflow
               </h2>
               <p className="text-xs text-slate-400">
-                Configure automated browser capture, import JSON, or record steps directly on this PC
+                Record a workflow in Chrome, then run it whenever you need.
               </p>
             </div>
           </div>
@@ -1042,10 +1042,10 @@ export function CreatePortalModal({
               setActiveTab('record');
               setFormError(null);
             }}
-            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+            className={`flex items-center gap-2 rounded-t-lg border-b-2 px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
               activeTab === 'record'
-                ? 'border-cyan-500 text-cyan-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-cyan-500 bg-cyan-500/10 text-cyan-300'
+                : 'border-transparent text-slate-200 hover:bg-slate-800/70 hover:text-white'
             }`}
           >
             <Video className="h-4 w-4" />
@@ -1059,8 +1059,8 @@ export function CreatePortalModal({
             }}
             className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
               activeTab === 'canvas'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-blue-500 text-blue-300'
+                : 'border-transparent text-slate-500 hover:text-slate-200'
             }`}
           >
             <WorkflowIcon className="h-4 w-4" />
@@ -1074,12 +1074,12 @@ export function CreatePortalModal({
             }}
             className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
               activeTab === 'import'
-                ? 'border-emerald-500 text-emerald-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-blue-500 text-blue-300'
+                : 'border-transparent text-slate-500 hover:text-slate-200'
             }`}
           >
             <FileCode className="h-4 w-4" />
-            Import / Export JSON
+            Import JSON
           </button>
           <button
             type="button"
@@ -1089,12 +1089,12 @@ export function CreatePortalModal({
             }}
             className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
               activeTab === 'quick'
-                ? 'border-blue-500 text-blue-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-blue-500 text-blue-300'
+                : 'border-transparent text-slate-500 hover:text-slate-200'
             }`}
           >
             <Layers className="h-4 w-4" />
-            Quick Form
+            Quick setup
           </button>
         </div>
 
