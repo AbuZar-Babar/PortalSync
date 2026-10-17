@@ -371,23 +371,23 @@ export default function RunsTelemetryPage() {
   };
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="min-h-full space-y-7 pb-12 text-slate-100">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex items-start gap-5">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-              <Layers className="h-6 w-6 text-cyan-400" />
+            <h1 className="flex items-center gap-3 text-[27px] font-bold tracking-tight text-white">
+              <span className="grid h-[43px] w-[43px] place-items-center rounded-[13px] border border-cyan-400/20 bg-cyan-400/[0.08] text-cyan-300"><Layers className="h-[22px] w-[22px]" /></span>
               <span>Run history</span>
             </h1>
             {hasActiveRuns && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/15 text-blue-400 border border-blue-500/30 animate-pulse">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping" />
+              <span className="ml-auto inline-flex shrink-0 items-center gap-2 rounded-full border border-blue-400/20 bg-blue-500/[0.08] px-3 py-2 text-xs text-blue-300">
+                <span className="h-[7px] w-[7px] animate-pulse rounded-full bg-blue-400" />
                 Live updates
               </span>
             )}
           </div>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="mt-1 text-[13px] text-slate-400">
             Monitor executions and investigate failures.
           </p>
         </div>
@@ -415,22 +415,22 @@ export default function RunsTelemetryPage() {
       )}
 
       {/* Metric KPI Overview Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {/* Card 1: Total Executions */}
-        <div className="p-4 rounded-2xl bg-gradient-to-b from-slate-900/80 to-[#0c101d] border border-white/10 relative overflow-hidden group">
+        <div className="group min-h-[132px] rounded-2xl border border-white/[0.09] bg-gradient-to-br from-slate-900/95 to-[#0a0f1b] p-5 transition hover:-translate-y-0.5 hover:border-cyan-400/25">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+            <span className="text-[11px] font-bold uppercase tracking-[1px] text-slate-400">
               Total Runs
             </span>
-            <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+            <div className="grid h-[34px] w-[34px] place-items-center rounded-[10px] bg-cyan-400/[0.09] text-cyan-300">
               <Layers className="h-4 w-4" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-white tracking-tight">
+          <div className="mt-[13px] flex items-baseline gap-2">
+            <span className="text-[29px] font-bold leading-none tracking-tight text-white">
               {isLoading ? '—' : stats.total}
             </span>
-            <span className="text-xs text-slate-400">runs recorded</span>
+            <span className="mt-2 text-xs text-slate-500">All recorded executions</span>
           </div>
         </div>
 
@@ -440,7 +440,7 @@ export default function RunsTelemetryPage() {
             <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
               In progress
             </span>
-            <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            <div className="grid h-[34px] w-[34px] place-items-center rounded-[10px] bg-blue-400/[0.09] text-blue-300">
               <Loader2 className={`h-4 w-4 ${stats.active > 0 ? 'animate-spin' : ''}`} />
             </div>
           </div>
@@ -465,7 +465,7 @@ export default function RunsTelemetryPage() {
             <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
               Files downloaded
             </span>
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <div className="grid h-[34px] w-[34px] place-items-center rounded-[10px] bg-emerald-400/[0.09] text-emerald-300">
               <Download className="h-4 w-4" />
             </div>
           </div>
@@ -473,16 +473,16 @@ export default function RunsTelemetryPage() {
             <span className="text-2xl font-bold text-white tracking-tight">
               {isLoading ? '—' : stats.totalFiles}
             </span>
-            <span className="text-xs text-emerald-400/90 font-medium">files captured</span>
+            <span className="mt-2 text-xs text-slate-500">Across all executions</span>
           </div>
         </div>
 
       </div>
 
       {/* Control Bar: Filters & Search */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900/60 border border-white/10 backdrop-blur-md">
+      <div className="mb-4 flex flex-col justify-between gap-4 rounded-[15px] border border-white/[0.09] bg-slate-900/70 p-4 backdrop-blur-md xl:flex-row xl:items-center">
         {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 xl:pb-0">
           <button
             onClick={() => setStatusFilter('all')}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
@@ -551,8 +551,8 @@ export default function RunsTelemetryPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by workflow name or run ID..."
-            className="w-full pl-10 pr-16 py-2 rounded-xl bg-slate-950/80 border border-white/10 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/30 transition-all"
+            placeholder="Search workflow or run ID..."
+            className="h-[39px] w-full rounded-[10px] border border-white/[0.10] bg-[#080e1a] py-2 pl-[38px] pr-10 text-xs text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/[0.08]"
           />
           {searchQuery ? (
             <button
@@ -589,7 +589,7 @@ export default function RunsTelemetryPage() {
       )}
 
       {/* Telemetry Table Container */}
-      <div className="rounded-2xl border border-white/10 bg-[#0c101d]/90 overflow-hidden shadow-2xl backdrop-blur-md">
+      <div className="overflow-hidden rounded-2xl border border-white/[0.09] bg-[#0c111e]/95 shadow-xl">
         {isLoading ? (
           <div className="p-16 flex flex-col items-center justify-center gap-4 text-slate-400">
             <RobotAvatar size="medium" state="running" />
@@ -642,7 +642,7 @@ export default function RunsTelemetryPage() {
           /* Main Telemetry Table */
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-slate-300">
-              <thead className="bg-slate-950/60 text-[11px] uppercase tracking-wider font-semibold text-slate-400 border-b border-white/10 select-none">
+              <thead className="bg-slate-950/55 text-[10px] uppercase tracking-[0.9px] font-bold text-slate-500 border-b border-white/[0.09] select-none">
                 <tr>
                   <th scope="col" className="px-6 py-3.5">
                     Status
@@ -654,7 +654,7 @@ export default function RunsTelemetryPage() {
                     Discovered / Processed
                   </th>
                   <th scope="col" className="px-6 py-3.5">
-                    Invoices Downloaded
+                    Files downloaded
                   </th>
                   <th scope="col" className="px-6 py-3.5">
                     Duration / Started
@@ -692,14 +692,14 @@ export default function RunsTelemetryPage() {
                       }`}
                     >
                       {/* Column 1: Status */}
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-5 py-[17px] whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <StatusBadge status={run.status} />
                         </div>
                       </td>
 
                       {/* Column 2: Workflow Name & Run ID */}
-                      <td className="px-6 py-4">
+                      <td className="px-5 py-[17px]">
                         <div className="flex flex-col">
                           <span className="font-semibold text-white group-hover:text-cyan-300 transition-colors">
                             {workflowDisplayName}
@@ -732,7 +732,7 @@ export default function RunsTelemetryPage() {
                       </td>
 
                       {/* Column 3: Discovered / Processed Items */}
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-5 py-[17px] whitespace-nowrap">
                         <div className="flex flex-col gap-1.5">
                           <span className="text-xs font-mono font-medium text-slate-200">
                             {processedCount} / {discoveredCount} items
@@ -794,7 +794,7 @@ export default function RunsTelemetryPage() {
                       </td>
 
                       {/* Column 6: Actions */}
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-5 py-[17px] whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-2">
                           {isActive ? (
                             <button
@@ -828,7 +828,7 @@ export default function RunsTelemetryPage() {
 
         {/* Table Footer Telemetry Stats */}
         {!isLoading && runs.length > 0 && (
-          <div className="px-6 py-3 bg-slate-950/40 border-t border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-400">
+          <div className="flex flex-col justify-between gap-2 border-t border-white/[0.06] bg-slate-950/25 px-5 py-3 text-[11px] text-slate-400 sm:flex-row sm:items-center">
             <div className="flex items-center gap-4">
               <span>
                 Showing <strong className="text-white">{filteredRuns.length}</strong> of{' '}
