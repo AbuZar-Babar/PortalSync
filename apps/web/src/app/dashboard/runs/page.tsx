@@ -641,30 +641,19 @@ export default function RunsTelemetryPage() {
         ) : (
           /* Main Telemetry Table */
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300">
+            <table className="w-full min-w-[1000px] border-collapse text-left text-sm text-slate-300">
               <thead className="bg-slate-950/55 text-[10px] uppercase tracking-[0.9px] font-bold text-slate-500 border-b border-white/[0.09] select-none">
                 <tr>
-                  <th scope="col" className="px-6 py-3.5">
-                    Status
-                  </th>
-                  <th scope="col" className="px-6 py-3.5">
-                    Workflow Name
-                  </th>
-                  <th scope="col" className="px-6 py-3.5">
-                    Discovered / Processed
-                  </th>
-                  <th scope="col" className="px-6 py-3.5">
-                    Files downloaded
-                  </th>
-                  <th scope="col" className="px-6 py-3.5">
-                    Duration / Started
-                  </th>
-                  <th scope="col" className="px-6 py-3.5 text-right">
-                    Actions
-                  </th>
+                  <th scope="col" className="whitespace-nowrap px-5 py-4">Status</th>
+                  <th scope="col" className="whitespace-nowrap px-5 py-4">Workflow</th>
+                  <th scope="col" className="whitespace-nowrap px-5 py-4">Progress</th>
+                  <th scope="col" className="whitespace-nowrap px-5 py-4">Files downloaded</th>
+                  <th scope="col" className="whitespace-nowrap px-5 py-4">Duration / Started</th>
+                  <th scope="col" className="whitespace-nowrap px-5 py-4">Result</th>
+                  <th scope="col" className="whitespace-nowrap px-5 py-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-white/[0.06]">
                 {filteredRuns.map((run) => {
                   const isActive =
                     run.status === 'pending' ||
@@ -793,7 +782,36 @@ export default function RunsTelemetryPage() {
                         </div>
                       </td>
 
-                      {/* Column 6: Actions */}
+                      {/* Result summary */}
+                      <td className="px-5 py-[17px]">
+                        <span
+                          className={`block max-w-[220px] truncate text-[11px] ${
+                            run.status === 'completed'
+                              ? 'text-emerald-300'
+                              : run.status === 'requires_action'
+                              ? 'text-amber-300'
+                              : run.status === 'failed' || run.status === 'cancelled'
+                              ? 'text-rose-300'
+                              : 'text-slate-400'
+                          }`}
+                          title={run.error_summary || undefined}
+                        >
+                          {run.error_summary ||
+                            (run.status === 'completed'
+                              ? 'Completed successfully'
+                              : run.status === 'requires_action'
+                              ? 'Verification required'
+                              : run.status === 'failed'
+                              ? 'Execution failed'
+                              : run.status === 'cancelled'
+                              ? 'Run cancelled'
+                              : run.status === 'pending'
+                              ? 'Queued for execution'
+                              : 'Processing items')}
+                        </span>
+                      </td>
+
+                      {/* Column 7: Actions */}
                       <td className="px-5 py-[17px] whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-2">
                           {isActive ? (
