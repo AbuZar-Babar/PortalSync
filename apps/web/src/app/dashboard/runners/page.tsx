@@ -221,6 +221,7 @@ export default function RunnersPage() {
                 cdpActive: r.cdpActive !== false,
               };
             });
+            setIsTokenRevoked(apiRunners.some((runner) => runner.status === 'REVOKED'));
           }
         }
       } catch (err) {
@@ -668,8 +669,8 @@ export default function RunnersPage() {
 
   // Commands for quick copy
   const terminalDoctorCmd = 'npm run runner:doctor';
-  const terminalListenCmd = `npm run runner:listen -- --token ${currentToken || 'rf_live_token'}`;
-  const dockerCmd = `docker run -d --net=host -e WORKER_TOKEN=${currentToken || 'rf_live_token'} reflow/worker:latest`;
+  const terminalListenCmd = `npm run runner:listen -- --token ${currentToken || 'PASTE_YOUR_WORKSPACE_TOKEN'}`;
+  const dockerCmd = `docker run -d --net=host -e WORKER_TOKEN=${currentToken || 'PASTE_YOUR_WORKSPACE_TOKEN'} reflow/worker:latest`;
   const chromeWindowsCmd = `& "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --remote-debugging-port=9222 --user-data-dir="C:\\ChromeDebug"`;
   const chromeMacCmd = `/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --remote-debugging-port=9222 --user-data-dir=/tmp/ChromeDebug`;
 
