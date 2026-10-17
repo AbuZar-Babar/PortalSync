@@ -13,6 +13,7 @@ import {
   Globe,
   Clock,
   Trash2,
+  MoreHorizontal,
   Workflow as WorkflowIcon,
   AlertTriangle,
   X,
@@ -381,7 +382,7 @@ export default function WorkflowsPage() {
             type="button"
             onClick={handleManualRefresh}
             disabled={isLoading || isRefreshingLocal}
-            className="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-900 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             title="Refresh workflows"
             aria-label="Refresh workflows"
           >
@@ -434,33 +435,32 @@ export default function WorkflowsPage() {
             )}
           </div>
 
-          {/* Status Filter */}
-          <div className="flex items-center gap-1.5">
-            <SlidersHorizontal className="h-3.5 w-3.5 text-slate-400 hidden sm:block" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="px-3 py-2 bg-slate-950/70 border border-slate-800 rounded-xl text-xs text-slate-300 focus:outline-none focus:border-cyan-500/60 transition-colors cursor-pointer"
-              aria-label="Filter by execution status"
-            >
-              <option value="all">All Status</option>
-              <option value="running">Running</option>
-              <option value="idle">Not running</option>
-            </select>
-          </div>
-
-          {/* Sort By */}
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="px-3 py-2 bg-slate-950/70 border border-slate-800 rounded-xl text-xs text-slate-300 focus:outline-none focus:border-cyan-500/60 transition-colors cursor-pointer"
-            aria-label="Sort workflows"
-          >
-            <option value="recent">Recently Created</option>
-            <option value="name_asc">Name (A-Z)</option>
-            <option value="name_desc">Name (Z-A)</option>
-            <option value="steps_desc">Most Steps</option>
-          </select>
+          <details className="relative">
+            <summary className="list-none inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-800 bg-slate-950/70 text-xs text-slate-300 hover:bg-slate-900 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50">
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <span>Filter &amp; sort</span>
+              {(statusFilter !== 'all' || sortBy !== 'recent') && <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" aria-label="Custom filters active" />}
+            </summary>
+            <div className="absolute left-0 top-full mt-2 z-30 grid min-w-56 gap-3 rounded-xl border border-slate-700 bg-slate-900 p-3 shadow-xl sm:left-auto sm:right-0">
+              <label className="grid gap-1.5 text-xs text-slate-400">
+                Status
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-cyan-500/60" aria-label="Filter by execution status">
+                  <option value="all">All workflows</option>
+                  <option value="running">Running</option>
+                  <option value="idle">Not running</option>
+                </select>
+              </label>
+              <label className="grid gap-1.5 text-xs text-slate-400">
+                Sort by
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortOption)} className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-cyan-500/60" aria-label="Sort workflows">
+                  <option value="recent">Recently created</option>
+                  <option value="name_asc">Name (A–Z)</option>
+                  <option value="name_desc">Name (Z–A)</option>
+                  <option value="steps_desc">Most steps</option>
+                </select>
+              </label>
+            </div>
+          </details>
         </div>
 
         {/* Right: View Mode Toggle */}
@@ -673,28 +673,21 @@ export default function WorkflowsPage() {
 
                   {/* Right Actions: Visual Canvas Link & Delete */}
                   <div className="flex items-center gap-1.5">
-                    <Link
-                      href={`/dashboard/workflows/${wf.id}/edit`}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 transition-colors"
-                      title="Edit workflow"
-                    >
+                    <Link href={`/dashboard/workflows/${wf.id}/edit`} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 transition-colors" title="Edit workflow">
                       <WorkflowIcon className="h-3.5 w-3.5 text-indigo-400" />
-                      <span className="hidden sm:inline">Edit</span>
+                      <span>Edit</span>
                     </Link>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setWorkflowToDelete(wf);
-                        setDeleteError(null);
-                      }}
-                      className="p-1.5 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-colors"
-                      title="Delete workflow"
-                      aria-label={`Delete ${wf.name}`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    <details className="relative">
+                      <summary className="list-none p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50" aria-label={`More actions for ${wf.name}`} title="More actions">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </summary>
+                      <div className="absolute right-0 bottom-full mb-1 z-20 min-w-36 rounded-xl border border-slate-700 bg-slate-900 p-1 shadow-xl">
+                        <button type="button" onClick={() => { setWorkflowToDelete(wf); setDeleteError(null); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-rose-300 hover:bg-rose-500/10">
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete workflow
+                        </button>
+                      </div>
+                    </details>
                   </div>
                 </div>
               </div>
@@ -781,28 +774,21 @@ export default function WorkflowsPage() {
                     <span>Run</span>
                   </button>
 
-                  <Link
-                    href={`/dashboard/workflows/${wf.id}/edit`}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition-colors"
-                    title="Edit in Visual Canvas"
-                  >
+                  <Link href={`/dashboard/workflows/${wf.id}/edit`} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition-colors" title="Edit workflow">
                     <WorkflowIcon className="h-3.5 w-3.5 text-indigo-400" />
-                    <span className="hidden sm:inline">Visual Canvas</span>
+                    <span>Edit</span>
                   </Link>
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setWorkflowToDelete(wf);
-                      setDeleteError(null);
-                    }}
-                    className="p-1.5 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-colors"
-                    title="Delete workflow"
-                    aria-label={`Delete ${wf.name}`}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  <details className="relative">
+                    <summary className="list-none p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50" aria-label={`More actions for ${wf.name}`} title="More actions">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </summary>
+                    <div className="absolute right-0 bottom-full mb-1 z-20 min-w-36 rounded-xl border border-slate-700 bg-slate-900 p-1 shadow-xl">
+                      <button type="button" onClick={() => { setWorkflowToDelete(wf); setDeleteError(null); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-rose-300 hover:bg-rose-500/10">
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete workflow
+                      </button>
+                    </div>
+                  </details>
                 </div>
               </div>
             );
