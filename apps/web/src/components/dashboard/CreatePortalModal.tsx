@@ -1454,6 +1454,7 @@ export function CreatePortalModal({
                   className="w-full font-mono text-xs rounded-xl border border-slate-700/80 bg-slate-950/70 p-3 text-slate-200 placeholder-slate-600 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition"
                 />
                 </div>
+                </div>
               </details>
 
               {jsonParseError && (
