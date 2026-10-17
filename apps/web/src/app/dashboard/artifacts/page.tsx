@@ -1867,32 +1867,36 @@ export default function ArtifactsVaultPage() {
                       <th className="px-4 py-3 font-medium">Outcome</th>
                       <th className="px-4 py-3 font-medium">Items</th>
                       <th className="px-4 py-3 font-medium">Started</th>
-                      <th className="px-4 py-3 font-medium text-right">Details</th>
                     </tr>
                   </thead>
                   <tbody>
                     {visibleResults.map((run) => (
                       <tr
                         key={run.id}
-                        onClick={() => openRunDetails({
-                          id: run.id,
-                          workflow_id: run.workflow_id,
-                          workflowName: run.workflowName,
-                          wf_workflows: { name: run.workflowName },
-                          status: run.status,
-                          total_items_discovered: run.total_items_discovered,
-                          items_discovered: run.total_items_discovered,
-                          items_processed: run.items_processed,
-                          items_downloaded: run.items_downloaded,
-                          started_at: run.started_at,
-                          completed_at: run.completed_at,
-                          error_summary: run.error_summary,
-                        })}
-                        className="border-b border-white/5 last:border-0 hover:bg-slate-900/70 cursor-pointer transition-colors"
-                        title="Open result details"
+                        className="border-b border-white/5 last:border-0 hover:bg-slate-900/70 transition-colors"
                       >
                         <td className="px-4 py-3.5">
-                          <div className="font-medium text-slate-100">{run.workflowName}</div>
+                          <button
+                            type="button"
+                            onClick={() => openRunDetails({
+                              id: run.id,
+                              workflow_id: run.workflow_id,
+                              workflowName: run.workflowName,
+                              wf_workflows: { name: run.workflowName },
+                              status: run.status,
+                              total_items_discovered: run.total_items_discovered,
+                              items_discovered: run.total_items_discovered,
+                              items_processed: run.items_processed,
+                              items_downloaded: run.items_downloaded,
+                              started_at: run.started_at,
+                              completed_at: run.completed_at,
+                              error_summary: run.error_summary,
+                            })}
+                            className="text-left font-medium text-slate-100 hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded"
+                            aria-label={`View result details for ${run.workflowName}`}
+                          >
+                            {run.workflowName}
+                          </button>
                           <div className="text-[11px] text-slate-500 mt-1 font-mono">#{run.id.slice(0, 8)}</div>
                           {run.error_summary && <div className="text-[11px] text-rose-300 mt-1 max-w-xl truncate">{run.error_summary}</div>}
                         </td>
@@ -1902,31 +1906,6 @@ export default function ArtifactsVaultPage() {
                           <div className="text-[11px] text-slate-500 mt-1">{run.items_processed} processed · {run.total_items_discovered} discovered</div>
                         </td>
                         <td className="px-4 py-3.5 text-slate-400 whitespace-nowrap">{formatRelativeTime(run.started_at)}</td>
-                        <td className="px-4 py-3.5 text-right">
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              openRunDetails({
-                                id: run.id,
-                                workflow_id: run.workflow_id,
-                                workflowName: run.workflowName,
-                                wf_workflows: { name: run.workflowName },
-                                status: run.status,
-                                total_items_discovered: run.total_items_discovered,
-                                items_discovered: run.total_items_discovered,
-                                items_processed: run.items_processed,
-                                items_downloaded: run.items_downloaded,
-                                started_at: run.started_at,
-                                completed_at: run.completed_at,
-                                error_summary: run.error_summary,
-                              });
-                            }}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/10 bg-slate-900 text-slate-300 hover:text-white hover:border-cyan-500/30"
-                          >
-                            View details <ChevronRight className="h-3.5 w-3.5" />
-                          </button>
-                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -2068,7 +2047,7 @@ export default function ArtifactsVaultPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-white/5 bg-slate-950/60 flex items-center justify-between">
+            <div className="p-4 border-t border-white/5 bg-slate-950/60 flex items-center">
               <button
                 onClick={() => {
                   if (previewArtifact) handleOpenRun(previewArtifact);
@@ -2077,12 +2056,6 @@ export default function ArtifactsVaultPage() {
               >
                 <span>Inspect Associated Execution Run</span>
                 <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={() => setPreviewArtifact(null)}
-                className="px-4 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-medium text-slate-300 border border-white/10"
-              >
-                Close
               </button>
             </div>
           </div>
